@@ -1,6 +1,6 @@
 From Sulfur Require Import Prelude Sig Constants Renamings.
 From Sulfur Require ParamSyntax ExplicitSyntax Simplification Cleanup.
-From Ltac2 Require Import RedFlags Printf.
+From Ltac2 Require Import RedFlags Printf Rewrite Std.
 From Ltac2 Require Ltac2.
 
 Module P := ParamSyntax.
@@ -77,6 +77,35 @@ Declare ML Module "rocq-sulfur.plugin".
 Ltac2 @external simpl_term_zero : constr -> constr * constr := "rocq-sulfur.plugin" "simpl_term_zero".
 Ltac2 @external simpl_subst_zero : constr -> constr * constr := "rocq-sulfur.plugin" "simpl_subst_zero".
 
+
+Ltac2 mutable aunfold_list () : reference list := [].
+
+Ltac2 Notation "constants" pl(list1(reference, ",")) := pl.
+(* To be employed as
+Ltac2 Set aunfold_list as old := fun () => List.append (constants foo, bla) (old ()).
+*)
+
+Import Strategy.
+
+Ltac2 sulfur_simpl_term_rename carrier lhs _rel :=
+  (* FIXME: No autounfold in Ltac2 ? should use the hints of asimpl_unfold or find an alternative extensible solution (reference to a list ?) *)
+  let unfold_list := List.map (fun r => (r, AllOccurrences)) (aunfold_list ()) in
+  let lhs := eval_unfold unfold_list lhs in
+  let (rhs, prf) := simpl_term_zero lhs in
+  if Constr.equal lhs rhs then Fail
+  else Success { rel := '(@eq $carrier); rhs ; prf }.
+
+Ltac2 mutable rasimpl_matches () : Strategy.t := Strategy.fail.
+
+Ltac2 rasimpl0 idopt :=
+  (* rewrite_strat should be focused but that's not documented *)
+  Control.enter (fun () =>
+  rewrite_strat (bottomup (seq (rasimpl_matches ()) (tactic sulfur_simpl_term_rename))) idopt).
+
+Ltac2 Abbreviation rasimpl := rasimpl0 None.
+Ltac2 Notation "rasimpl" "in" h(ident) := rasimpl0 (Some h).
+
+(*
 (*********************************************************************************)
 (** *** Boilerplate for [rasimpl]. *)
 (*********************************************************************************)
@@ -118,6 +147,7 @@ Ltac2 solve_simplification_aux () :=
 (** Solve a goal of the form [TermSimplification ?t _] or [SubstSimplification ?s _]. *)
 Ltac solve_simplification :=
   ltac2:(solve_simplification_aux ()).
+*)
 
 (*********************************************************************************)
 (** *** [rasimpl]. *)
@@ -126,6 +156,7 @@ Ltac solve_simplification :=
 (** Unfold constants related to terms and substitutions, typically before [rasimpl]. *)
 Ltac aunfold := autounfold with asimpl_unfold.
 
+(*
 (** Topdown version of [rasimpl]. *)
 Ltac rasimpl_topdown :=
   (rewrite_strat (topdown (hints asimpl_topdown))) ; [| solve_simplification ..].
@@ -133,12 +164,12 @@ Ltac rasimpl_topdown :=
 (** Outermost version of [rasimpl]. *)
 Ltac rasimpl_outermost :=
   (rewrite_strat (outermost (hints asimpl_outermost))) ; [| solve_simplification ..].
-
+*)
 (** Simplify in the goal. *)
-Ltac rasimpl :=
-  repeat aunfold ;
+Ltac rasimpl := ltac2:(rasimpl).
+  (* repeat aunfold ;
   repeat rasimpl_topdown ;
-  repeat rasimpl_outermost.
+  repeat rasimpl_outermost. *)
 
 (*********************************************************************************)
 (** *** [rasimpl in H]. *)
@@ -147,6 +178,7 @@ Ltac rasimpl :=
 (** Unfold constants related to terms and substitutions, typically before [rasimpl in H]. *)
 Tactic Notation "aunfold" "in" hyp(H) := autounfold with asimpl_unfold in H.
 
+(*
 (** Topdown version of [rasimpl in H]. *)
 Tactic Notation "rasimpl_topdown" "in" hyp(H) :=
   (rewrite_strat (topdown (hints asimpl_topdown)) in H) ; [| solve_simplification ..].
@@ -154,11 +186,14 @@ Tactic Notation "rasimpl_topdown" "in" hyp(H) :=
 (** Outermost version of [rasimpl in H]. *)
 Tactic Notation "rasimpl_outermost" "in" hyp(H) :=
   (rewrite_strat (outermost (hints asimpl_outermost)) in H) ; [| solve_simplification ..].
+*)
 
 (** Simplify in a hypothesis [H]. *)
 Tactic Notation "rasimpl" "in" hyp(H) :=
-  repeat aunfold in H ;
+  let k := ltac2:(h |- rasimpl0 (Some (Option.get (Ltac1.to_ident h)))) in
+  k H.
+  (* repeat aunfold in H ;
   repeat rasimpl_topdown in H ;
-  repeat rasimpl_outermost in H.
+  repeat rasimpl_outermost in H. *)
 
 (** Tests... *)
