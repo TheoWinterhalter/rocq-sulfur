@@ -165,7 +165,7 @@ let check_rule_decls (signature : rel_signature) (d : prule_decl) : rel_signatur
     let annot = Context.make_annot x.v Sorts.Relevant in
     let* constr_t = (fun env sigma -> sigma, EConstr.to_constr sigma t) in
     let decl = Context.Named.Declaration.LocalAssum (annot, constr_t) in
-    let* l, decls = with_env' (fun env -> Environ.push_named decl env) @@ monad_map_with_env l in
+    let* l, decls = with_env' (fun env -> Environ.push_named Environ.ProofVar decl env) @@ monad_map_with_env l in
     ret (t::l, decl::decls)
   in
   let* tvars, decls = monad_map_with_env d.v.pvars in
@@ -175,7 +175,7 @@ let check_rule_decls (signature : rel_signature) (d : prule_decl) : rel_signatur
   with_env' (
   let rec aux ds env = match ds with
     | [] -> env
-    | d::ds -> aux ds (Environ.push_named d env)
+    | d::ds -> aux ds (Environ.push_named Environ.ProofVar d env)
     in aux decls
   ) @@
   (* Check the conclusion *)
@@ -193,7 +193,7 @@ let check_rule_decls (signature : rel_signature) (d : prule_decl) : rel_signatur
       let annot = Context.make_annot ad.ctx_name Sorts.Relevant in
       let* constr = fun env sigma -> sigma, EConstr.to_constr sigma (app c_list ad.decl) in
       let decl = Context.Named.Declaration.LocalAssum (annot, constr) in
-      with_env' (fun env -> Environ.push_named decl env) @@
+      with_env' (fun env -> Environ.push_named Environ.ProofVar decl env) @@
       (* Typecheck the predicate *)
       let* p = pretype p.ppred in
       ret (PremPred {pred = p})
