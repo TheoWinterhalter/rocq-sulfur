@@ -5,7 +5,7 @@
 **)
 
 From Stdlib Require Import Utf8 List.
-From GhostTT Require Import GAST.
+From SulfurExamples Require Import GAST.
 From Stdlib Require Import Setoid Morphisms Relation_Definitions.
 Import ListNotations.
 

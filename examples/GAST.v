@@ -1,5 +1,5 @@
 From Sulfur Require Export All.
-From GhostTT Require Import BasicAST.
+From SulfurExamples Require Import BasicAST.
 
 (*********************************************************************************)
 (** *** Generate all operations and lemmas. *)
