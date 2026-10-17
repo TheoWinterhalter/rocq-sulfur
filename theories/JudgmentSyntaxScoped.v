@@ -1413,6 +1413,7 @@ Module LambdaPi.
 
   (* This is the instance we need if we want to use preservation by substitution and renaming *)
   Instance LPTypSubst : SubstJSig typ_lampi.
+  Proof.
     constructor; intros; destruct i; destruct_n H; subst; try destruct x; destruct_n H0; try now inversion H0; try typeclasses eauto.
     - inversion H0. subst.
       (* Clean the context a bit *)
