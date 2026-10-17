@@ -77,7 +77,7 @@ let ctor_ty_constr (sign : signature) (tys : arg_ty list) (ind : EConstr.t) : EC
 (**************************************************************************************)
 
 (** Check a pre-signature is well formed. Checking a pre-signature is done when evaluating
-    the command [Sulfur Generate ...]. We can't check a signature during parsing because
+    the command [Sulfur Syntax ...]. We can't check a signature during parsing because
     we need access to the global environment. *)
 
 type checked_sort = { sname : Names.Id.t; var_ctor : Names.Id.t }

@@ -54,8 +54,8 @@ VERNAC ARGUMENT EXTEND signature
   }
 END
 
-VERNAC COMMAND EXTEND SulfurGenerate CLASSIFIED AS SIDEFF
-| [ "Sulfur" "Generate" signature(s) ] -> { Main.generate s }
+VERNAC COMMAND EXTEND SulfurSyntax CLASSIFIED AS SIDEFF
+| [ "Sulfur" "Syntax" signature(s) ] -> { Main.generate s }
 END
 
 

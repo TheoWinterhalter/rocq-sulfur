@@ -1,6 +1,6 @@
 From Sulfur Require Export All.
 
-Sulfur Generate
+Sulfur Syntax
 {{
   term : Type
 

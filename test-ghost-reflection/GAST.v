@@ -5,7 +5,7 @@ From GhostTT Require Import BasicAST.
 (** *** Generate all operations and lemmas. *)
 (*********************************************************************************)
 
-Time Sulfur Generate
+Time Sulfur Syntax
 {{
   term : Type
 
