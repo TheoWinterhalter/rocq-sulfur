@@ -97,6 +97,8 @@ Section WithSignature.
 
   End MExprInd.
 
+  Register Scheme mexpr_ind as ind_dep for mexpr.
+
   (** Utils for meta variables **)
   Section UtilsMvar.
     #[refine] Definition var n : mterm (S n) := M_var _ n _.
