@@ -88,7 +88,7 @@ Ltac2 Set sunfold_list as old := fun () => List.append (constants foo, bla) (old
 Import Strategy.
 
 Ltac2 sulfur_simpl_term_rename carrier lhs _rel :=
-  (* FIXME: No autounfold in Ltac2 ? should use the hints of asimpl_unfold or find an alternative extensible solution (reference to a list ?) *)
+  (* FIXME: No autounfold in Ltac2 ? should use the hints of ssimpl_unfold or find an alternative extensible solution (reference to a list ?) *)
   let unfold_list := List.map (fun r => (r, AllOccurrences)) (sunfold_list ()) in
   let lhs := eval_unfold unfold_list lhs in
   let (rhs, prf) := simpl_term_zero lhs in
@@ -154,20 +154,20 @@ Ltac solve_simplification :=
 (*********************************************************************************)
 
 (** Unfold constants related to terms and substitutions, typically before [ssimpl]. *)
-Ltac aunfold := autounfold with asimpl_unfold.
+Ltac sunfold := autounfold with ssimpl_unfold.
 
 (*
 (** Topdown version of [ssimpl]. *)
 Ltac ssimpl_topdown :=
-  (rewrite_strat (topdown (hints asimpl_topdown))) ; [| solve_simplification ..].
+  (rewrite_strat (topdown (hints ssimpl_topdown))) ; [| solve_simplification ..].
 
 (** Outermost version of [ssimpl]. *)
 Ltac ssimpl_outermost :=
-  (rewrite_strat (outermost (hints asimpl_outermost))) ; [| solve_simplification ..].
+  (rewrite_strat (outermost (hints ssimpl_outermost))) ; [| solve_simplification ..].
 *)
 (** Simplify in the goal. *)
 Ltac ssimpl := ltac2:(ssimpl).
-  (* repeat aunfold ;
+  (* repeat sunfold ;
   repeat ssimpl_topdown ;
   repeat ssimpl_outermost. *)
 
@@ -176,23 +176,23 @@ Ltac ssimpl := ltac2:(ssimpl).
 (*********************************************************************************)
 
 (** Unfold constants related to terms and substitutions, typically before [ssimpl in H]. *)
-Tactic Notation "aunfold" "in" hyp(H) := autounfold with asimpl_unfold in H.
+Tactic Notation "sunfold" "in" hyp(H) := autounfold with ssimpl_unfold in H.
 
 (*
 (** Topdown version of [ssimpl in H]. *)
 Tactic Notation "ssimpl_topdown" "in" hyp(H) :=
-  (rewrite_strat (topdown (hints asimpl_topdown)) in H) ; [| solve_simplification ..].
+  (rewrite_strat (topdown (hints ssimpl_topdown)) in H) ; [| solve_simplification ..].
 
 (** Outermost version of [ssimpl in H]. *)
 Tactic Notation "ssimpl_outermost" "in" hyp(H) :=
-  (rewrite_strat (outermost (hints asimpl_outermost)) in H) ; [| solve_simplification ..].
+  (rewrite_strat (outermost (hints ssimpl_outermost)) in H) ; [| solve_simplification ..].
 *)
 
 (** Simplify in a hypothesis [H]. *)
 Tactic Notation "ssimpl" "in" hyp(H) :=
   let k := ltac2:(h |- ssimpl0 (Some (Option.get (Ltac1.to_ident h)))) in
   k H.
-  (* repeat aunfold in H ;
+  (* repeat sunfold in H ;
   repeat ssimpl_topdown in H ;
   repeat ssimpl_outermost in H. *)
 

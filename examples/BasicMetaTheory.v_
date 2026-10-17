@@ -20,7 +20,7 @@ Proof.
   intros Γ t1 t2 m H.
   now rewrite (@term_simplification _ t1 t2 H).
 Qed.
-#[export] Hint Rewrite -> autosubst_simpl_scoping : asimpl_outermost.
+#[export] Hint Rewrite -> autosubst_simpl_scoping : ssimpl_outermost.
 
 
 Definition rscoping (Γ : scope) (ρ : ren) (Δ : scope) : Prop :=
@@ -53,7 +53,7 @@ Proof.
   apply rscoping_morphism. 1,3: auto.
   apply H.
 Qed.
-#[export] Hint Rewrite -> autosubst_simpl_rscoping : asimpl_outermost.
+#[export] Hint Rewrite -> autosubst_simpl_rscoping : ssimpl_outermost.
 
 #[export] Instance sscoping_morphism :
   Proper (eq ==> pointwise_relation _ eq ==> eq ==> iff) sscoping.
@@ -76,7 +76,7 @@ Proof.
   apply sscoping_morphism. 1,3: auto.
   apply H.
 Qed.
-#[export] Hint Rewrite -> autosubst_simpl_sscoping : asimpl_outermost.
+#[export] Hint Rewrite -> autosubst_simpl_sscoping : ssimpl_outermost.
 
 Lemma rscoping_S :
   ∀ Γ m,

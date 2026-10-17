@@ -56,6 +56,6 @@ Ltac feed4 H := feed H ; [| feed3 H].
 
 Create Rewrite HintDb red.
 Create Rewrite HintDb seval.
-Create Rewrite HintDb asimpl_topdown.
-Create Rewrite HintDb asimpl_outermost.
-Create Rewrite HintDb asimpl_unfold.
+Create Rewrite HintDb ssimpl_topdown.
+Create Rewrite HintDb ssimpl_outermost.
+Create Rewrite HintDb ssimpl_unfold.
