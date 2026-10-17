@@ -1258,7 +1258,10 @@ Module LPConv.
   Qed.
 
   Instance LPConvSubst : SubstJSig typ_conv_lampi.
-  constructor; intros; destruct i; destruct_n H; subst; destruct_n H0; try now inversion H0; try typeclasses eauto.
+  Proof.
+    constructor; intros; destruct i;
+    destruct_n H; subst; destruct_n H0;
+    try now inversion H0; try typeclasses eauto.
   Qed.
 End LPConv.
 
@@ -1649,7 +1652,10 @@ Module SimplLambda.
   Qed.
 
   Instance LambdaSubst : SubstJSig typ_lam.
-  constructor; intros; destruct i; destruct_n H; subst; try destruct x; destruct_n H0; try now inversion H0; try typeclasses eauto.
+  Proof.
+    constructor; intros; destruct i; destruct_n H;
+    subst; try destruct x; destruct_n H0;
+    try now inversion H0; try typeclasses eauto.
   Qed.
 
   Lemma proof_type_id_app :
@@ -1754,10 +1760,12 @@ Module LPEta.
   | Conversion => fun X => (X*X*X)%type
   end.
   Instance FMapLpJdg (i : ILP) : FMap (jdgF i).
-  destruct i; typeclasses eauto.
+  Proof.
+    destruct i; typeclasses eauto.
   Defined.
   Instance FuncLpJdg (i : ILP) : Eq1Functor (jdgF i).
-  destruct i; typeclasses eauto.
+  Proof.
+    destruct i; typeclasses eauto.
   Defined.
 
   Instance LpMakeJdg : IMakeJdg ILP := fun i => match i with
@@ -1800,186 +1808,195 @@ Module LPEta.
 
   (* Conversion rules *)
   #[refine] Definition tRefl : rule(sig:=sig_lp) Conversion :=
-  {|
-    premises := fun (_ : unit) => [
-      prem_ind Typing _
-        mnil
-        (t[], A[])
-    ];
-    conclusion := _
-  |}.
+    {|
+      premises := fun (_ : unit) => [
+        prem_ind Typing _
+          mnil
+          (t[], A[])
+      ];
+      conclusion := _
+    |}.
+  Proof.
   exact (fun _ u => u).
   exact (fun _ => (t[], t[], A[])).
   Defined.
 
   Definition tSym : rule(sig:=sig_lp) Conversion :=
-  {|
-    premises := fun (_ : unit) => [
-      prem_ind Conversion (fun _ u => u)
-        mnil
-        (t[], u[], A[])
-    ];
-    conclusion := fun _ => (u[], t[], A[])
-  |}.
+    {|
+      premises := fun (_ : unit) => [
+        prem_ind Conversion (fun _ u => u)
+          mnil
+          (t[], u[], A[])
+      ];
+      conclusion := fun _ => (u[], t[], A[])
+    |}.
+
   Definition tTrans : rule(sig:=sig_lp) Conversion :=
-  {|
-    premises := fun (_ : unit) => [
-      prem_ind Conversion (fun _ u => u)
-        mnil
-        (t[], u[], A[]) ;
-      prem_ind Conversion (fun _ u => u)
-        mnil
-        (u[], v[], A[])
-    ];
-    conclusion := fun _ => (t[], v[], A[])
-  |}.
+    {|
+      premises := fun (_ : unit) => [
+        prem_ind Conversion (fun _ u => u)
+          mnil
+          (t[], u[], A[]) ;
+        prem_ind Conversion (fun _ u => u)
+          mnil
+          (u[], v[], A[])
+      ];
+      conclusion := fun _ => (t[], v[], A[])
+    |}.
 
   Definition tCongrApp : rule Conversion :=
-  {|
-    premises := fun (_ : unit) => [
-      prem_ind Conversion (fun _ u => u)
-        mnil
-        (t[], t'[], Pi (A[]) (B[var 0])) ;
-      prem_ind Conversion (fun _ u => u)
-        mnil
-        (u[], u'[], A[])
-    ];
-    conclusion := fun _ =>
-      (App (t[]) (u[]), App (t'[]) (u'[]), B[u[]])
-  |}.
+    {|
+      premises := fun (_ : unit) => [
+        prem_ind Conversion (fun _ u => u)
+          mnil
+          (t[], t'[], Pi (A[]) (B[var 0])) ;
+        prem_ind Conversion (fun _ u => u)
+          mnil
+          (u[], u'[], A[])
+      ];
+      conclusion := fun _ =>
+        (App (t[]) (u[]), App (t'[]) (u'[]), B[u[]])
+    |}.
+
   Definition tCongrPi : rule Conversion :=
-  {|
-    premises := fun '(n, m) => [
-      prem_ind Conversion (fun _ u => u)
-        mnil
-        (A[], A'[], T n) ;
-      prem_ind Conversion (fun _ u => u)
-        (mcons (T n) mnil)
-        (B[var 0], B'[var 0], T m)
-    ];
-    conclusion := fun '(n, m) =>
-      (Pi (A[]) (B[var 0]), Pi (A'[]) (B'[var 0]), T (Nat.max n m))
-  |}.
+    {|
+      premises := fun '(n, m) => [
+        prem_ind Conversion (fun _ u => u)
+          mnil
+          (A[], A'[], T n) ;
+        prem_ind Conversion (fun _ u => u)
+          (mcons (T n) mnil)
+          (B[var 0], B'[var 0], T m)
+      ];
+      conclusion := fun '(n, m) =>
+        (Pi (A[]) (B[var 0]), Pi (A'[]) (B'[var 0]), T (Nat.max n m))
+    |}.
 
   Definition tCongrLam : rule Conversion :=
-  {|
-    premises := fun (_ : unit) => [
-      prem_ind Conversion (fun _ u => u)
-        (mcons (A[]) mnil)
-        (b[var 0], b'[var 0], B[var 0])
-    ];
-    conclusion := fun _ =>
-      (lambda (b[var 0]), lambda (b'[var 0]), Pi (A[]) (B[var 0]))
-  |}.
+    {|
+      premises := fun (_ : unit) => [
+        prem_ind Conversion (fun _ u => u)
+          (mcons (A[]) mnil)
+          (b[var 0], b'[var 0], B[var 0])
+      ];
+      conclusion := fun _ =>
+        (lambda (b[var 0]), lambda (b'[var 0]), Pi (A[]) (B[var 0]))
+    |}.
 
   #[refine] Definition tBeta : rule(sig:=sig_lp) Conversion :=
-  {|
-    premises := fun (_ : unit) => [
-      prem_ind Typing _
-        (mcons (A[]) mnil)
-        (b[var 0], B[var 0]) ;
-      prem_ind Typing _
-        mnil
-        (u[], A[])
-    ];
-    conclusion := fun (t : unit) => _
-  |}.
-  - exact (fun _ u => u).
-  - exact (fun _ u => u).
-  - exact (App (lambda (b[var 0])) (u[]), b[u[]], B[u[]]).
+    {|
+      premises := fun (_ : unit) => [
+        prem_ind Typing _
+          (mcons (A[]) mnil)
+          (b[var 0], B[var 0]) ;
+        prem_ind Typing _
+          mnil
+          (u[], A[])
+      ];
+      conclusion := fun (t : unit) => _
+    |}.
+  Proof.
+    - exact (fun _ u => u).
+    - exact (fun _ u => u).
+    - exact (App (lambda (b[var 0])) (u[]), b[u[]], B[u[]]).
   Defined.
 
   #[refine] Definition tEta : rule Conversion :=
-  {|
-    premises := fun (_ : unit) => [
-      prem_ind Typing _
-        mnil
-        (f[], Pi (A[]) (B[var 0]))
-    ];
-    conclusion := fun _ => _
-  |}.
-  - exact (fun _ u => u).
-  - exact (f[], lambda (App (f[]) (var 0)), Pi (A[]) (B[var 0])).
+    {|
+      premises := fun (_ : unit) => [
+        prem_ind Typing _
+          mnil
+          (f[], Pi (A[]) (B[var 0]))
+      ];
+      conclusion := fun _ => _
+    |}.
+  Proof.
+    - exact (fun _ u => u).
+    - exact (f[], lambda (App (f[]) (var 0)), Pi (A[]) (B[var 0])).
   Defined.
 
   (* Typing rules *)
   #[refine] Definition tType : rule(sig:=sig_lp) Typing :=
-  {|
-    premises := fun _ => [];
-    conclusion := fun n : nat => _
-  |}.
-  exact (T n, T (S n)).
+    {|
+      premises := fun _ => [];
+      conclusion := fun n : nat => _
+    |}.
+  Proof.
+    exact (T n, T (S n)).
   Defined.
 
   Definition tPi : rule Typing :=
-  {|
-    premises := fun '(n, m) =>
-    [
-      prem_ind Typing (fun _ A => A)
-        mnil
-        (A[], T n) ;
-      prem_ind Typing (fun _ A => A)
-        (mcons(n:=0) (A[]) mnil)
-        (B[var 0], T m)
-    ] ;
-    conclusion := fun '(n, m) =>
-      (Pi (A[]) (B[var 0]), T (Nat.max n m))
-  |}.
+    {|
+      premises := fun '(n, m) =>
+      [
+        prem_ind Typing (fun _ A => A)
+          mnil
+          (A[], T n) ;
+        prem_ind Typing (fun _ A => A)
+          (mcons(n:=0) (A[]) mnil)
+          (B[var 0], T m)
+      ] ;
+      conclusion := fun '(n, m) =>
+        (Pi (A[]) (B[var 0]), T (Nat.max n m))
+    |}.
+
   Definition tApp : rule Typing :=
-  {|
-    premises := fun (_ : unit) =>
-    [
-      prem_ind Typing (fun _ A => A)
-        mnil
-        (f[], Pi (A[]) (B[var 0]));
-      prem_ind Typing (fun _ A => A)
-        mnil
-        (u[], A[])
-    ];
-    conclusion := fun _ =>
-      (App (f[]) (u[]), B[u[]])
-  |}.
+    {|
+      premises := fun (_ : unit) =>
+      [
+        prem_ind Typing (fun _ A => A)
+          mnil
+          (f[], Pi (A[]) (B[var 0]));
+        prem_ind Typing (fun _ A => A)
+          mnil
+          (u[], A[])
+      ];
+      conclusion := fun _ =>
+        (App (f[]) (u[]), B[u[]])
+    |}.
 
   Definition tLam : rule Typing :=
-  {|
-    premises := fun (_ : unit) =>
-    [
-      prem_ind Typing (fun _ A => A)
-        (mcons(n:=0) (A[]) mnil)
-        (b[var 0], B[var 0])
-    ];
-    conclusion := fun _ =>
-      (lambda (b[var 0]), Pi (A[]) (B[var 0]))
-  |}.
+    {|
+      premises := fun (_ : unit) =>
+      [
+        prem_ind Typing (fun _ A => A)
+          (mcons(n:=0) (A[]) mnil)
+          (b[var 0], B[var 0])
+      ];
+      conclusion := fun _ =>
+        (lambda (b[var 0]), Pi (A[]) (B[var 0]))
+    |}.
 
   #[refine] Definition tConv : rule(sig:=sig_lp) Typing :=
-  {|
-    premises := fun (n : nat) =>
-    [
-      prem_ind Typing (fun _ A => A)
-        (mnil)
-        (t[], A[]);
-      prem_ind Conversion _
-        mnil
-        (A[], A'[], T n)
-    ];
-    conclusion := fun _ =>
-      (t[], A'[])
-  |}.
-  exact (fun _ u => u).
+    {|
+      premises := fun (n : nat) =>
+      [
+        prem_ind Typing (fun _ A => A)
+          (mnil)
+          (t[], A[]);
+        prem_ind Conversion _
+          mnil
+          (A[], A'[], T n)
+      ];
+      conclusion := fun _ =>
+        (t[], A'[])
+    |}.
+  Proof.
+    exact (fun _ u => u).
   Defined.
 
-  Definition typ_lampi : jdg_sig := {|rules:=
-  fun u => match u with
-    | Conversion => [
-      tRefl; tSym; tTrans;
-      tCongrApp; tCongrPi; tCongrLam;
-      tBeta ; tEta
-    ]
-    | Typing => [
-      tType ; tPi ; tApp ; tLam ; tConv
-    ]
-  end|}.
+  Definition typ_lampi : jdg_sig := {| rules :=
+    fun u => match u with
+      | Conversion => [
+        tRefl; tSym; tTrans;
+        tCongrApp; tCongrPi; tCongrLam;
+        tBeta ; tEta
+      ]
+      | Typing => [
+        tType ; tPi ; tApp ; tLam ; tConv
+      ]
+    end
+  |}.
 
   (* Overwrite notations for lambda pi *)
   #[warnings="-notation-overridden"]
@@ -2028,6 +2045,7 @@ Module LPEta.
   Admitted.
 
   Instance LPSubst : SubstJSig typ_lampi.
+  Proof.
     constructor; intros; destruct i; destruct_n H; subst; try destruct x; destruct_n H0; try now inversion H0; try typeclasses eauto.
     all: noconf H0;
     unfold ConvMakeJdg; intros; rewrite map_id; try assumption;
