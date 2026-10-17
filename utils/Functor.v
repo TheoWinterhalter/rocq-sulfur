@@ -83,7 +83,10 @@ Proof.
 Qed.
 
 (* Sanity check *)
-Goal Eq1Functor (fun X => (X*nat*X)%type). typeclasses eauto. Qed.
+Goal Eq1Functor (fun X => (X*nat*X)%type).
+Proof.
+  typeclasses eauto.
+Qed.
 
 
 (** Lifting of a predicate to a functor **)

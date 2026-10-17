@@ -7,13 +7,9 @@ Section WithSignature.
 
   (** Notations for expressions with known kinds. *)
   #[local] Reserved Notation "'mterm'" (at level 0).
-  #[local] Reserved Notation "'marg' ty" (at level 0, ty at level 0).
-  #[local] Reserved Notation "'margs' tys" (at level 0, tys at level 0).
 
   (* Reuse the notations from [ParamSyntax.v] *)
   #[local] Notation "'term'" := (P.expr Kt) (at level 0).
-  #[local] Notation "'arg' ty" := (P.expr (Ka ty)) (at level 0, ty at level 0).
-  #[local] Notation "'args' tys" := (P.expr (Kal tys)) (at level 0, tys at level 0).
 
   Unset Elimination Schemes.
 
@@ -36,17 +32,17 @@ Section WithSignature.
   | (** Term variable. *)
     M_var scope : forall i, i < scope -> mterm scope
   | (** Non-variable expr constructor, applied to a list of arguments. *)
-    M_ctor scope : forall c, margs (ctor_type c) scope -> mterm scope
+    M_ctor scope : forall c, mexpr (Kal (ctor_type c)) scope -> mterm scope
   | (** Empty argument list. *)
-    M_al_nil scope : margs [] scope
+    M_al_nil scope : mexpr (Kal []) scope
   | (** Non-empty argument list. *)
-    M_al_cons scope {ty tys} : marg ty scope -> margs tys scope -> margs (ty :: tys) scope
+    M_al_cons scope {ty tys} : mexpr (Ka ty) scope -> mexpr (Kal tys) scope -> mexpr (Kal (ty :: tys)) scope
   | (** Base argument (e.g. bool or string). *)
-    M_abase scope : forall b, eval_base b -> marg (AT_base b) scope
+    M_abase scope : forall b, eval_base b -> mexpr (Ka (AT_base b)) scope
   | (** Term argument. *)
-    M_aterm scope : mterm scope -> marg AT_term scope
+    M_aterm scope : mterm scope -> mexpr (Ka AT_term) scope
   | (** Bind a term in an argument. *)
-    M_abind scope {ty} : marg ty (S scope) -> marg (AT_bind ty) scope
+    M_abind scope {ty} : mexpr (Ka ty) (S scope) -> mexpr (Ka (AT_bind ty)) scope
   | (**
     Meta variable applyed to a substitution
     A substitution is a list of terms
@@ -54,9 +50,7 @@ Section WithSignature.
     M_mvar scope (k : mvar) (σ : list (mterm scope)) :
       mterm scope
 
-  where "'mterm'" := (mexpr Kt)
-    and "'marg' ty" := (mexpr (Ka ty))
-    and "'margs' tys" := (mexpr (Kal tys)).
+  where "'mterm'" := (mexpr Kt).
 
   Set Elimination Schemes.
   Derive NoConfusion for mexpr.
@@ -68,11 +62,11 @@ Section WithSignature.
     Context (H_var : forall s i (Hsi : i < s), P _ _ (M_var s i Hsi)).
     Context (H_ctor : forall s c al, P _ _ al -> P _ _ (M_ctor s c al)).
     Context (H_al_nil : forall s, P _ _ (M_al_nil s)).
-    Context (H_al_cons : forall s ty tys (a : marg ty _) (al : margs tys _),
+    Context (H_al_cons : forall s ty tys (a : mexpr (Ka ty) _) (al : mexpr (Kal tys) _),
       P _ _ a -> P _ _ al -> P _ _ (M_al_cons s a al)).
     Context (H_abase : forall s b x, P _ _ (M_abase s b x)).
     Context (H_aterm : forall s t, P _ _ t -> P _ _ (M_aterm s t)).
-    Context (H_abind : forall s ty (a : marg ty _), P _ _ a -> P _ _ (M_abind s a)).
+    Context (H_abind : forall s ty (a : mexpr (Ka ty) _), P _ _ a -> P _ _ (M_abind s a)).
     Context (H_mvar : forall s k σ,
       Forall (P _ s) σ ->
       P _ _ (M_mvar s k σ)
@@ -1051,8 +1045,6 @@ Module LPConv.
   Defined.
 
   Notation "'mterm'" := (@mexpr sig_lp Kt) (at level 0).
-  Notation "'marg' ty" := (@mexpr sig_lp (Ka ty)) (at level 0, ty at level 0).
-  Notation "'margs' tys" := (@mexpr sig_lp (Kal tys)) (at level 0, tys at level 0).
 
   (* λΠ constructors, written in a more accessible way *)
   Definition T {s} (n : nat) : mterm s :=
@@ -1545,8 +1537,6 @@ Module SimplLambda.
   Defined.
 
   #[local] Notation "'mterm'" := (@mexpr sig_lam Kt) (at level 0).
-  #[local] Notation "'marg' ty" := (@mexpr sig_lam (Ka ty)) (at level 0, ty at level 0).
-  #[local] Notation "'margs' tys" := (@mexpr sig_lam (Kal tys)) (at level 0, tys at level 0).
 
   (* λΠ constructors, written in a more accessible way *)
   Definition lambda {s} (t : mterm (S s)) : mterm s :=
@@ -1710,8 +1700,6 @@ Module LPEta.
   Defined.
 
   Notation "'mterm'" := (@mexpr sig_lp Kt) (at level 0).
-  Notation "'marg' ty" := (@mexpr sig_lp (Ka ty)) (at level 0, ty at level 0).
-  Notation "'margs' tys" := (@mexpr sig_lp (Kal tys)) (at level 0, tys at level 0).
 
   (* λΠ constructors, written in a more accessible way *)
   Definition T {s} (n : nat) : mterm s :=
