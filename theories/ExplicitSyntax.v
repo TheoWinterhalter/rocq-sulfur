@@ -558,7 +558,7 @@ Ltac2 rec rocq_list (ty : constr) (xs : constr list) : constr :=
   end.
 
 (** We define our own version of [List.nth], because we need to
-    unfold this in [RASimpl.v], and we don't want to inadvertendly unfold
+    unfold this in [SSimpl.v], and we don't want to inadvertendly unfold
     occurences of [List.nth] which were not introduced by [build_env]. *)
 Fixpoint list_nth {A} (n : nat) (xs : list A) (default : A) : A :=
   match xs with

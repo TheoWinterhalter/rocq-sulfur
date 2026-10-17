@@ -59,7 +59,7 @@ let generate_operations (sign : signature) (term : Names.Ind.t) : ops_all =
   ; ops_pe = pe
   }
 
-(** Register hints in database [asimpl_unfold] used by tactic [aunfold]. See [RASimpl.v]
+(** Register hints in database [asimpl_unfold] used by tactic [aunfold]. See [SSimpl.v]
     for more details. *)
 let register_aunfold_hints (sign : signature) (ops : ops_all) : unit =
   let force_const (gref : Names.GlobRef.t Lazy.t) : Names.Constant.t =

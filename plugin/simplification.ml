@@ -8,7 +8,7 @@ let simpl_term_one (sign : EConstr.t) (t1 : EConstr.t) :
   let open PVMonad in
   let open Ltac2_plugin in
   let open Tac2ffi in
-  let kname = mk_kername [ "Sulfur"; "RASimpl" ] "simpl_term_one" in
+  let kname = mk_kername [ "Sulfur"; "SSimpl" ] "simpl_term_one" in
   let tac = Tac2interp.eval_global kname in
   let* res = Tac2val.apply_val tac [ of_constr sign; of_constr t1 ] in
   ret @@ to_pair to_constr to_constr res
@@ -45,7 +45,7 @@ let simpl_subst_one (sign : EConstr.t) (s1 : EConstr.t) :
   let open PVMonad in
   let open Ltac2_plugin in
   let open Tac2ffi in
-  let kname = mk_kername [ "Sulfur"; "RASimpl" ] "simpl_subst_one" in
+  let kname = mk_kername [ "Sulfur"; "SSimpl" ] "simpl_subst_one" in
   let tac = Tac2interp.eval_global kname in
   let* res = Tac2val.apply_val tac [ of_constr sign; of_constr s1 ] in
   ret @@ to_pair to_constr to_constr res

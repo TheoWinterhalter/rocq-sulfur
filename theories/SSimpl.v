@@ -95,19 +95,19 @@ Ltac2 sulfur_simpl_term_rename carrier lhs _rel :=
   if Constr.equal lhs rhs then Fail
   else Success { rel := '(@eq $carrier); rhs ; prf }.
 
-Ltac2 mutable rasimpl_matches () : Strategy.t := Strategy.fail.
+Ltac2 mutable ssimpl_matches () : Strategy.t := Strategy.fail.
 
-Ltac2 rasimpl0 idopt :=
+Ltac2 ssimpl0 idopt :=
   (* rewrite_strat should be focused but that's not documented *)
   Control.enter (fun () =>
-  rewrite_strat (bottomup (seq (rasimpl_matches ()) (tactic sulfur_simpl_term_rename))) idopt).
+  rewrite_strat (bottomup (seq (ssimpl_matches ()) (tactic sulfur_simpl_term_rename))) idopt).
 
-Ltac2 Abbreviation rasimpl := rasimpl0 None.
-Ltac2 Notation "rasimpl" "in" h(ident) := rasimpl0 (Some h).
+Ltac2 Abbreviation ssimpl := ssimpl0 None.
+Ltac2 Notation "ssimpl" "in" h(ident) := ssimpl0 (Some h).
 
 (*
 (*********************************************************************************)
-(** *** Boilerplate for [rasimpl]. *)
+(** *** Boilerplate for [ssimpl]. *)
 (*********************************************************************************)
 
 (** [Simplification x y] expresses the fact that [x] simplifies into [y].
@@ -150,50 +150,50 @@ Ltac solve_simplification :=
 *)
 
 (*********************************************************************************)
-(** *** [rasimpl]. *)
+(** *** [ssimpl]. *)
 (*********************************************************************************)
 
-(** Unfold constants related to terms and substitutions, typically before [rasimpl]. *)
+(** Unfold constants related to terms and substitutions, typically before [ssimpl]. *)
 Ltac aunfold := autounfold with asimpl_unfold.
 
 (*
-(** Topdown version of [rasimpl]. *)
-Ltac rasimpl_topdown :=
+(** Topdown version of [ssimpl]. *)
+Ltac ssimpl_topdown :=
   (rewrite_strat (topdown (hints asimpl_topdown))) ; [| solve_simplification ..].
 
-(** Outermost version of [rasimpl]. *)
-Ltac rasimpl_outermost :=
+(** Outermost version of [ssimpl]. *)
+Ltac ssimpl_outermost :=
   (rewrite_strat (outermost (hints asimpl_outermost))) ; [| solve_simplification ..].
 *)
 (** Simplify in the goal. *)
-Ltac rasimpl := ltac2:(rasimpl).
+Ltac ssimpl := ltac2:(ssimpl).
   (* repeat aunfold ;
-  repeat rasimpl_topdown ;
-  repeat rasimpl_outermost. *)
+  repeat ssimpl_topdown ;
+  repeat ssimpl_outermost. *)
 
 (*********************************************************************************)
-(** *** [rasimpl in H]. *)
+(** *** [ssimpl in H]. *)
 (*********************************************************************************)
 
-(** Unfold constants related to terms and substitutions, typically before [rasimpl in H]. *)
+(** Unfold constants related to terms and substitutions, typically before [ssimpl in H]. *)
 Tactic Notation "aunfold" "in" hyp(H) := autounfold with asimpl_unfold in H.
 
 (*
-(** Topdown version of [rasimpl in H]. *)
-Tactic Notation "rasimpl_topdown" "in" hyp(H) :=
+(** Topdown version of [ssimpl in H]. *)
+Tactic Notation "ssimpl_topdown" "in" hyp(H) :=
   (rewrite_strat (topdown (hints asimpl_topdown)) in H) ; [| solve_simplification ..].
 
-(** Outermost version of [rasimpl in H]. *)
-Tactic Notation "rasimpl_outermost" "in" hyp(H) :=
+(** Outermost version of [ssimpl in H]. *)
+Tactic Notation "ssimpl_outermost" "in" hyp(H) :=
   (rewrite_strat (outermost (hints asimpl_outermost)) in H) ; [| solve_simplification ..].
 *)
 
 (** Simplify in a hypothesis [H]. *)
-Tactic Notation "rasimpl" "in" hyp(H) :=
-  let k := ltac2:(h |- rasimpl0 (Some (Option.get (Ltac1.to_ident h)))) in
+Tactic Notation "ssimpl" "in" hyp(H) :=
+  let k := ltac2:(h |- ssimpl0 (Some (Option.get (Ltac1.to_ident h)))) in
   k H.
   (* repeat aunfold in H ;
-  repeat rasimpl_topdown in H ;
-  repeat rasimpl_outermost in H. *)
+  repeat ssimpl_topdown in H ;
+  repeat ssimpl_outermost in H. *)
 
 (** Tests... *)

@@ -39,3 +39,9 @@ and [ident] stands for valid Rocq identifiers.
                                                Universe polymorphic terms will be instantiated with
                                                new monomorphic (global) universes. *)
 ```
+
+# Simplification
+
+Sulfur offers a substitution simplification tactic, called `ssimpl` (for
+Sulfur simplifier). It works on any expression featuring terms with renamings
+or substitutions that can be simplified. It fails otherwise.
