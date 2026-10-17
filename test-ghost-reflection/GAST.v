@@ -46,7 +46,7 @@ Time Sulfur Syntax
 }}.
 
 (* FIXME (should be automatic) *)
-Ltac2 Set aunfold_list as old := fun () => List.append (constants up_ren, up_subst) (old ()).
+Ltac2 Set sunfold_list as old := fun () => List.append (constants up_ren, up_subst) (old ()).
 From Ltac2 Require Import Rewrite.
 Ltac2 Set ssimpl_matches := fun () => Strategy.choice (Strategy.matches pat:(rename _ _)) (Strategy.matches pat:(substitute _ _)).
 

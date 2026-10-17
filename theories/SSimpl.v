@@ -78,18 +78,18 @@ Ltac2 @external simpl_term_zero : constr -> constr * constr := "rocq-sulfur.plug
 Ltac2 @external simpl_subst_zero : constr -> constr * constr := "rocq-sulfur.plugin" "simpl_subst_zero".
 
 
-Ltac2 mutable aunfold_list () : reference list := [].
+Ltac2 mutable sunfold_list () : reference list := [].
 
 Ltac2 Notation "constants" pl(list1(reference, ",")) := pl.
 (* To be employed as
-Ltac2 Set aunfold_list as old := fun () => List.append (constants foo, bla) (old ()).
+Ltac2 Set sunfold_list as old := fun () => List.append (constants foo, bla) (old ()).
 *)
 
 Import Strategy.
 
 Ltac2 sulfur_simpl_term_rename carrier lhs _rel :=
   (* FIXME: No autounfold in Ltac2 ? should use the hints of asimpl_unfold or find an alternative extensible solution (reference to a list ?) *)
-  let unfold_list := List.map (fun r => (r, AllOccurrences)) (aunfold_list ()) in
+  let unfold_list := List.map (fun r => (r, AllOccurrences)) (sunfold_list ()) in
   let lhs := eval_unfold unfold_list lhs in
   let (rhs, prf) := simpl_term_zero lhs in
   if Constr.equal lhs rhs then Fail
