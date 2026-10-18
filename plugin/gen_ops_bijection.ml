@@ -64,11 +64,6 @@ struct
     let* _ = Tactics.unfold_constr (Names.GlobRef.ConstRef P.re.sreify) in
     Tactics.apply (mkconst eval_reify)
 
-  (** Call the tactic [lia]. *)
-  let lia () : unit Proofview.tactic =
-    let open Ltac_plugin in
-    let kname = mk_kername [ "Stdlib"; "micromega"; "Lia" ] "lia" in
-    Tacinterp.eval_tactic (Tacenv.interp_ltac kname)
 end
 
 (**************************************************************************************)
