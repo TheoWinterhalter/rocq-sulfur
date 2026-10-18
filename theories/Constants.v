@@ -35,6 +35,11 @@ Register eq1_refl as sulfur.eq1.refl.
 Register eq1_sym as sulfur.eq1.sym.
 Register eq1_trans as sulfur.eq1.trans.
 
+(** Prelude *)
+
+Register mkenum as sulfur.enum.make.
+Register enum_all_in as sulfur.enum.all_in.
+
 (*********************************************************************************)
 (** *** Renamings. *)
 (*********************************************************************************)

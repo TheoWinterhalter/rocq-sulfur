@@ -100,13 +100,13 @@ let derive_enum (name : string) (ind : Names.Ind.t) nctors :
   in
   let inv =
     lemma (name ^ "_enum_all_in")
-      (ret @@ apps (mkglob (pre_ref "enum_all_in")) [| t ; enum ; index_of |])
-      (pre_ltac "sulfur_is_enum" [])
+      (ret @@ apps (mkglob' Constants.enum_all_in) [| t ; enum ; index_of |])
+      (run_ltac "Prelude" "sulfur_is_enum" [])
   in
   let inv = mkconst inv in
   let enum =
     def ~kind:Decls.Instance (name ^ "_Enum") @@ ret @@
-    apps (mkglob (pre_ref "mkenum")) [| t ; enum ; index_of ; inv |]
+    apps (mkglob' Constants.mkenum) [| t ; enum ; index_of ; inv |]
   in
   Classes.existing_instance Hints.Export (Names.GlobRef.ConstRef enum) None ;
   enum
