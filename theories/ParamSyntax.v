@@ -86,6 +86,8 @@ Section Ind.
 
   Context (P : expr Kt → Prop).
 
+  (** First the statement *)
+
   Fixpoint sig_ind_arg (a : arg_ty) : (arg a → Prop) → Prop :=
     match a return (arg a → Prop) → Prop with
     | AT_base b => λ K, ∀ x, K (E_abase b x)
@@ -112,9 +114,68 @@ Section Ind.
   #[local] Existing Instance ctor_Enum.
 
   Definition sig_ind_t :=
-    ∀ (P : expr Kt → Prop),
-      (∀ i, P (E_var i)) →
-      sig_ind_t_rec enum.
+    (∀ i, P (E_var i)) →
+    sig_ind_t_rec enum.
+
+  (** Now the generic proof *)
+
+  (** [P] holds in every sub-expression: *)
+  Fixpoint sub {k} (e : expr k) : Prop :=
+    match e with
+    | E_al_cons a al => sub a ∧ sub al
+    | E_aterm t => P t
+    | E_abind a => sub a
+    | _ => True
+    end.
+
+  Lemma sig_ind_step k (e : expr k) :
+    match k return expr k → Prop with
+    | Kt => λ _, True
+    | Ka a => λ e, ∀ K, sig_ind_arg a K → sub e → K e
+    | Kal l => λ e, ∀ f, sig_ind_clause l f → sub e → P (f e)
+    end e.
+  Proof.
+    induction e. all: cbn. all: try solve [ auto ].
+    - intros f ih [ha hal].
+      eapply IHe2 with (f := λ x, _). 2: assumption.
+      apply IHe1. all: auto.
+    - intros K ih h. apply IHe. all: auto.
+  Defined.
+
+  Lemma sub_term_ind :
+    (∀ i, P (E_var i)) →
+    (∀ c al, sub al → P (E_ctor c al)) →
+    ∀ t, P t.
+  Proof.
+    intros hv hc t.
+    pose (Q k := match k return expr k → Prop with Kt => P | _ => sub end).
+    change (Q Kt t).
+    apply (expr_ind Q). all: cbn. all: auto.
+  Defined.
+
+  Lemma sig_ind_rec cs :
+    (∀ i, P (E_var i)) →
+    (∀ c, ¬ In c cs → ∀ al, sub al → P (E_ctor c al)) →
+    sig_ind_t_rec cs.
+  Proof.
+    intros hv hc.
+    induction cs as [|c cs ih] in hc |- *.
+    - cbn. apply sub_term_ind. all: auto.
+    - cbn. intros h. apply ih.
+      intros c' hc' al hal.
+      destruct (eq_dec c' c) as [-> | ne].
+      + apply (sig_ind_step (Kal _)). all: auto.
+      + apply hc. 2: assumption.
+        rewrite not_in_cons. auto.
+  Defined.
+
+  Lemma sig_ind : sig_ind_t.
+  Proof.
+    intros hv.
+    apply sig_ind_rec. 1: assumption.
+    intros c [].
+    eapply nth_error_In. apply enum_all.
+  Defined.
 
 End Ind.
 
@@ -403,3 +464,5 @@ intros i. cbv [scomp srcomp]. now rewrite rshift_sshift.
 Qed.
 
 End WithSignature.
+
+Arguments sig_ind_t sig /.
