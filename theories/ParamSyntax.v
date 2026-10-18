@@ -449,3 +449,17 @@ Qed.
 End WithSignature.
 
 Arguments sig_ind_t {sig} /.
+
+(** Tactic for proving further properties about syntax *)
+
+(**
+  Prove [eval (rename r t) = rename r (eval t)], by induction on [t]
+  using the custom induction principle [ind].
+*)
+Ltac sulfur_gen_eval_rename ind :=
+  let r := fresh "r" in
+  let t := fresh "t" in
+  intros r t ; revert r ;
+  induction t using ind ;
+  intros ; [ reflexivity | .. ] ;
+  cbn ; f_equal ; auto.

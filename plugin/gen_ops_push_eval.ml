@@ -156,32 +156,6 @@ struct
     in
     loop P.sign.ctor_types.(idx)
 
-  (** Prove [forall r t, eval (P.rename r t) = rename r (eval t)]. *)
-  let prove_eval_rename () : unit Proofview.tactic =
-    let open PVMonad in
-    let* r = intro_fresh "r" in
-    let* t = intro_fresh "t" in
-    let* _ = Generalize.revert [ r ] in
-    (* Induction on [t]. *)
-    let* _ = pattern (EConstr.mkVar t) in
-    let* _ = Tactics.apply (mkconst P.bij.term_ind) in
-    dispatch @@ function
-    (* Variable constructor. *)
-    | 0 -> intro_n 2 >> Tactics.reflexivity
-    (* Non-variable constructors. *)
-    | i ->
-        (* Introduce constructor arguments and induction hypotheses. *)
-        let* _ = intro_fresh "r" in
-        let* _ = intro_term_ind (i - 1) in
-        (* Simplify. *)
-        let* _ =
-          Tacticals.tclREPEAT
-            (Equations_plugin.Principles_proofs.simp_eqns [ "rename" ] >> Tactics.simpl_in_concl)
-        in
-        (* Apply the congruence principle and finish with [auto]. *)
-        let* _ = Tactics.apply (mkconst P.congr.congr_ctors.(i - 1)) in
-        auto ()
-
   (** Prove [forall r s, seval (P.rscomp r s) =₁ rscomp r (seval s)].*)
   let prove_seval_rscomp () : unit Proofview.tactic =
     let open PVMonad in
@@ -310,7 +284,10 @@ let generate (s : signature) (ops_conc : ops_concrete) (ops_sign : ops_sign)
     let bij = bij
   end) in
   let eval_rename =
-    lemma "eval_rename" (M.build_eval_rename ()) @@ M.prove_eval_rename ()
+    lemma "eval_rename" (M.build_eval_rename ()) @@
+    run_ltac "ParamSyntax" "sulfur_gen_eval_rename" [
+      Names.GlobRef.ConstRef bij.term_ind
+    ]
   in
   let seval_rscomp =
     lemma "seval_rscomp" (M.build_seval_rscomp ()) @@ M.prove_seval_rscomp ()
