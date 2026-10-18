@@ -86,16 +86,19 @@ Section Ind.
 
   Context (P : expr Kt → Prop).
 
-  Fixpoint sig_ind_clause (l : list (@arg_ty base)) :
+  Fixpoint sig_ind_arg (a : arg_ty) : (arg a → Prop) → Prop :=
+    match a return (arg a → Prop) → Prop with
+    | AT_base b => λ K, ∀ x, K (E_abase b x)
+    | AT_term => λ K, ∀ t, P t → K (E_aterm t)
+    | AT_bind a => λ K, sig_ind_arg a (λ x, K (E_abind x))
+    end.
+
+  Fixpoint sig_ind_clause (l : list arg_ty) :
     (expr (Kal l) → expr Kt) → Prop :=
     match l with
     | [] => λ f, P (f E_al_nil)
-    | AT_base b :: l =>
-      λ f, ∀ x, sig_ind_clause l (λ u, f (E_al_cons (E_abase _ x) u))
-    | AT_term :: l =>
-      λ f, ∀ t, P t → sig_ind_clause l (λ u, f (E_al_cons (E_aterm t) u))
-    | AT_bind a :: l =>
-      λ f, ∀ t, (* TODO P t, recursively *) sig_ind_clause l (λ u, f (E_al_cons (E_abind t) u))
+    | a :: l =>
+      λ f, sig_ind_arg a (λ x, sig_ind_clause l (λ xs, f (E_al_cons x xs)))
     end.
 
   Fixpoint sig_ind_t_rec (cs : list ctor) :=
