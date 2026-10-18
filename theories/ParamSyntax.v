@@ -1,4 +1,7 @@
+From Stdlib Require Import Utf8 List.
 From Sulfur Require Import Prelude Sig Renamings.
+
+Import ListNotations.
 
 (** This file defines a term grammar parameterized over a signature,
     with _admissible_ renamings and substitutions i.e. renamings
@@ -76,6 +79,41 @@ Section ExprInd.
 End ExprInd.
 
 Register Scheme expr_ind as ind_dep for expr.
+
+(** Alternative induction principle, computing on the signature *)
+
+Section Ind.
+
+  Context (P : expr Kt → Prop).
+
+  Fixpoint sig_ind_clause (l : list (@arg_ty base)) :
+    (expr (Kal l) → expr Kt) → Prop :=
+    match l with
+    | [] => λ f, P (f E_al_nil)
+    | AT_base b :: l =>
+      λ f, ∀ x, sig_ind_clause l (λ u, f (E_al_cons (E_abase _ x) u))
+    | AT_term :: l =>
+      λ f, ∀ t, P t → sig_ind_clause l (λ u, f (E_al_cons (E_aterm t) u))
+    | AT_bind a :: l =>
+      λ f, ∀ t, (* TODO P t, recursively *) sig_ind_clause l (λ u, f (E_al_cons (E_abind t) u))
+    end.
+
+  Fixpoint sig_ind_t_rec (cs : list ctor) :=
+    match cs with
+    | [] => ∀ t, P t
+    | c :: cs =>
+      sig_ind_clause (ctor_type c) (E_ctor c) →
+      sig_ind_t_rec cs
+    end.
+
+  #[local] Existing Instance ctor_Enum.
+
+  Definition sig_ind_t :=
+    ∀ (P : expr Kt → Prop),
+      (∀ i, P (E_var i)) →
+      sig_ind_t_rec enum.
+
+End Ind.
 
 (*********************************************************************************)
 (** *** Size of expressions. *)
