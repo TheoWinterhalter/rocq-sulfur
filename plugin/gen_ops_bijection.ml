@@ -228,7 +228,10 @@ end
 (** *** Put everything together. *)
 (**************************************************************************************)
 
-(** Generate the bijection proof and the custom induction principle. *)
+(**
+  Generate the bijection proof and the custom induction principle on the
+  parametrised syntax (to match the one of the concrete syntax).
+*)
 let generate (s : signature) (ops_conc : ops_concrete) (ops_sign : ops_sign)
     (re : ops_reify_eval) (congr : ops_congr) : ops_bijection =
   let module M = Make (struct

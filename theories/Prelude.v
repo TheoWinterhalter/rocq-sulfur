@@ -1,4 +1,5 @@
 From Stdlib Require Export Bool Nat List String Morphisms Relations Program.Equality Lia.
+From Stdlib Require Import Utf8.
 From Ltac2 Require Export Ltac2.
 From Equations Require Export Equations.
 From Utils Require Export Fin Vector Functor Generalities.
@@ -59,3 +60,20 @@ Create Rewrite HintDb seval.
 Create Rewrite HintDb ssimpl_topdown.
 Create Rewrite HintDb ssimpl_outermost.
 Create Rewrite HintDb ssimpl_unfold.
+
+(** Decidable equality for enumerable types *)
+
+Class Enum (A : Type) := {
+  to_nat : A → nat ;
+  of_nat : nat → option A ;
+  is_enum : ∀ x, of_nat (to_nat x) = Some x
+}.
+
+#[export] Instance enum_eqdec {A} `{Enum A} : EqDec A.
+Proof.
+  intros x y.
+  destruct (nat_eqdec (to_nat x) (to_nat y)) as [e|ne].
+  - left. apply (f_equal of_nat) in e. rewrite 2!is_enum in e. noconf e.
+    reflexivity.
+  - right. intros <-. apply ne. reflexivity.
+Qed.

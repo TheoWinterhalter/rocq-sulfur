@@ -4,7 +4,7 @@ From Stdlib Require Import Utf8 Lia.
 From Sulfur Require Import Prelude Sig Renamings.
 From Sulfur Require ParamSyntax.
 
-(** Decidable equality for enumerable types *)
+(** Decidable equality for enumerable types (TODO: phase out) *)
 
 Section Enum.
 
@@ -19,11 +19,8 @@ Section Enum.
 
   Lemma enum_eqdec : EqDec A.
   Proof.
-    intros x y.
-    destruct (nat_eqdec (to_nat x) (to_nat y)) as [e|ne].
-    - left. apply (f_equal of_nat) in e. rewrite 2!h in e. noconf e.
-      reflexivity.
-    - right. intros <-. apply ne. reflexivity.
+    unshelve eapply enum_eqdec.
+    econstructor. apply h.
   Qed.
 
 End Enum.
