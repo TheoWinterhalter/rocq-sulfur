@@ -35,8 +35,6 @@ Register eq1_refl as sulfur.eq1.refl.
 Register eq1_sym as sulfur.eq1.sym.
 Register eq1_trans as sulfur.eq1.trans.
 
-Register PeanoNat.Nat.measure_induction as sulfur.measure_induction.
-
 (*********************************************************************************)
 (** *** Renamings. *)
 (*********************************************************************************)
@@ -83,7 +81,6 @@ Register ParamSyntax.E_abase as sulfur.param.expr.abase.
 Register ParamSyntax.E_aterm as sulfur.param.expr.aterm.
 Register ParamSyntax.E_abind as sulfur.param.expr.abind.
 Register ParamSyntax.subst as sulfur.param.subst.
-Register ParamSyntax.esize as sulfur.param.esize.
 
 Register ParamSyntax.rename as sulfur.param.rename.
 Register ParamSyntax.substitute as sulfur.param.substitute.
@@ -95,7 +92,6 @@ Register ParamSyntax.scomp as sulfur.param.scomp.
 Register ParamSyntax.rscomp as sulfur.param.rscomp.
 Register ParamSyntax.srcomp as sulfur.param.srcomp.
 
-Register ParamSyntax.inv_Kt as sulfur.param.inv_Kt.
 Register ParamSyntax.inv_Kal_nil as sulfur.param.inv_Kal_nil.
 Register ParamSyntax.inv_Kal_cons as sulfur.param.inv_Kal_cons.
 Register ParamSyntax.inv_Ka_term as sulfur.param.inv_Ka_term.

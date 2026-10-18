@@ -181,21 +181,6 @@ Proof.
 Defined.
 
 (*********************************************************************************)
-(** *** Size of expressions. *)
-(*********************************************************************************)
-
-(** Size of an expression. This is used in the plugin to prove a custom
-    induction principle for concrete syntax. *)
-Equations esize {k} (t : expr k) : nat by struct t :=
-esize (E_var _) := 0 ;
-esize (E_ctor c al) := S (esize al) ;
-esize E_al_nil := 0 ;
-esize (E_al_cons a al) := S (esize a + esize al) ;
-esize (E_abase _ _) := 0 ;
-esize (E_aterm t) := S (esize t) ;
-esize (E_abind a) := S (esize a).
-
-(*********************************************************************************)
 (** *** Inversion lemmas. *)
 (*********************************************************************************)
 
@@ -204,9 +189,6 @@ esize (E_abind a) := S (esize a).
     generating the custom induction principle on concrete syntax. *)
 
 Section InvLemmas.
-  Lemma inv_Kt (P : term -> Prop) (t : term) :
-    (forall i, P (E_var i)) -> (forall c al, P (E_ctor c al)) -> P t.
-  Proof. depelim t ; eauto. Qed.
 
   Lemma inv_Kal_nil (P : args [] -> Prop) (al : args []) : P E_al_nil -> P al.
   Proof. depelim al ; eauto. Qed.
