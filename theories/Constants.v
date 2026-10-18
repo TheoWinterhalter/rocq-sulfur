@@ -2,7 +2,7 @@
     Constants are accessed in the plugin from [plugin/constants.ml]. *)
 
 From Sulfur Require Import Prelude Sig Renamings.
-From Sulfur Require ParamSyntax Helpers.
+From Sulfur Require ParamSyntax.
 
 (*********************************************************************************)
 (** *** Basic constants. *)

@@ -185,20 +185,20 @@ let lemma (name : string) ?(refresh = false) (mk_stmt : EConstr.t m)
       declare_theorem Decls.Lemma name stmt tac
     end
 
-(** Global reference in [Sulfur.Helpers]. *)
-let helper_ref (name : string) : Names.GlobRef.t =
-  try Nametab.locate (Libnames.qualid_of_string ("Sulfur.Helpers." ^ name))
-  with Not_found -> Log.error "gen_ref: Sulfur.Helpers.%s not found" name
+(** Global reference in [Sulfur.Prelude]. *)
+let pre_ref (name : string) : Names.GlobRef.t =
+  try Nametab.locate (Libnames.qualid_of_string ("Sulfur.Prelude." ^ name))
+  with Not_found -> Log.error "gen_ref: Sulfur.Prelude.%s not found" name
 
-(** Running a tactic in [Sulfur.Helpers]. *)
-let helper_ltac (tac : string) (args : Names.GlobRef.t list) : unit Proofview.tactic =
+(** Running a tactic in [Sulfur.Prelude]. *)
+let pre_ltac (tac : string) (args : Names.GlobRef.t list) : unit Proofview.tactic =
   let open Ltac_plugin in
   let qualid g =
     Libnames.string_of_qualid
       (Nametab.shortest_qualid_of_global Names.Id.Set.empty g)
   in
   let s =
-    String.concat " " (("Sulfur.Helpers." ^ tac) :: List.map qualid args)
+    String.concat " " (("Sulfur.Prelude." ^ tac) :: List.map qualid args)
   in
   Tacinterp.eval_tactic
     (Tacintern.glob_tactic (Procq.parse_string Pltac.tactic s))

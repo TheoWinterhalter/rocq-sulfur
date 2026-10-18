@@ -101,18 +101,18 @@ let derive_enum (name : string) (ind : Names.Ind.t) nctors :
   let of_nat =
     def (name ^ "_of_nat") @@
     ret @@
-    apps (mkglob (helper_ref "enum_of_nat")) [| t ; list |]
+    apps (mkglob (pre_ref "enum_of_nat")) [| t ; list |]
   in
   let of_nat = mkconst of_nat in
   let inv =
     lemma (name ^ "_of_to_nat")
-      (ret @@ apps (mkglob (helper_ref "is_enum")) [| t ; to_nat ; of_nat |])
-      (helper_ltac "sulfur_is_enum" [])
+      (ret @@ apps (mkglob (pre_ref "is_enum")) [| t ; to_nat ; of_nat |])
+      (pre_ltac "sulfur_is_enum" [])
   in
   let inv = mkconst inv in
   let enum =
     def ~kind:Decls.Instance (name ^ "_Enum") @@ ret @@
-    apps (mkglob (helper_ref "mkenum")) [| t ; to_nat ; of_nat ; inv |]
+    apps (mkglob (pre_ref "mkenum")) [| t ; to_nat ; of_nat ; inv |]
   in
   Classes.existing_instance Hints.Export (Names.GlobRef.ConstRef enum) None ;
   enum

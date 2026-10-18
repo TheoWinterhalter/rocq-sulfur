@@ -1,6 +1,6 @@
 From Stdlib Require Import Utf8.
 From Sulfur Require Import Prelude Sig Renamings.
-From Sulfur Require Import ParamSyntax Helpers.
+From Sulfur Require Import ParamSyntax.
 Module P := ParamSyntax.
 
 Section WithSignature.
