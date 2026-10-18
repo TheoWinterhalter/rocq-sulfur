@@ -25,10 +25,10 @@ type ops_concrete =
 (** Rocq signature. *)
 type ops_sign =
   { base : Names.Ind.t
-  ; base_eqdec : Names.Constant.t
+  ; base_enum : Names.Constant.t
   ; eval_base : Names.Constant.t
   ; ctor : Names.Ind.t
-  ; ctor_eqdec : Names.Constant.t
+  ; ctor_enum : Names.Constant.t
   ; ctor_type : Names.Constant.t
   ; sign : Names.Constant.t
   }

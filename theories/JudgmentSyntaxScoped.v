@@ -1,5 +1,6 @@
+From Stdlib Require Import Utf8.
 From Sulfur Require Import Prelude Sig Renamings.
-From Sulfur Require Import ParamSyntax.
+From Sulfur Require Import ParamSyntax Helpers.
 Module P := ParamSyntax.
 
 Section WithSignature.
@@ -1027,11 +1028,36 @@ Module LPConv.
   Variant CLamPi := CType | CApp | CLam | CPi.
 
   Derive NoConfusion for EBase.
-  Derive EqDec for EBase.
+
+  #[refine]
+  Instance: Enum EBase := {|
+    of_nat := λ _, Some Nat ;
+    to_nat := λ _, 0
+  |}.
+  Proof.
+    intros []. reflexivity.
+  Qed.
+
   Derive NoConfusion for CLamPi.
+
+  #[refine]
+  Instance: Enum CLamPi := {|
+    of_nat := enum_of_nat [ CType ; CApp ; CLam ; CPi ] ;
+    to_nat x :=
+      match x with
+      | CType => 0
+      | CApp => 1
+      | CLam => 2
+      | CPi => 3
+      end
+  |}.
+  Proof.
+    sulfur_is_enum.
+  Qed.
+
   Derive EqDec for CLamPi.
 
-  #[refine] Definition sig_lp : signature := {|
+  Definition sig_lp : signature := {|
     base := EBase;
     eval_base := fun _ => nat;
     ctor := CLamPi;
@@ -1042,7 +1068,6 @@ Module LPConv.
     | CPi => [AT_term; AT_bind AT_term]
     end
   |}.
-  Defined.
 
   Notation "'mterm'" := (@mexpr sig_lp Kt) (at level 0).
 
@@ -1521,11 +1546,32 @@ Module SimplLambda.
   Variant CLamCalc := CApp | CLam.
 
   Derive NoConfusion for EBase.
-  Derive EqDec for EBase.
-  Derive NoConfusion for CLamCalc.
-  Derive EqDec for CLamCalc.
 
-  #[refine] Definition sig_lam : signature := {|
+  #[refine]
+  Instance: Enum EBase := {|
+    of_nat n := None ;
+    to_nat (x : EBase) := match x with end
+  |}.
+  Proof.
+    intros [].
+  Qed.
+
+  Derive NoConfusion for CLamCalc.
+
+  #[refine]
+  Instance: Enum CLamCalc := {|
+    of_nat := enum_of_nat [ CApp ; CLam ] ;
+    to_nat x :=
+      match x with
+      | CApp => 0
+      | CLam => 1
+      end
+  |}.
+  Proof.
+    sulfur_is_enum.
+  Qed.
+
+  Definition sig_lam : signature := {|
     base := EBase;
     eval_base := fun _ => False;
     ctor := CLamCalc;
@@ -1534,7 +1580,6 @@ Module SimplLambda.
     | CLam => [AT_bind AT_term]
     end
   |}.
-  Defined.
 
   #[local] Notation "'mterm'" := (@mexpr sig_lam Kt) (at level 0).
 
@@ -1682,11 +1727,34 @@ Module LPEta.
   Variant CLamPi := CType | CApp | CLam | CPi.
 
   Derive NoConfusion for EBase.
-  Derive EqDec for EBase.
-  Derive NoConfusion for CLamPi.
-  Derive EqDec for CLamPi.
 
-  #[refine] Definition sig_lp : signature := {|
+  #[refine]
+  Instance: Enum EBase := {|
+    of_nat := λ _, Some Nat ;
+    to_nat := λ _, 0
+  |}.
+  Proof.
+    intros []. reflexivity.
+  Qed.
+
+  Derive NoConfusion for CLamPi.
+
+  #[refine]
+  Instance: Enum CLamPi := {|
+    of_nat := enum_of_nat [ CType ; CApp ; CLam ; CPi ] ;
+    to_nat x :=
+      match x with
+      | CType => 0
+      | CApp => 1
+      | CLam => 2
+      | CPi => 3
+      end
+  |}.
+  Proof.
+    sulfur_is_enum.
+  Qed.
+
+  Definition sig_lp : signature := {|
     base := EBase;
     eval_base := fun _ => nat;
     ctor := CLamPi;
@@ -1697,7 +1765,6 @@ Module LPEta.
     | CPi => [AT_term; AT_bind AT_term]
     end
   |}.
-  Defined.
 
   Notation "'mterm'" := (@mexpr sig_lp Kt) (at level 0).
 

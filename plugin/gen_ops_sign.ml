@@ -71,12 +71,11 @@ end
 (** *** Put everything together. *)
 (**************************************************************************************)
 
-(** Derive [EqDec] for an inductive type that is morally an enum.
-  We exploit the particular form of [ctor] and [base] to have a fast proof.
+(** Derive [Enum] for an inductive type of the right shape (enumeration).
   [name] is used to give a name to the proof.
   [nctors] is the number of constructors.
 *)
-let enum_eqdec (name : string) (ind : Names.Ind.t) nctors :
+let derive_enum (name : string) (ind : Names.Ind.t) nctors :
     Names.Constant.t =
   let t = mkind ind in
   let ctors =
@@ -111,12 +110,12 @@ let enum_eqdec (name : string) (ind : Names.Ind.t) nctors :
       (helper_ltac "sulfur_is_enum" [])
   in
   let inv = mkconst inv in
-  let eqdec =
-    def ~kind:Decls.Instance (name ^ "_EqDec") @@ ret @@
-    apps (mkglob (helper_ref "enum_eqdec")) [| t ; to_nat ; of_nat ; inv |]
+  let enum =
+    def ~kind:Decls.Instance (name ^ "_Enum") @@ ret @@
+    apps (mkglob (helper_ref "mkenum")) [| t ; to_nat ; of_nat ; inv |]
   in
-  Classes.existing_instance Hints.Export (Names.GlobRef.ConstRef eqdec) None ;
-  eqdec
+  Classes.existing_instance Hints.Export (Names.GlobRef.ConstRef enum) None ;
+  enum
 
 (** Generate the level one signature. *)
 let generate (sign : signature) (ops_conc : ops_concrete) : ops_sign =
@@ -126,21 +125,21 @@ let generate (sign : signature) (ops_conc : ops_concrete) : ops_sign =
   end) in
   (* Build the signature. *)
   let base = monad_run @@ M.build_base () in
-  let base_eqdec = enum_eqdec "base" base (Array.length sign.base_types) in
+  let base_enum = derive_enum "base" base (Array.length sign.base_types) in
   let eval_base = def "eval_base" @@ M.build_eval_base base in
   let ctor = monad_run @@ M.build_ctor () in
-  let ctor_eqdec = enum_eqdec "ctor" ctor sign.n_ctors in
+  let ctor_enum = derive_enum "ctor" ctor sign.n_ctors in
   let ctor_type = def "ctor_type" @@ M.build_ctor_type ctor base in
   let sign =
     def "sign" @@ ret
     @@ apps (mkglob' C.build_signature)
          [| mkind base
-          ; mkconst base_eqdec
+          ; mkconst base_enum
           ; mkconst eval_base
           ; mkind ctor
-          ; mkconst ctor_eqdec
+          ; mkconst ctor_enum
           ; mkconst ctor_type
          |]
   in
   (* Assemble everything. *)
-  { base; base_eqdec; eval_base; ctor; ctor_eqdec; ctor_type; sign }
+  { base; base_enum; eval_base; ctor; ctor_enum; ctor_type; sign }

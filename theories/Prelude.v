@@ -63,7 +63,7 @@ Create Rewrite HintDb ssimpl_unfold.
 
 (** Decidable equality for enumerable types *)
 
-Class Enum (A : Type) := {
+Class Enum (A : Type) := mkenum {
   to_nat : A → nat ;
   of_nat : nat → option A ;
   is_enum : ∀ x, of_nat (to_nat x) = Some x

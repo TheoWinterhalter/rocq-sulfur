@@ -38,3 +38,5 @@ Ltac sulfur_is_enum :=
   hnf ;
   let x := fresh "x" in
   intro x ; destruct x ; reflexivity.
+
+Definition mkenum := mkenum.
