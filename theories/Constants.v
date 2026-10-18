@@ -101,3 +101,6 @@ Register ParamSyntax.inv_Kal_cons as sulfur.param.inv_Kal_cons.
 Register ParamSyntax.inv_Ka_term as sulfur.param.inv_Ka_term.
 Register ParamSyntax.inv_Ka_base as sulfur.param.inv_Ka_base.
 Register ParamSyntax.inv_Ka_bind as sulfur.param.inv_Ka_bind.
+
+Register ParamSyntax.sig_ind_t as sulfur.param.sig_ind_t.
+Register ParamSyntax.sig_ind as sulfur.param.sig_ind.

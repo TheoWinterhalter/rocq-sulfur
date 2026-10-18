@@ -90,4 +90,6 @@ module P = struct
   let inv_Ka_term = resolve "sulfur.param.inv_Ka_term"
   let inv_Ka_base = resolve "sulfur.param.inv_Ka_base"
   let inv_Ka_bind = resolve "sulfur.param.inv_Ka_bind"
+  let sig_ind_t = resolve "sulfur.param.sig_ind_t"
+  let sig_ind = resolve "sulfur.param.sig_ind"
 end

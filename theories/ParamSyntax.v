@@ -111,12 +111,6 @@ Section Ind.
       sig_ind_t_rec cs
     end.
 
-  #[local] Existing Instance ctor_Enum.
-
-  Definition sig_ind_t :=
-    (∀ i, P (E_var i)) →
-    sig_ind_t_rec enum.
-
   (** Now the generic proof *)
 
   (** [P] holds in every sub-expression: *)
@@ -169,15 +163,22 @@ Section Ind.
         rewrite not_in_cons. auto.
   Defined.
 
-  Lemma sig_ind : sig_ind_t.
-  Proof.
-    intros hv.
-    apply sig_ind_rec. 1: assumption.
-    intros c [].
-    eapply nth_error_In. apply enum_all.
-  Defined.
-
 End Ind.
+
+#[local] Existing Instance ctor_Enum.
+
+Definition sig_ind_t :=
+  ∀ (P : expr Kt → Prop),
+    (∀ i, P (E_var i)) →
+    sig_ind_t_rec P enum.
+
+Lemma sig_ind : sig_ind_t.
+Proof.
+  intros P hv.
+  apply sig_ind_rec. 1: assumption.
+  intros c [].
+  eapply nth_error_In. apply enum_all.
+Defined.
 
 (*********************************************************************************)
 (** *** Size of expressions. *)
@@ -465,4 +466,4 @@ Qed.
 
 End WithSignature.
 
-Arguments sig_ind_t sig /.
+Arguments sig_ind_t {sig} /.
