@@ -80,7 +80,7 @@ Proof.
     rewrite 2!enum_all in e. noconf e.
     reflexivity.
   - right. intros <-. apply ne. reflexivity.
-Qed.
+Defined.
 
 (** Prove goals of the form [enum_all_in] *)
 Ltac sulfur_is_enum :=
