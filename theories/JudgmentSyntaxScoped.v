@@ -1031,8 +1031,8 @@ Module LPConv.
 
   #[refine]
   Instance: Enum EBase := {|
-    of_nat := λ _, Some Nat ;
-    to_nat := λ _, 0
+    enum := [ Nat ] ;
+    index_of _ := 0
   |}.
   Proof.
     intros []. reflexivity.
@@ -1042,8 +1042,8 @@ Module LPConv.
 
   #[refine]
   Instance: Enum CLamPi := {|
-    of_nat := enum_of_nat [ CType ; CApp ; CLam ; CPi ] ;
-    to_nat x :=
+    enum := [ CType ; CApp ; CLam ; CPi ] ;
+    index_of x :=
       match x with
       | CType => 0
       | CApp => 1
@@ -1549,8 +1549,8 @@ Module SimplLambda.
 
   #[refine]
   Instance: Enum EBase := {|
-    of_nat n := None ;
-    to_nat (x : EBase) := match x with end
+    enum := [] ;
+    index_of _ := 0
   |}.
   Proof.
     intros [].
@@ -1560,8 +1560,8 @@ Module SimplLambda.
 
   #[refine]
   Instance: Enum CLamCalc := {|
-    of_nat := enum_of_nat [ CApp ; CLam ] ;
-    to_nat x :=
+    enum := [ CApp ; CLam ] ;
+    index_of x :=
       match x with
       | CApp => 0
       | CLam => 1
@@ -1730,8 +1730,8 @@ Module LPEta.
 
   #[refine]
   Instance: Enum EBase := {|
-    of_nat := λ _, Some Nat ;
-    to_nat := λ _, 0
+    enum := [ Nat ] ;
+    index_of _ := 0
   |}.
   Proof.
     intros []. reflexivity.
@@ -1741,8 +1741,8 @@ Module LPEta.
 
   #[refine]
   Instance: Enum CLamPi := {|
-    of_nat := enum_of_nat [ CType ; CApp ; CLam ; CPi ] ;
-    to_nat x :=
+    enum := [ CType ; CApp ; CLam ; CPi ] ;
+    index_of x :=
       match x with
       | CType => 0
       | CApp => 1

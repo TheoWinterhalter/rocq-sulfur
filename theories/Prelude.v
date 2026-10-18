@@ -63,42 +63,25 @@ Create Rewrite HintDb ssimpl_unfold.
 
 (** Decidable equality for enumerable types *)
 
-Section Enum.
-
-  Context (A : Type).
-  Context (to_nat : A → nat).
-  Context (of_nat : nat → option A).
-
-  Definition is_enum :=
-    ∀ x, of_nat (to_nat x) = Some x.
-
-End Enum.
+Definition enum_all_in A (l : list A) i :=
+  ∀ a, nth_error l (i a) = Some a.
 
 Class Enum (A : Type) := mkenum {
-  to_nat : A → nat ;
-  of_nat : nat → option A ;
-  of_to_nat : is_enum A to_nat of_nat
+  enum : list A ;
+  index_of : A → nat ;
+  enum_all : enum_all_in A enum index_of
 }.
 
 #[export] Instance enum_eqdec {A} `{Enum A} : EqDec A.
 Proof.
   intros x y.
-  destruct (nat_eqdec (to_nat x) (to_nat y)) as [e|ne].
-  - left. apply (f_equal of_nat) in e. rewrite 2!of_to_nat in e. noconf e.
+  destruct (nat_eqdec (index_of x) (index_of y)) as [e|ne].
+  - left. apply (f_equal (nth_error enum)) in e.
+    rewrite 2!enum_all in e. noconf e.
     reflexivity.
   - right. intros <-. apply ne. reflexivity.
 Qed.
 
-(** Helper to build the [of_nat] function from a list of constructors. *)
-
-Definition enum_of_nat {A} (l : list A) : nat → option A :=
-  nth_error l.
-
-(**
-  Proves goals of the form is_enum _ to_nat (enum_of_nat l)
-  where to_nat is sending constructor i to i and l is the list of constructors.
-*)
+(** Prove goals of the form [enum_all_in] *)
 Ltac sulfur_is_enum :=
-  hnf ;
-  let x := fresh "x" in
-  intro x ; destruct x ; reflexivity.
+  intros [] ; reflexivity.

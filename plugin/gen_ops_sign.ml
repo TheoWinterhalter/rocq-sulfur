@@ -86,33 +86,27 @@ let derive_enum (name : string) (ind : Names.Ind.t) nctors :
     if i = 0 then mkglob' C.zero
     else app (mkglob' C.succ) (nat_lit (i - 1))
   in
-  let to_nat =
-    def (name ^ "_to_nat") @@
+  let index_of =
+    def (name ^ "_index_of") @@
     lambda "x" t @@
     fun x -> case (EConstr.mkVar x) ~return:(fun _ _ -> ret nat) @@
     fun i _ -> ret (nat_lit i)
   in
-  let to_nat = mkconst to_nat in
-  let list =
+  let index_of = mkconst index_of in
+  let enum =
     List.fold_right (fun c l ->
       apps (mkglob' C.cons) [| t ; c ; l |]
     ) ctors (app (mkglob' C.nil) t)
   in
-  let of_nat =
-    def (name ^ "_of_nat") @@
-    ret @@
-    apps (mkglob (pre_ref "enum_of_nat")) [| t ; list |]
-  in
-  let of_nat = mkconst of_nat in
   let inv =
-    lemma (name ^ "_of_to_nat")
-      (ret @@ apps (mkglob (pre_ref "is_enum")) [| t ; to_nat ; of_nat |])
+    lemma (name ^ "_enum_all_in")
+      (ret @@ apps (mkglob (pre_ref "enum_all_in")) [| t ; enum ; index_of |])
       (pre_ltac "sulfur_is_enum" [])
   in
   let inv = mkconst inv in
   let enum =
     def ~kind:Decls.Instance (name ^ "_Enum") @@ ret @@
-    apps (mkglob (pre_ref "mkenum")) [| t ; to_nat ; of_nat ; inv |]
+    apps (mkglob (pre_ref "mkenum")) [| t ; enum ; index_of ; inv |]
   in
   Classes.existing_instance Hints.Export (Names.GlobRef.ConstRef enum) None ;
   enum
