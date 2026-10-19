@@ -8,11 +8,14 @@
 
 (package
  (name rocq-sulfur)
- (maintainers "Mathis Bouverot-Dupuis (mathis.bouverot@ens.psl.eu)")
- (authors "Mathis Bouverot-Dupuis")
- (homepage "https://github.com/MathisBD/autosubst-experiments")
- (bug_reports "https://github.com/MathisBD/autosubst-experiments/issues")
- (synopsis "A tool to deal with syntax and binders")
+ (maintainers "Théo Winterhalter (theo.winterhalter@inria.fr)")
+ (authors "Mathis Bouverot-Dupuis (mathis.bouverot@ens.psl.eu)")
+ (source (github TheoWinterhalter/rocq-sulfur))
+ (synopsis "A Rocq plugin to automate reasoning about languages with binders")
+ (description
+  "Sulfur generates, from a signature, the syntax of a language with binders\
+  \ntogether with renaming, substitution, and a tactic (ssimpl) that normalises\
+  \nterms and substitutions.")
  (depends
   (rocq-prover
    (>= 9.3.0))
