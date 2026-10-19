@@ -1,4 +1,42 @@
-# Building
+# Sulfur: Substitution Logical Framework Using Reflection
+
+Sulfur is a plugin for Rocq which lets you generate syntaxes with binders,
+generating renaming and substitution lemmas automatically.
+It also provides a `ssimpl` tactic for simplifying expressions featuring
+renamings and substitutions.
+
+`ssimpl` is a *proof-by-reflection* tactic, so it is quite fast.
+The whole spirit of Sulfur is to derive properties once and for all by devising
+a notion of signature for syntaxes and proving theorems about them generically.
+The plugin the generates syntaxes as inductive types that are more palatable to
+humans, and formally connect with the corresponding signature to leverage the
+generic theorems.
+
+## Usage
+
+One can generate a syntax from a Rocq file using the following commands.
+
+```rocq
+From Sulfur Require Export All.
+
+Sulfur Syntax
+{{
+  term : Type
+
+  Ty : {{nat}} -> term
+  Pi : term -> (bind term in term) -> term
+  lam : (bind term in term) -> term
+  app : term -> term -> term
+}}.
+```
+
+Here we generate a syntax for the λΠ-calculus.
+
+The `{{ _ }}` syntax inside the global `{{ _ }}` lets you include proper Rocq
+terms.
+`bind` is used to indicate the presence of a binder.
+
+## Build from sources
 
 Create a local opam switch with the required packages:
 ```
@@ -16,7 +54,7 @@ Build and install with:
 dune build && dune install
 ```
 
-# Signatures
+## Signatures
 
 Here is the grammar of signatures. Non-terminals are surrounded with square brackets,
 and [ident] stands for valid Rocq identifiers.
@@ -40,7 +78,7 @@ and [ident] stands for valid Rocq identifiers.
                                                new monomorphic (global) universes. *)
 ```
 
-# Simplification
+## Simplification
 
 Sulfur offers a substitution simplification tactic, called `ssimpl` (for
 Sulfur simplifier). It works on any expression featuring terms with renamings
