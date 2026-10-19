@@ -8,11 +8,18 @@ together with renaming, substitution, and a tactic (ssimpl) that normalises
 terms and substitutions."""
 maintainer: ["Théo Winterhalter (theo.winterhalter@inria.fr)"]
 authors: ["Mathis Bouverot-Dupuis (mathis.bouverot@ens.psl.eu)"]
+tags: [
+  "keyword:binders"
+  "keyword:substitution"
+  "category:Miscellaneous/Rocq Extensions"
+  "logpath:Sulfur"
+  "date:2026-10-19"
+]
 homepage: "https://github.com/TheoWinterhalter/rocq-sulfur"
 bug-reports: "https://github.com/TheoWinterhalter/rocq-sulfur/issues"
 depends: [
   "dune" {>= "3.21"}
-  "rocq-prover" {>= "9.3.0"}
+  "rocq-prover" {>= "9.3.0" & < "9.4~"}
   "rocq-equations"
   "odoc" {with-doc}
 ]
