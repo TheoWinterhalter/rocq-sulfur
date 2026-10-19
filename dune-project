@@ -3,6 +3,7 @@
 (using rocq 0.11)
 
 (name rocq-sulfur)
+(version 0.1.0)
 
 (generate_opam_files true)
 
