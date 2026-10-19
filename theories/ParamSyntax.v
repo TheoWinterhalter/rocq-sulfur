@@ -1,4 +1,7 @@
+From Stdlib Require Import Utf8 List.
 From Sulfur Require Import Prelude Sig Renamings.
+
+Import ListNotations.
 
 (** This file defines a term grammar parameterized over a signature,
     with _admissible_ renamings and substitutions i.e. renamings
@@ -77,20 +80,105 @@ End ExprInd.
 
 Register Scheme expr_ind as ind_dep for expr.
 
-(*********************************************************************************)
-(** *** Size of expressions. *)
-(*********************************************************************************)
+(** Alternative induction principle, computing on the signature *)
 
-(** Size of an expression. This is used in the plugin to prove a custom
-    induction principle for concrete syntax. *)
-Equations esize {k} (t : expr k) : nat by struct t :=
-esize (E_var _) := 0 ;
-esize (E_ctor c al) := S (esize al) ;
-esize E_al_nil := 0 ;
-esize (E_al_cons a al) := S (esize a + esize al) ;
-esize (E_abase _ _) := 0 ;
-esize (E_aterm t) := S (esize t) ;
-esize (E_abind a) := S (esize a).
+Section Ind.
+
+  Context (P : expr Kt → Prop).
+
+  (** First the statement *)
+
+  Fixpoint sig_ind_arg (a : arg_ty) : (arg a → Prop) → Prop :=
+    match a return (arg a → Prop) → Prop with
+    | AT_base b => λ K, ∀ x, K (E_abase b x)
+    | AT_term => λ K, ∀ t, P t → K (E_aterm t)
+    | AT_bind a => λ K, sig_ind_arg a (λ x, K (E_abind x))
+    end.
+
+  Fixpoint sig_ind_clause (l : list arg_ty) :
+    (expr (Kal l) → expr Kt) → Prop :=
+    match l with
+    | [] => λ f, P (f E_al_nil)
+    | a :: l =>
+      λ f, sig_ind_arg a (λ x, sig_ind_clause l (λ xs, f (E_al_cons x xs)))
+    end.
+
+  Fixpoint sig_ind_t_rec (cs : list ctor) :=
+    match cs with
+    | [] => ∀ t, P t
+    | c :: cs =>
+      sig_ind_clause (ctor_type c) (E_ctor c) →
+      sig_ind_t_rec cs
+    end.
+
+  (** Now the generic proof *)
+
+  (** [P] holds in every sub-expression: *)
+  Fixpoint sub {k} (e : expr k) : Prop :=
+    match e with
+    | E_al_cons a al => sub a ∧ sub al
+    | E_aterm t => P t
+    | E_abind a => sub a
+    | _ => True
+    end.
+
+  Lemma sig_ind_step k (e : expr k) :
+    match k return expr k → Prop with
+    | Kt => λ _, True
+    | Ka a => λ e, ∀ K, sig_ind_arg a K → sub e → K e
+    | Kal l => λ e, ∀ f, sig_ind_clause l f → sub e → P (f e)
+    end e.
+  Proof.
+    induction e. all: cbn. all: try solve [ auto ].
+    - intros f ih [ha hal].
+      eapply IHe2 with (f := λ x, _). 2: assumption.
+      apply IHe1. all: auto.
+    - intros K ih h. apply IHe. all: auto.
+  Defined.
+
+  Lemma sub_term_ind :
+    (∀ i, P (E_var i)) →
+    (∀ c al, sub al → P (E_ctor c al)) →
+    ∀ t, P t.
+  Proof.
+    intros hv hc t.
+    pose (Q k := match k return expr k → Prop with Kt => P | _ => sub end).
+    change (Q Kt t).
+    apply (expr_ind Q). all: cbn. all: auto.
+  Defined.
+
+  Lemma sig_ind_rec cs :
+    (∀ i, P (E_var i)) →
+    (∀ c, ¬ In c cs → ∀ al, sub al → P (E_ctor c al)) →
+    sig_ind_t_rec cs.
+  Proof.
+    intros hv hc.
+    induction cs as [|c cs ih] in hc |- *.
+    - cbn. apply sub_term_ind. all: auto.
+    - cbn. intros h. apply ih.
+      intros c' hc' al hal.
+      destruct (eq_dec c' c) as [-> | ne].
+      + apply (sig_ind_step (Kal _)). all: auto.
+      + apply hc. 2: assumption.
+        rewrite not_in_cons. auto.
+  Defined.
+
+End Ind.
+
+#[local] Existing Instance ctor_Enum.
+
+Definition sig_ind_t :=
+  ∀ (P : expr Kt → Prop),
+    (∀ i, P (E_var i)) →
+    sig_ind_t_rec P enum.
+
+Lemma sig_ind : sig_ind_t.
+Proof.
+  intros P hv.
+  apply sig_ind_rec. 1: assumption.
+  intros c [].
+  eapply nth_error_In. apply enum_all.
+Defined.
 
 (*********************************************************************************)
 (** *** Inversion lemmas. *)
@@ -101,9 +189,6 @@ esize (E_abind a) := S (esize a).
     generating the custom induction principle on concrete syntax. *)
 
 Section InvLemmas.
-  Lemma inv_Kt (P : term -> Prop) (t : term) :
-    (forall i, P (E_var i)) -> (forall c al, P (E_ctor c al)) -> P t.
-  Proof. depelim t ; eauto. Qed.
 
   Lemma inv_Kal_nil (P : args [] -> Prop) (al : args []) : P E_al_nil -> P al.
   Proof. depelim al ; eauto. Qed.
@@ -261,6 +346,9 @@ Proof. reflexivity. Qed.
 Lemma sshift_scons (t : term) (s : subst) : scomp sshift (scons t s) =₁ s.
 Proof. reflexivity. Qed.
 
+Lemma scomp_rscomp (s s' : subst) (r : ren) : scomp (rscomp r s) s' =₁ rscomp r (scomp s s').
+Proof. reflexivity. Qed.
+
 Lemma rcomp_rid_l (r : ren) : rcomp rid r =₁ r.
 Proof. reflexivity. Qed.
 
@@ -359,3 +447,39 @@ intros i. cbv [scomp srcomp]. now rewrite rshift_sshift.
 Qed.
 
 End WithSignature.
+
+Arguments sig_ind_t {sig} /.
+
+(** Tactics for proving further properties about syntax *)
+
+(** Prove [eval (rename r t) = rename r (eval t)]
+  By induction on [t] using the custom induction principle [ind].
+*)
+Ltac sulfur_gen_eval_rename ind :=
+  let r := fresh "r" in
+  let t := fresh "t" in
+  intros r t ; revert r ;
+  induction t using ind ;
+  intros ; [ reflexivity | .. ] ;
+  cbn ; f_equal ; auto.
+
+(** Prove [eval (substitute s t) = substitute (seval s) (eval t)]
+  By induction on [t] using [ind].
+  Uses congruence lemmas [congr_subst], [congr_up], and [seval_up].
+*)
+Ltac sulfur_gen_eval_substitute ind congr_subst congr_up seval_up :=
+  let s := fresh "s" in
+  let t := fresh "t" in
+  intros s t ; revert s ;
+  induction t using ind ;
+  intros ; [ reflexivity | .. ] ;
+  cbn ; f_equal ; try reflexivity ;
+  match goal with
+  | IH : ∀ _, _ = _ |- _ =>
+    etransitivity ; [ apply IH | ] ;
+    first [
+      reflexivity
+    | apply congr_subst ; [ | reflexivity ] ;
+      repeat (rewrite seval_up ; apply congr_up) ; reflexivity
+    ]
+  end.

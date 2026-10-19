@@ -60,4 +60,10 @@ module List = struct
         let* zs = monad_map2 f xs ys in
         ret (z :: zs)
     | _ -> raise (Invalid_argument "monad_map2")
+
+  let rec monad_fold_left (f : 'a -> 'b -> 'a m) (init : 'a) (l : 'b list) : 'a m = match l with
+  | [] -> ret init
+  | x::l ->
+    let* new_init = f init x in
+    monad_fold_left f new_init l
 end

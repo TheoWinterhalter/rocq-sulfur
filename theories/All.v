@@ -1,1 +1,1 @@
-From Sulfur Require Export Renamings RASimpl.
+From Sulfur Require Export Renamings SSimpl.

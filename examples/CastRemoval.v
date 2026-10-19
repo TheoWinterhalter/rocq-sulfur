@@ -1,7 +1,7 @@
 From Stdlib Require Import Utf8 List.
 From Equations Require Import Equations.
 
-From GhostTT Require Import GAST BasicAST ContextDecl.
+From SulfurExamples Require Import GAST BasicAST ContextDecl.
 
 Set Default Goal Selector "!".
 Set Equations Transparent.

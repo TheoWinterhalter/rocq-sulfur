@@ -27,8 +27,8 @@ Record signature :=
 { (** The set of base types,
       e.g. [Inductive base := BUnit | BBool | BNat]. *)
   base : Type
-; (** Decidable equality on [base]. *)
-  base_EqDec : EqDec base
+; (** [base] is enumarable. *)
+  base_Enum : Enum base
 ; (** The actual type that each base type represents,
       e.g. a mapping BNat => nat ; BBool => bool ; BUnit => unit. *)
   eval_base : base -> Type
@@ -36,16 +36,28 @@ Record signature :=
 ; (** The set of _non variable_ constructors,
       e.g. [Inductive ctor := CApp | CLam]. *)
   ctor : Type
-; (** Decidable equality on [ctor]. *)
-  ctor_EqDec : EqDec ctor
+; (** Enumartion for [ctor]. *)
+  ctor_Enum : Enum ctor
 ; (** The number and types of the arguments of each constructor. *)
   ctor_type : ctor -> list (@arg_ty base) }.
 
 Arguments base {s}.
-Arguments base_EqDec {s}.
+Arguments base_Enum {s}.
 Arguments eval_base {s}.
 Arguments ctor {s}.
-Arguments ctor_EqDec {s}.
+Arguments ctor_Enum {s}.
 Arguments ctor_type {s}.
 
 Existing Class signature.
+
+Instance base_EqDec {s} : EqDec (base (s := s)).
+Proof.
+  unshelve eapply enum_eqdec.
+  apply base_Enum.
+Qed.
+
+Instance ctor_EqDec {s} : EqDec (ctor (s := s)).
+Proof.
+  unshelve eapply enum_eqdec.
+  apply ctor_Enum.
+Qed.

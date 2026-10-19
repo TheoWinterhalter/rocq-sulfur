@@ -213,3 +213,21 @@ val declare_ind :
   -> Names.Id.t list
   -> (Names.Id.t -> EConstr.t m) list
   -> Names.Ind.t m
+
+(** [declare_mut_ind names arities ctor_names_list ctor_types_list] adds a mutual inductive to the global
+    environment. It handle mutual-inductives with no parameters, no indices, and no universe polymorphism.
+    It also generates the associated elimination & induction principle.
+    - [names] is the list of names of the inductives.
+    - [arities] is the list of arities of the inductives.
+    - [ctor_names_list] contains the names of the constructor of each inductive.
+    - [ctor_types] contains the types of the constructors, which can depend on a list of inductives
+      (and have access to an extended environment). In practice, they only need to depend on lists with size
+      equal to the number of inductives defined.
+
+      It returns the name of the newly created inductive *)
+val declare_mut_ind :
+    Names.Id.t list ->
+    EConstr.t list ->
+    Names.Id.t list list ->
+    (Names.Id.t list -> EConstr.t m) list list ->
+    Names.MutInd.t m

@@ -92,3 +92,6 @@ _whizzy*
 *.html
 *.haux
 */_minted
+
+# VSCode
+.vscode*

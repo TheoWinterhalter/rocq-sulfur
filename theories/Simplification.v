@@ -428,8 +428,7 @@ all: try solve [ apply qr_reducible_impl_red in H ; destruct H as (i' & H1 & H2)
   eexists ; split ; [now rewrite H1 | intros H3 ; now depelim H3] ].
 - destruct H0 as (i' & H1 & H2). eexists. split ; [now rewrite H1 | intros H3].
   inversion H3. unshelve eapply inj_right_pair in H4.
-  + apply Sig.ctor_EqDec.
-  + triv.
+  triv.
 - now exists (E_ren r (E_var i)).
 - now eexists.
 - now eexists.

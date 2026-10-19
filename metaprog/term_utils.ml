@@ -358,7 +358,7 @@ let declare_theorem (kind : Decls.theorem_kind) (name : Names.Id.t) (stmt : ECon
   | Names.GlobRef.ConstRef cname -> ret cname
   | _ -> failwith "declare_theorem: expected a [ConstRef]."
 
-let declare_ind (name : Names.Id.t) (arity : EConstr.t) (ctor_names : Names.Id.t list)
+(* let declare_ind (name : Names.Id.t) (arity : EConstr.t) (ctor_names : Names.Id.t list)
     (ctor_types : (Names.Id.t -> EConstr.t m) list) : Names.Ind.t m =
   let open Entries in
   (* Typecheck to solve evars and typeclasses. *)
@@ -403,4 +403,59 @@ let declare_ind (name : Names.Id.t) (arity : EConstr.t) (ctor_names : Names.Id.t
       (Monomorphic_entry ctx_set, UnivNames.empty_binders)
       []
   in
-  ret (mind_name, 0)
+  ret (mind_name, 0) *)
+
+let declare_mut_ind (names : Names.Id.t list) (arities : EConstr.t list) (ctor_names : Names.Id.t list list)
+  (ctor_types : (Names.Id.t list -> EConstr.t m) list list) =
+  let open Entries in
+  (* Typecheck arities *)
+  let* _ = List.monad_map (fun a -> typecheck ~solve_tc:true a None) arities in
+  (* Build the constructor types *)
+  let build_ctor_type (mk_ty : Names.Id.t list -> EConstr.t m) : EConstr.t m =
+    (* Add the declarations *)
+    let ctx = List.map2 (fun name arity -> vass (Names.Id.to_string name) arity) names arities in
+    with_local_ctx ctx @@ fun inds ->
+    let* ty = mk_ty (List.rev inds) in
+    let* _ = typecheck ~solve_tc:true ty None in
+    let* sigma = get_sigma in
+    ret @@ EConstr.Vars.subst_vars sigma inds ty
+  in
+  let* ctor_types = List.monad_map (List.monad_map build_ctor_type) ctor_types in
+  let* sigma = get_sigma in
+  let sigma = Evd.minimize_universes sigma in
+  let inds = List.map (fun (name, (arity, (ctor_names, ctor_types))) ->
+    { mind_entry_typename = name
+    ; mind_entry_arity = EConstr.to_constr sigma arity
+    ; mind_entry_consnames = ctor_names
+    ; mind_entry_lc = List.map (EConstr.to_constr sigma) ctor_types
+    }
+  ) (List.combine names (List.combine arities (List.combine ctor_names ctor_types))) in
+  let mind =
+  { mind_entry_record = None
+  ; mind_entry_finite = Declarations.Finite
+  ; mind_entry_params = Context.Rel.empty
+  ; mind_entry_inds = inds
+  ; mind_entry_universes = Monomorphic_ind_entry
+  ; mind_entry_variance = None
+  ; mind_entry_private = None
+  }
+  in
+  (* Don't forget to push the universe context set because [DeclareInd] does not do
+     it for me. *)
+  let ctx_set = Evd.universe_context_set sigma in
+  Global.push_context_set ctx_set;
+  let mind_name =
+    DeclareInd.declare_mutual_inductive_with_eliminations mind
+      (Monomorphic_entry ctx_set, UnivNames.empty_binders)
+      []
+  in
+  ret mind_name
+
+let declare_ind (name : Names.Id.t) (arity : EConstr.t) (ctor_names : Names.Id.t list)
+    (ctor_types : (Names.Id.t -> EConstr.t m) list) : Names.Ind.t m =
+  let make_dep_on_one (make_ty : Names.Id.t -> EConstr.t m) : Names.Id.t list -> EConstr.t m = function
+    | [ind] -> make_ty ind
+    | _ -> raise (Invalid_argument "Simple inductive constructors have to depend on exactly one inductive name")
+  in
+  let mname = monad_run @@ declare_mut_ind [name] [arity] [ctor_names] [List.map make_dep_on_one ctor_types] in
+  ret (mname, 0)

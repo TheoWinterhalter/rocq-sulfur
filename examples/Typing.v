@@ -1,7 +1,7 @@
 From Stdlib Require Import Utf8 List.
-From GhostTT Require Import Util GAST BasicAST SubstNotations ContextDecl CastRemoval
+From SulfurExamples Require Import Util GAST BasicAST SubstNotations ContextDecl CastRemoval
   TermMode Scoping.
-From GhostTT Require Export Univ TermNotations.
+From SulfurExamples Require Export Univ TermNotations.
 
 Import ListNotations.
 

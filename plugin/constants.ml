@@ -19,6 +19,7 @@ let succ = resolve "sulfur.nat.succ"
 let list = resolve "sulfur.list.type"
 let nil = resolve "sulfur.list.nil"
 let cons = resolve "sulfur.list.cons"
+let app = resolve "sulfur.list.app"
 let string = resolve "sulfur.string.type"
 let eq = resolve "sulfur.eq.type"
 let eq_refl = resolve "sulfur.eq.refl"
@@ -28,7 +29,11 @@ let eq1 = resolve "sulfur.eq1.type"
 let eq1_refl = resolve "sulfur.eq1.refl"
 let eq1_sym = resolve "sulfur.eq1.sym"
 let eq1_trans = resolve "sulfur.eq1.trans"
-let measure_induction = resolve "sulfur.measure_induction"
+
+(** Prelude  *)
+
+let mkenum = resolve "sulfur.enum.make"
+let enum_all_in = resolve "sulfur.enum.all_in"
 
 (**************************************************************************************)
 (** *** Renamings. *)
@@ -73,7 +78,6 @@ module P = struct
   let e_aterm = resolve "sulfur.param.expr.aterm"
   let e_abind = resolve "sulfur.param.expr.abind"
   let subst = resolve "sulfur.param.subst"
-  let esize = resolve "sulfur.param.esize"
   let rename = resolve "sulfur.param.rename"
   let substitute = resolve "sulfur.param.substitute"
   let sid = resolve "sulfur.param.sid"
@@ -83,10 +87,11 @@ module P = struct
   let scomp = resolve "sulfur.param.scomp"
   let rscomp = resolve "sulfur.param.rscomp"
   let srcomp = resolve "sulfur.param.srcomp"
-  let inv_Kt = resolve "sulfur.param.inv_Kt"
   let inv_Kal_nil = resolve "sulfur.param.inv_Kal_nil"
   let inv_Kal_cons = resolve "sulfur.param.inv_Kal_cons"
   let inv_Ka_term = resolve "sulfur.param.inv_Ka_term"
   let inv_Ka_base = resolve "sulfur.param.inv_Ka_base"
   let inv_Ka_bind = resolve "sulfur.param.inv_Ka_bind"
+  let sig_ind_t = resolve "sulfur.param.sig_ind_t"
+  let sig_ind = resolve "sulfur.param.sig_ind"
 end

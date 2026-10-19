@@ -6,7 +6,7 @@ Import ListNotations.
 Set Default Goal Selector "!".
 
 Notation "'∑' x .. y , p" := (sigT (λ x, .. (sigT (λ y, p%type)) ..))
-  (at level 200, x binder, right associativity,
+  (at level 11, x binder, p at level 200, right associativity,
    format "'[' '∑'  '/  ' x  ..  y ,  '/  ' p ']'")
   : type_scope.
 

@@ -57,4 +57,7 @@ module List : sig
   (** Same as [monad_map] but the function takes two arguments. Throws an exception if the
       lengths of the lists differ. *)
   val monad_map2 : ('a -> 'b -> 'c m) -> 'a list -> 'b list -> 'c list m
+
+  (** Same as [List.fold_left] but with effects at each call of the function *)
+  val monad_fold_left : ('a -> 'b -> 'a m) -> 'a -> 'b list -> 'a m
 end

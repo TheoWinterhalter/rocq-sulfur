@@ -1,11 +1,11 @@
 From Sulfur Require Export All.
-From GhostTT Require Import BasicAST.
+From SulfurExamples Require Import BasicAST.
 
 (*********************************************************************************)
 (** *** Generate all operations and lemmas. *)
 (*********************************************************************************)
 
-Time Sulfur Generate
+Time Sulfur Syntax
 {{
   term : Type
 
@@ -46,32 +46,32 @@ Time Sulfur Generate
 }}.
 
 (* FIXME (should be automatic) *)
-Ltac2 Set aunfold_list as old := fun () => List.append (constants up_ren, up_subst) (old ()).
+Ltac2 Set sunfold_list as old := fun () => List.append (constants up_ren, up_subst) (old ()).
 From Ltac2 Require Import Rewrite.
-Ltac2 Set rasimpl_matches := fun () => Strategy.choice (Strategy.matches pat:(rename _ _)) (Strategy.matches pat:(substitute _ _)).
+Ltac2 Set ssimpl_matches := fun () => Strategy.choice (Strategy.matches pat:(rename _ _)) (Strategy.matches pat:(substitute _ _)).
 
 (** Example. *)
 Axiom r : ren.
 Axiom t : term.
 Axiom s : subst.
 Lemma test1 (Htest : substitute (up_subst Var) t = t) : substitute sid t = t.
-Proof. rasimpl. rasimpl in Htest.
+Proof. ssimpl. ssimpl in Htest.
 Admitted.
 
 Lemma test2 : substitute (scomp sshift s) t = t.
-Proof. rasimpl. Admitted.
+Proof. ssimpl. Admitted.
 
 Lemma test3 : substitute (scomp s (scons (Var 0) sid)) t = t.
-Proof. rasimpl. Admitted.
+Proof. ssimpl. Admitted.
 
 Lemma test4 : substitute (scons t (scomp sshift sshift)) t = t.
-Proof. rasimpl. Admitted.
+Proof. ssimpl. Admitted.
 
 Goal forall A, exists B, substitute sid B = A.
 Proof.
-  intros. eexists. now rasimpl.
+  intros. eexists. now ssimpl.
 Qed.
 
 (*Goal forall A, exists B, substitute (scons (Var 0) sid) B = A.
 Proof.
-  intros. eexists. (*Not returning *) rasimpl.*)
+  intros. eexists. (*Not returning *) ssimpl.*)

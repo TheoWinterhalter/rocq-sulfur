@@ -71,22 +71,45 @@ end
 (** *** Put everything together. *)
 (**************************************************************************************)
 
-(** Derive [EqDec] for an inductive using the Equations plugin, assuming no obligations
-    remain. Only works for non-mutual inductives. *)
-let derive_eqdec (ind : Names.Ind.t) : Names.Constant.t =
-  (* Derive [NoConfusion] (required by [EqDec]) and [EqDec]. *)
-  let pm =
-    Equations_plugin.Ederive.derive ~pm:Declare.OblState.empty ~poly:PolyFlags.default [ "NoConfusion"; "EqDec" ]
-      [ Loc.tag @@ Names.GlobRef.IndRef ind ]
+(** Derive [Enum] for an inductive type of the right shape (enumeration).
+  [name] is used to give a name to the proof.
+  [nctors] is the number of constructors.
+*)
+let derive_enum (name : string) (ind : Names.Ind.t) nctors :
+    Names.Constant.t =
+  let t = mkind ind in
+  let ctors =
+    List.init nctors (fun i -> mkctor (ind, i + 1))
   in
-  (* Check no obligations remain. *)
-  Declare.Obls.check_solved_obligations ~pm ~what_for:(Pp.str "autosubst derive_eqdec");
-  (* Get the name of the generated [EqDec] instance. *)
-  let modpath = Names.Ind.modpath ind in
-  let label =
-    Names.Id.of_string (Names.Id.to_string (Names.MutInd.label (fst ind)) ^ "_EqDec")
+  let nat = mkglob' C.nat in
+  let rec nat_lit i =
+    if i = 0 then mkglob' C.zero
+    else app (mkglob' C.succ) (nat_lit (i - 1))
   in
-  Names.Constant.make1 @@ Names.KerName.make modpath label
+  let index_of =
+    def (name ^ "_index_of") @@
+    lambda "x" t @@
+    fun x -> case (EConstr.mkVar x) ~return:(fun _ _ -> ret nat) @@
+    fun i _ -> ret (nat_lit i)
+  in
+  let index_of = mkconst index_of in
+  let enum =
+    List.fold_right (fun c l ->
+      apps (mkglob' C.cons) [| t ; c ; l |]
+    ) ctors (app (mkglob' C.nil) t)
+  in
+  let inv =
+    lemma (name ^ "_enum_all_in")
+      (ret @@ apps (mkglob' Constants.enum_all_in) [| t ; enum ; index_of |])
+      (run_ltac "Prelude" "sulfur_is_enum" [])
+  in
+  let inv = mkconst inv in
+  let enum =
+    def ~kind:Decls.Instance (name ^ "_Enum") @@ ret @@
+    apps (mkglob' Constants.mkenum) [| t ; enum ; index_of ; inv |]
+  in
+  Classes.existing_instance Hints.Export (Names.GlobRef.ConstRef enum) None ;
+  enum
 
 (** Generate the level one signature. *)
 let generate (sign : signature) (ops_conc : ops_concrete) : ops_sign =
@@ -96,21 +119,21 @@ let generate (sign : signature) (ops_conc : ops_concrete) : ops_sign =
   end) in
   (* Build the signature. *)
   let base = monad_run @@ M.build_base () in
-  let base_eqdec = derive_eqdec base in
+  let base_enum = derive_enum "base" base (Array.length sign.base_types) in
   let eval_base = def "eval_base" @@ M.build_eval_base base in
   let ctor = monad_run @@ M.build_ctor () in
-  let ctor_eqdec = derive_eqdec ctor in
+  let ctor_enum = derive_enum "ctor" ctor sign.n_ctors in
   let ctor_type = def "ctor_type" @@ M.build_ctor_type ctor base in
   let sign =
     def "sign" @@ ret
     @@ apps (mkglob' C.build_signature)
          [| mkind base
-          ; mkconst base_eqdec
+          ; mkconst base_enum
           ; mkconst eval_base
           ; mkind ctor
-          ; mkconst ctor_eqdec
+          ; mkconst ctor_enum
           ; mkconst ctor_type
          |]
   in
   (* Assemble everything. *)
-  { base; base_eqdec; eval_base; ctor; ctor_eqdec; ctor_type; sign }
+  { base; base_enum; eval_base; ctor; ctor_enum; ctor_type; sign }

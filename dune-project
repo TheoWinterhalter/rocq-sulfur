@@ -15,5 +15,5 @@
  (synopsis "A tool to deal with syntax and binders")
  (depends
   (rocq-prover
-   (= 9.0.0))
+   (>= 9.3.0))
   rocq-equations))

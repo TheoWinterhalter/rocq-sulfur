@@ -4,6 +4,8 @@ DECLARE PLUGIN "rocq-sulfur.plugin"
   open Signature
   open Procq.Prim
   open Procq.Constr
+
+  open Rel_signature
 }
 
 (** A single argument type, e.g. "(bind ty in term)".
@@ -52,6 +54,65 @@ VERNAC ARGUMENT EXTEND signature
   }
 END
 
-VERNAC COMMAND EXTEND SulfurGenerate CLASSIFIED AS SIDEFF
-| [ "Sulfur" "Generate" signature(s) ] -> { Main.generate s }
+VERNAC COMMAND EXTEND SulfurSyntax CLASSIFIED AS SIDEFF
+| [ "Sulfur" "Syntax" signature(s) ] -> { Main.generate s }
+END
+
+
+(* Relation generation *)
+
+VERNAC ARGUMENT EXTEND conclusion
+| [ identref(ind) constr_list(args) ] ->
+  { (ind, args) }
+END
+
+VERNAC ARGUMENT EXTEND prem
+| [ "Pred" constr(e) ] ->
+  { CAst.make ~loc (PPremPred {ppred = e}) }
+| [ "Ind" "(" identref(ind) constr_list(args) ")" ] ->
+  { CAst.make ~loc (PPremInd { pind = ind ; pargs = args ; pextension = None }) }
+| [ "Ind" "(" "extend" ne_constr_list(e) "in" identref(ind) constr_list(args) ")" ] ->
+  { CAst.make ~loc (PPremInd { pind = ind ; pargs = args ; pextension = Some e }) }
+END
+
+VERNAC ARGUMENT EXTEND var
+| [ "(" ne_identref_list(xs) ":" constr(e) ")" ] ->
+  { List.map (fun x -> (x, e)) xs }
+END
+
+VERNAC ARGUMENT EXTEND rule
+| [ "Variables" ":" var_list(v) "Premises" ":" prem_list(p) "Conclusion" ":" conclusion(c) ";" ] ->
+  { (List.flatten v, p, c) }
+END
+
+VERNAC ARGUMENT EXTEND rule_decl
+| [ "Rule" identref(name) ":" rule(r) ] -> {
+    let vars, prems, concl = r in
+    CAst.make ~loc { prule_name = name ; pvars = vars ; pconclusion = concl ; ppremises = prems }
+  }
+END
+
+VERNAC ARGUMENT EXTEND jdecl
+| [ "Prop" ] -> { [] }
+| [ constr(t) "->" jdecl(args) ] -> {t::args}
+END
+
+VERNAC ARGUMENT EXTEND arity_decl
+| [ "Relation" identref(name) ":" jdecl(args) "," "Declaring" constr(d) "in" identref(gamma) ";" ] ->
+  {
+    CAst.make ~loc ({ prel_name = name ; pdecl = d ; parity = args ; pctx_name = gamma })
+  }
+END
+
+VERNAC ARGUMENT EXTEND rsignature
+| [ "[[" arity_decl_list(arities) rule_decl_list(rules) "]]" ] ->
+  {
+    CAst.make ~loc { parity_decls = arities ; prule_decls = rules }
+  }
+END
+
+VERNAC COMMAND EXTEND RelGenerate CLASSIFIED AS SIDEFF
+| [ "Ren" "Generate" rsignature(s) ] -> {
+    main s
+  }
 END

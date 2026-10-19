@@ -59,16 +59,16 @@ let generate_operations (sign : signature) (term : Names.Ind.t) : ops_all =
   ; ops_pe = pe
   }
 
-(** Register hints in database [asimpl_unfold] used by tactic [aunfold]. See [RASimpl.v]
+(** Register hints in database [ssimpl_unfold] used by tactic [sunfold]. See [SSimpl.v]
     for more details. *)
-let register_aunfold_hints (sign : signature) (ops : ops_all) : unit =
+let register_sunfold_hints (sign : signature) (ops : ops_all) : unit =
   let force_const (gref : Names.GlobRef.t Lazy.t) : Names.Constant.t =
     match Lazy.force gref with
     | Names.GlobRef.ConstRef cname -> cname
-    | _ -> Log.error "register_aunfold_hints: expected a reference to a constant"
+    | _ -> Log.error "register_sunfold_hints: expected a reference to a constant"
   in
   let consts = [ force_const C.up_ren; ops.ops_conc.up_subst ] in
-  Hints.add_hints ~locality:Hints.Export [ "asimpl_unfold" ]
+  Hints.add_hints ~locality:Hints.Export [ "ssimpl_unfold" ]
     (HintsUnfoldEntry (List.map (fun c -> Evaluable.EvalConstRef c) consts))
 
 (** Main entry point for the plugin: generate the term inductive as well as level zero
@@ -80,8 +80,8 @@ let generate (psign : psignature) : unit =
   let term = monad_run @@ build_term sign in
   (* Generate the operations. *)
   let ops = generate_operations sign term in
-  (* Register [aunfold] hints. *)
-  register_aunfold_hints sign ops;
+  (* Register [sunfold] hints. *)
+  register_sunfold_hints sign ops;
   (* Save the operations. *)
   Lib.add_leaf @@ update_saved_ops (Some (sign, ops))
 

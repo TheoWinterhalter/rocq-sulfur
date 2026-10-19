@@ -25,10 +25,10 @@ type ops_concrete =
 (** Rocq signature. *)
 type ops_sign =
   { base : Names.Ind.t
-  ; base_eqdec : Names.Constant.t
+  ; base_enum : Names.Constant.t
   ; eval_base : Names.Constant.t
   ; ctor : Names.Ind.t
-  ; ctor_eqdec : Names.Constant.t
+  ; ctor_enum : Names.Constant.t
   ; ctor_type : Names.Constant.t
   ; sign : Names.Constant.t
   }
@@ -184,6 +184,20 @@ let lemma (name : string) ?(refresh = false) (mk_stmt : EConstr.t m)
       let* stmt = mk_stmt in
       declare_theorem Decls.Lemma name stmt tac
     end
+
+(** Running a tactic from [Sulfur.{name}]. *)
+let run_ltac name (tac : string) (args : Names.GlobRef.t list) : unit Proofview.tactic =
+  let open Ltac_plugin in
+  let qualid g =
+    Libnames.string_of_qualid
+      (Nametab.shortest_qualid_of_global Names.Id.Set.empty g)
+  in
+  let s =
+    String.concat " " (("Sulfur." ^ name ^ "." ^ tac) :: List.map qualid args)
+  in
+  Tacinterp.eval_tactic
+    (Tacintern.glob_tactic (Procq.parse_string Pltac.tactic s))
+
 
 (**************************************************************************************)
 (** *** Pattern matching utilities. *)
