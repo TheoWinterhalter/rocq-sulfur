@@ -450,11 +450,10 @@ End WithSignature.
 
 Arguments sig_ind_t {sig} /.
 
-(** Tactic for proving further properties about syntax *)
+(** Tactics for proving further properties about syntax *)
 
-(**
-  Prove [eval (rename r t) = rename r (eval t)], by induction on [t]
-  using the custom induction principle [ind].
+(** Prove [eval (rename r t) = rename r (eval t)]
+  By induction on [t] using the custom induction principle [ind].
 *)
 Ltac sulfur_gen_eval_rename ind :=
   let r := fresh "r" in
@@ -463,3 +462,24 @@ Ltac sulfur_gen_eval_rename ind :=
   induction t using ind ;
   intros ; [ reflexivity | .. ] ;
   cbn ; f_equal ; auto.
+
+(** Prove [eval (substitute s t) = substitute (seval s) (eval t)]
+  By induction on [t] using [ind].
+  Uses congruence lemmas [congr_subst], [congr_up], and [seval_up].
+*)
+Ltac sulfur_gen_eval_substitute ind congr_subst congr_up seval_up :=
+  let s := fresh "s" in
+  let t := fresh "t" in
+  intros s t ; revert s ;
+  induction t using ind ;
+  intros ; [ reflexivity | .. ] ;
+  cbn ; f_equal ; try reflexivity ;
+  match goal with
+  | IH : ∀ _, _ = _ |- _ =>
+    etransitivity ; [ apply IH | ] ;
+    first [
+      reflexivity
+    | apply congr_subst ; [ | reflexivity ] ;
+      repeat (rewrite seval_up ; apply congr_up) ; reflexivity
+    ]
+  end.
