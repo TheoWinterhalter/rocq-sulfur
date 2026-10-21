@@ -17,6 +17,7 @@
   "Sulfur generates, from a signature, the syntax of a language with binders\
   \ntogether with renaming, substitution, and a tactic (ssimpl) that normalises\
   \nterms and substitutions.")
+ (license MIT)
  (tags
   ("keyword:binders"
    "keyword:substitution"
