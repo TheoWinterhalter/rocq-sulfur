@@ -10,7 +10,7 @@
 (package
  (name rocq-sulfur)
  (maintainers "Théo Winterhalter (theo.winterhalter@inria.fr)")
- (authors "Mathis Bouverot-Dupuis (mathis.bouverot@ens.psl.eu)")
+ (authors "Mathis Bouverot-Dupuis, Thiago Felicissimo, Théa Hervier, Kenji Maillard, Kathrin Stark, Théo Winterhalter")
  (source (github TheoWinterhalter/rocq-sulfur))
  (synopsis "A Rocq plugin to automate reasoning about languages with binders")
  (description
