@@ -81,16 +81,18 @@ Section HOAS.
 
   Context {sig : signature}.
 
+  (* When adding support for binders, make it ∀ s, mexpr Kt s *)
   Definition hterm := mexpr Kt 0.
 
   (* Meta-variable [k], arity [0] *)
   Definition hmvar (k : mvar) := M_mvar 0 k [].
 
-  Fixpoint harg (a : arg_ty) :=
+  (* For now not supporting binders *)
+  Definition harg (a : arg_ty) :=
     match a with
     | AT_base b => eval_base b
     | AT_term => hterm
-    | AT_bind a => harg a
+    | AT_bind a => (* harg a *) False
     end.
 
   Fixpoint curry (l : list arg_ty) :=
@@ -99,15 +101,12 @@ Section HOAS.
     | a :: l => harg a → curry l
     end.
 
-  #[refine]
-  Fixpoint harg_inst (a : arg_ty) : harg a → mexpr (Ka a) 0 :=
+  Definition harg_inst (a : arg_ty) : harg a → mexpr (Ka a) 0 :=
     match a with
     | AT_base b => λ x, M_abase _ _ x
     | AT_term => λ t, M_aterm _ t
-    | AT_bind a => λ x, M_abind _ _ (* λ x, M_abind _ (harg_inst a x) *)
+    | AT_bind a => False_rect _ (* λ x, M_abind _ (harg_inst a x) *)
     end.
-  Proof.
-  Admitted.
 
   Fixpoint hctor_aux (l : list arg_ty) : (mexpr (Kal l) 0 → hterm) → curry l :=
     match l with
@@ -168,6 +167,7 @@ Definition SK_desc : jdg_desc := [
   hrule "ty_app" 4 (λ A B t u, [(t, harrow A B); (u, A)]) (λ A B t u, (happ t u, B))
 ].
 
-Eval cbv in SK_desc.
+Arguments SK_desc /.
+Eval cbn in SK_desc.
 
 Check preserve_subst.
