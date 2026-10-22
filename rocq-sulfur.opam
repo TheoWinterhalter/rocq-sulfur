@@ -6,9 +6,14 @@ description: """
 Sulfur generates, from a signature, the syntax of a language with binders
 together with renaming, substitution, and a tactic (ssimpl) that normalises
 terms and substitutions."""
-maintainer: ["Théo Winterhalter (theo.winterhalter@inria.fr)"]
+maintainer: ["Théo Winterhalter <theo.winterhalter@inria.fr>"]
 authors: [
-  "Mathis Bouverot-Dupuis, Thiago Felicissimo, Théa Hervier, Kenji Maillard, Kathrin Stark, Théo Winterhalter"
+  "Mathis Bouverot-Dupuis"
+  "Thiago Felicissimo"
+  "Théa Hervier"
+  "Kenji Maillard"
+  "Kathrin Stark"
+  "Théo Winterhalter"
 ]
 license: "MIT"
 tags: [
@@ -22,7 +27,8 @@ homepage: "https://github.com/TheoWinterhalter/rocq-sulfur"
 bug-reports: "https://github.com/TheoWinterhalter/rocq-sulfur/issues"
 depends: [
   "dune" {>= "3.21"}
-  "rocq-prover" {>= "9.3.0" & < "9.4~"}
+  "rocq-core" {>= "9.3.0" & < "9.4~"}
+  "rocq-stdlib"
   "rocq-equations"
   "odoc" {with-doc}
 ]

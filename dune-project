@@ -9,8 +9,14 @@
 
 (package
  (name rocq-sulfur)
- (maintainers "Théo Winterhalter (theo.winterhalter@inria.fr)")
- (authors "Mathis Bouverot-Dupuis, Thiago Felicissimo, Théa Hervier, Kenji Maillard, Kathrin Stark, Théo Winterhalter")
+ (maintainers "Théo Winterhalter <theo.winterhalter@inria.fr>")
+ (authors
+  "Mathis Bouverot-Dupuis"
+  "Thiago Felicissimo"
+  "Théa Hervier"
+  "Kenji Maillard"
+  "Kathrin Stark"
+  "Théo Winterhalter")
  (source (github TheoWinterhalter/rocq-sulfur))
  (synopsis "A Rocq plugin to automate reasoning about languages with binders")
  (description
@@ -25,5 +31,6 @@
    "logpath:Sulfur"
    "date:2026-10-19"))
  (depends
-  (rocq-prover (and (>= 9.3.0) (< 9.4~)))
+  (rocq-core (and (>= 9.3.0) (< 9.4~)))
+  rocq-stdlib
   rocq-equations))
