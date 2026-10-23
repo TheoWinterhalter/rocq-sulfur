@@ -216,12 +216,26 @@ Section ConcreteJdg.
   Definition conc_jdg (Γ : list T) (ι : mvar → T) (j : mjdgd 0) : Prop :=
     J Γ (cinst ι (fst j)) (cinst ι (snd j)).
 
-  #[refine]
+  (** [∀ x1 ... xn, K [x1; ...; xn]]. *)
+  Fixpoint under (n : nat) (ms : list T) (K : list T → Prop) : Prop :=
+    match n with
+    | 0 => K (rev ms)
+    | S n => ∀ x, under n (x :: ms) K
+    end.
+
+  Definition dummy : T :=
+    cvar 0.
+
+  Definition nvar (vs : list T) :=
+    λ i, nth i vs dummy.
+
   Definition rule_desc_type (rd : rule_desc) (Γ : list T) : Prop :=
-    (* TODO something for the premise *)
-    conc_jdg Γ _ rd.(rd_conclusion).
-  Proof.
-  Admitted.
+    under rd.(rd_mvars) [] (λ vs,
+      fold_right
+        (λ P Q, P → Q)
+        (conc_jdg Γ (nvar vs) rd.(rd_conclusion))
+        (map (conc_jdg Γ (nvar vs)) rd.(rd_premises))
+    ).
 
 End ConcreteJdg.
 
