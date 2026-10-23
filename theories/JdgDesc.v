@@ -258,14 +258,28 @@ Definition hS := hctor CtS.
 Definition harrow := hctor Ctarr.
 Definition happ := hctor Ctapp.
 
-Definition SK_desc : jdg_desc := [
-  hrule "type_K" 2 (λ A B, []) (λ A B, (hK, harrow A (harrow B A))) ;
+Definition r_K :=
+  hrule "type_K" 2 (λ A B, []) (λ A B, (hK, harrow A (harrow B A))).
+
+Definition r_S :=
   hrule "type_S" 3
     (λ A B C, [])
-    (λ A B C, (hS, harrow (harrow A (harrow B C)) (harrow (harrow A B) (harrow A C)))) ;
-  hrule "ty_app" 4 (λ A B t u, [(t, harrow A B); (u, A)]) (λ A B t u, (happ t u, B))
+    (λ A B C, (hS, harrow (harrow A (harrow B C)) (harrow (harrow A B) (harrow A C)))).
+
+Definition r_app :=
+  hrule "ty_app" 4
+    (λ A B t u, [(t, harrow A B); (u, A)])
+    (λ A B t u, (happ t u, B)).
+
+Definition SK_desc : jdg_desc := [
+  r_K ;
+  r_S ;
+  r_app
 ].
 
+Arguments r_K /.
+Arguments r_S /.
+Arguments r_app /.
 Arguments SK_desc /.
 Eval cbn in SK_desc.
 
@@ -290,5 +304,27 @@ Inductive typing Γ : term → term → Prop :=
 
 | ty_app A B t u :
   typing Γ t (tarr A B) → typing Γ u A → typing Γ (tapp t u) B.
+
+#[local] Instance term_cs : ConcreteSyntax sign term := {|
+  cvar := Var ;
+  cctor := λ c,
+    match c return cargs term (ctor_type c) → term with
+    | CtK => λ _, tK
+    | CtS => λ _, tS
+    | Ctarr => λ '(A, (B, tt)), tarr A B
+    | Ctapp => λ '(t, (u, tt)), tapp t u
+    end
+|}.
+
+(* We can check the rules have the expected types *)
+
+Check (ty_K : ∀ Γ, rule_desc_type typing r_K Γ).
+Check (ty_S : ∀ Γ, rule_desc_type typing r_S Γ).
+Check (ty_app : ∀ Γ, rule_desc_type typing r_app Γ).
+
+Arguments conc_jdg /.
+Arguments nvar /.
+Arguments hmvar /.
+Eval cbn in (∀ Γ, rule_desc_type typing r_app Γ).
 
 Check preserve_subst.
