@@ -17,7 +17,7 @@ generic theorems.
 One can generate a syntax from a Rocq file using the following commands.
 
 ```rocq
-From Sulfur Require Export All.
+From Sulfur Require Import All.
 
 Sulfur Syntax
 {{
@@ -35,6 +35,16 @@ Here we generate a syntax for the λΠ-calculus.
 The `{{ _ }}` syntax inside the global `{{ _ }}` lets you include proper Rocq
 terms.
 `bind` is used to indicate the presence of a binder.
+
+## Install
+
+Sulfur is available on `opam` for Rocq 9.3.
+You need to have `rocq-released` available in your `opam`.
+
+Then you can simply install with:
+```
+opam install rocq-sulfur
+```
 
 ## Build from sources
 
