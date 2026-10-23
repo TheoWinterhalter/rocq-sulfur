@@ -145,19 +145,19 @@ End HOAS.
 Sulfur Syntax {{
   term : Type
 
-  K : term
-  S : term
-  arrow : term -> term -> term
-  app : term -> term -> term
+  tK : term
+  tS : term
+  tarr : term -> term -> term
+  tapp : term -> term -> term
 }}.
 
 (* Exports the signature for combinatory calculus *)
 Existing Instance sign.
 
-Definition hK := hctor CK.
-Definition hS := hctor CS.
-Definition harrow := hctor Carrow.
-Definition happ := hctor Capp.
+Definition hK := hctor CtK.
+Definition hS := hctor CtS.
+Definition harrow := hctor Ctarr.
+Definition happ := hctor Ctapp.
 
 Definition SK_desc : jdg_desc := [
   hrule "type_K" 2 (λ A B, []) (λ A B, (hK, harrow A (harrow B A))) ;
@@ -169,5 +169,27 @@ Definition SK_desc : jdg_desc := [
 
 Arguments SK_desc /.
 Eval cbn in SK_desc.
+
+(* Actual implementation we want to reach *)
+
+Inductive cinctx {T} (sh : T → T) : list T → nat → T → Prop :=
+| cin_head d Γ : cinctx sh (d :: Γ) 0 (sh d)
+| cin_tail d d' Γ n : cinctx sh Γ n d → cinctx sh (d' :: Γ) (S n) (sh d).
+
+Definition inctx := @cinctx term (rename rshift).
+
+Inductive typing Γ : term → term → Prop :=
+| ty_var n A :
+  inctx Γ n A →
+  typing Γ (Var n) A
+
+| ty_K A B :
+  typing Γ tK (tarr A (tarr B A))
+
+| ty_S A B C :
+  typing Γ tS (tarr (tarr A (tarr B C)) (tarr (tarr A B) (tarr A C)))
+
+| ty_app A B t u :
+  typing Γ t (tarr A B) → typing Γ u A → typing Γ (tapp t u) B.
 
 Check preserve_subst.
