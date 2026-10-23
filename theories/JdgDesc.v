@@ -140,6 +140,91 @@ Section HOAS.
 
 End HOAS.
 
+(** Concrete syntax corresponding to a signature *)
+
+Section ConcreteSyntax.
+
+  Context (sig : signature) (T : Type).
+
+  Fixpoint carg (a : arg_ty) : Type :=
+    match a with
+    | AT_base b => eval_base b
+    | AT_term => T
+    | AT_bind a => carg a
+    end.
+
+  Fixpoint cargs (l : list arg_ty) : Type :=
+    match l with
+    | [] => unit
+    | a :: l => carg a * cargs l
+    end.
+
+  Definition ckind (k : kind) : Type :=
+    match k with
+    | Kt => T
+    | Ka a => carg a
+    | Kal l => cargs l
+    end.
+
+  Class ConcreteSyntax := {
+    cvar : nat → T ;
+    cctor : ∀ c, cargs (ctor_type c) → T
+  }.
+
+End ConcreteSyntax.
+
+Arguments carg {sig}.
+Arguments cargs {sig}.
+Arguments ckind {sig}.
+
+Arguments cvar {sig T _}.
+Arguments cctor {sig T _}.
+
+(** Instantiate mexpr to concrete syntax *)
+
+Section Inst.
+
+  Context {sig : signature} {T : Type} {CS : ConcreteSyntax sig T}.
+
+  Context (ι : mvar → T).
+
+  (* TODO scope should be a param in mexpr *)
+
+  Fixpoint cinst {k s} (e : mexpr k s) {struct e} : ckind T k :=
+    match e with
+    | M_var _ i h => cvar i
+    | M_ctor _ c args => cctor c (cinst args)
+    | M_al_nil _ => tt
+    | M_al_cons _ ty tys => (cinst ty, cinst tys)
+    | M_abase _ b x => x
+    | M_aterm _ t => cinst t
+    | M_abind _ a => cinst a
+    | M_mvar s k σ => ι k (* TODO Fix σ which is dropped *)
+    end.
+
+End Inst.
+
+(** Computing the types of concrete constructors *)
+
+Section ConcreteJdg.
+
+  Context {sig : signature} {T : Type} {CS : ConcreteSyntax sig T}.
+
+  (* The concrete judgment being defined (specialised to binary case) *)
+  Context (J : list T → T → T → Prop).
+
+  Definition conc_jdg (Γ : list T) (ι : mvar → T) (j : mjdgd 0) : Prop :=
+    J Γ (cinst ι (fst j)) (cinst ι (snd j)).
+
+  #[refine]
+  Definition rule_desc_type (rd : rule_desc) (Γ : list T) : Prop :=
+    (* TODO something for the premise *)
+    conc_jdg Γ _ rd.(rd_conclusion).
+  Proof.
+  Admitted.
+
+End ConcreteJdg.
+
 (** Test on combinatory logic *)
 
 Sulfur Syntax {{
