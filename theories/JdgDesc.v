@@ -168,6 +168,7 @@ Section ConcreteSyntax.
 
   Class ConcreteSyntax := {
     cvar : nat → T ;
+    crename : ren -> T -> T ;
     cctor : ∀ c, cargs (ctor_type c) → T
   }.
 
@@ -178,6 +179,7 @@ Arguments cargs {sig}.
 Arguments ckind {sig}.
 
 Arguments cvar {sig T _}.
+Arguments crename {sig T _}.
 Arguments cctor {sig T _}.
 
 (** Instantiate mexpr to concrete syntax *)
@@ -237,6 +239,13 @@ Section ConcreteJdg.
         (map (conc_jdg Γ (nvar vs)) rd.(rd_premises))
     ).
 
+  Inductive cinctx (sh : T → T) : list T → nat → T → Prop :=
+  | cin_head d Γ : cinctx sh (d :: Γ) 0 (sh d)
+  | cin_tail d d' Γ n : cinctx sh Γ n d → cinctx sh (d' :: Γ) (S n) (sh d).
+
+  Definition var_rule_type :=
+    ∀ Γ n A, cinctx (crename rshift) Γ n A → J Γ (cvar n) A.
+
 End ConcreteJdg.
 
 (** Test on combinatory logic *)
@@ -285,10 +294,6 @@ Eval cbn in SK_desc.
 
 (* Actual implementation we want to reach *)
 
-Inductive cinctx {T} (sh : T → T) : list T → nat → T → Prop :=
-| cin_head d Γ : cinctx sh (d :: Γ) 0 (sh d)
-| cin_tail d d' Γ n : cinctx sh Γ n d → cinctx sh (d' :: Γ) (S n) (sh d).
-
 Definition inctx := @cinctx term (rename rshift).
 
 Inductive typing Γ : term → term → Prop :=
@@ -307,6 +312,7 @@ Inductive typing Γ : term → term → Prop :=
 
 #[local] Instance term_cs : ConcreteSyntax sign term := {|
   cvar := Var ;
+  crename := rename ;
   cctor := λ c,
     match c return cargs term (ctor_type c) → term with
     | CtK => λ _, tK
@@ -318,6 +324,7 @@ Inductive typing Γ : term → term → Prop :=
 
 (* We can check the rules have the expected types *)
 
+Check (ty_var : var_rule_type typing).
 Check (ty_K : ∀ Γ, rule_desc_type typing r_K Γ).
 Check (ty_S : ∀ Γ, rule_desc_type typing r_S Γ).
 Check (ty_app : ∀ Γ, rule_desc_type typing r_app Γ).
