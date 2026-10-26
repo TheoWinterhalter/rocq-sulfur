@@ -334,4 +334,91 @@ Arguments nvar /.
 Arguments hmvar /.
 Eval cbn in (∀ Γ, rule_desc_type typing r_app Γ).
 
+(* We prove the judgments are the same (for now on this specific case) *)
+
+From Utils Require Import Functor.
+
+#[local] Instance Sig_IDecl : IDecl I := λ _ X, X.
+#[local] Instance Sig_IJdg : IJdg I := λ _ X, (X * X)%type.
+#[local] Instance Sig_FMapDecl : ∀ i : I, FMap (declF i) := λ _, FMapId.
+#[local] Instance Sig_FMapJdg : ∀ i : I, FMap (jdgF i) := λ _, FMapProd _ _.
+#[local] Instance Sig_FuncDecl : ∀ i : I, Eq1Functor (declF i) := λ _, FId.
+#[local] Instance Sig_FuncJdg : ∀ i : I, Eq1Functor (jdgF i) := λ _, Eq1FProd _ _.
+#[local] Instance Sig_IMakeJdg : IMakeJdg I := λ _ X d x, (x, d).
+#[local] Instance Sig_NatMake : ∀ i : I, NatFromProd (make_jdg i).
+Proof. intro i. constructor. reflexivity. Qed.
+
+Definition Pf (Γ : list term) (j : term * term) : Prop :=
+  proof (jsig := to_jdg_sig SK_desc) tt (map reify Γ) (reify (fst j), reify (snd j)).
+
+Lemma reify_rename r t :
+  reify (rename r t) = ParamSyntax.rename r (reify t).
+Proof.
+  induction t in r |- *.
+  all: cbn. all: try reflexivity.
+  all: congruence.
+Qed.
+
+(* [inst m (M_mvar 0 k [])] unfolds to a substitution by this identity. *)
+Lemma subst_nil_id (t : expr Kt) :
+  ParamSyntax.substitute
+    (λ i, match nth_error [] i with Some t => t | None => E_var (i - 0 + 0) end)
+    t
+  = t.
+Proof.
+  etransitivity. 2: apply subst_sid.
+  apply substitute_proper. 2: reflexivity.
+  intro i. unfold ParamSyntax.sid.
+  destruct i. all: cbn. all: f_equal.
+  lia.
+Qed.
+
+Lemma cinctx_inctx Γ n A :
+  cinctx (crename rshift) Γ n A →
+  @inctx sign (declF tt) _ (map reify Γ) n (reify A).
+Proof.
+  induction 1 as [d Γ | d d' Γ n h ih].
+  - cbn. eapply conv_in_d. 1: econstructor.
+    rewrite reify_rename. reflexivity.
+  - cbn. eapply conv_in_d. 1:{ econstructor. eassumption. }
+    rewrite reify_rename. reflexivity.
+Qed.
+
+Definition to_menv l : menv :=
+  λ k _, nth k (map reify l) (E_var 0).
+
+Lemma typing_sound Γ t A :
+  typing Γ t A →
+  Pf Γ (t, A).
+Proof.
+  unfold Pf. induction 1. all: cbn.
+  - eapply conv_proof_j.
+    + eapply tvar. eapply cinctx_inctx. eassumption.
+    + reflexivity.
+  - eapply conv_proof_j.
+    + eapply step with (r := to_rule r_K) (m := to_menv [ A ; B ]) (x := tt).
+      * cbn. auto.
+      * cbn. contradiction.
+      * cbn. contradiction.
+    + cbn. rewrite !subst_nil_id. reflexivity.
+  - eapply conv_proof_j.
+    + eapply step with (r := to_rule r_S) (m := to_menv [ A ; B ; C ]) (x := tt).
+      * cbn. auto.
+      * cbn. contradiction.
+      * cbn. contradiction.
+    + cbn. rewrite !subst_nil_id. reflexivity.
+  - eapply conv_proof_j.
+    + eapply step with (r := to_rule r_app) (m := to_menv [ A ; B ; t ; u ]) (x := tt).
+      * cbn. auto.
+      * cbn. intros i' n Δ j conv hp.
+        destruct hp as [ hp | [ hp | [] ] ].
+        all: noconf hp.
+        all: cbn; rewrite !subst_nil_id, map_id.
+        all: assumption.
+      * cbn. intros P hp.
+        destruct hp as [ hp | [ hp | [] ] ].
+        all: discriminate hp.
+    + cbn. rewrite !subst_nil_id. reflexivity.
+Qed.
+
 Check preserve_subst.
