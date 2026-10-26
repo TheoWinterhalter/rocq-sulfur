@@ -478,6 +478,28 @@ Proof.
     rewrite reify_substitute in hd. exact hd.
 Qed.
 
+Lemma subst_sig_SK : SubstJSig (to_jdg_sig SK_desc).
+Proof.
+  constructor.
+  - intros [] r x P hr hP. cbn in hr.
+    destruct hr as [<- | [<- | [<- | [] ] ] ].
+    all: cbn in hP. all: intuition discriminate.
+  - intros [] r x P hr hP. cbn in hr.
+    destruct hr as [<- | [<- | [<- | [] ] ] ].
+    all: cbn in hP. all: intuition discriminate.
+  - intros [] r x hr n i' conv Δ j hP. cbn in hr.
+    destruct hr as [<- | [<- | [<- | [] ] ] ].
+    all: cbn in hP. 1,2: destruct hP.
+    destruct hP as [hP | [hP | [] ] ].
+    all: noconf hP. all: intros X Y f d. all: reflexivity.
+  - intros [] r x hr n i' conv Δ j hP. cbn in hr.
+    destruct hr as [<- | [<- | [<- | [] ] ] ].
+    all: cbn in hP. 1,2: destruct hP.
+    destruct hP as [hP | [hP | [] ] ].
+    all: noconf hP. all: intros Γ d t h.
+    all: rewrite map_id. all: exact h.
+Qed.
+
 Lemma cpreserve_subst Γ Δ t A σ :
   typing Γ t A →
   cstyping Δ σ Γ →
@@ -486,6 +508,14 @@ Proof.
   intros ht hs.
   apply typing_sound in ht.
   apply cstyping_styping in hs.
-  eapply preserve_subst in ht. 2: eassumption.
-  apply typing_complete in ht. cbn in ht.
-Admitted.
+  eapply (preserve_subst (HSubstSig := subst_sig_SK)) in ht. 2: eassumption.
+  apply typing_complete in ht.
+  rewrite map_map in ht.
+  erewrite map_ext, map_id in ht. 2: apply eval_reify_inv.
+  cbv beta iota delta [substitute_jdg fmap Sig_FMapJdg FMapProd FMapId fst snd] in ht.
+  rewrite !eval_substitute, !eval_reify_inv in ht.
+  erewrite 2!(congr_substitute (seval (λ k, reify (σ k))) σ) in ht.
+  1: exact ht.
+  all: try reflexivity.
+  all: intro i. all: unfold seval. all: apply eval_reify_inv.
+Qed.
