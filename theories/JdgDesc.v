@@ -213,6 +213,28 @@ Arguments cctor {sig T _}.
 Abbreviation ctx_rf Γ := (map creify Γ).
 Abbreviation jdg_rf j := (creify (fst j), creify (snd j)).
 
+(** Generic lemmas *)
+
+Section Lemmas.
+
+  Context {sig : signature}.
+
+  (* [inst m (M_mvar 0 k [])] unfolds to a substitution by this identity. *)
+  Lemma subst_nil_id (t : expr Kt) :
+    ParamSyntax.substitute
+      (λ i, match nth_error [] i with Some t => t | None => E_var (i - 0 + 0) end)
+      t
+    = t.
+  Proof.
+    etransitivity. 2: apply subst_sid.
+    apply substitute_proper. 2: reflexivity.
+    intro i. unfold ParamSyntax.sid.
+    destruct i. all: cbn. all: f_equal.
+    lia.
+  Qed.
+
+End Lemmas.
+
 (** Instantiate mexpr to concrete syntax *)
 
 Section Inst.
@@ -444,20 +466,6 @@ Proof.
   all: congruence.
 Qed.
 
-(* [inst m (M_mvar 0 k [])] unfolds to a substitution by this identity. *)
-Lemma subst_nil_id (t : expr Kt) :
-  ParamSyntax.substitute
-    (λ i, match nth_error [] i with Some t => t | None => E_var (i - 0 + 0) end)
-    t
-  = t.
-Proof.
-  etransitivity. 2: apply subst_sid.
-  apply substitute_proper. 2: reflexivity.
-  intro i. unfold ParamSyntax.sid.
-  destruct i. all: cbn. all: f_equal.
-  lia.
-Qed.
-
 Lemma cinctx_inctx Γ n A :
   cinctx (crename rshift) Γ n A →
   @inctx sign (declF tt) _ (map reify Γ) n (reify A).
@@ -485,25 +493,25 @@ Proof.
       * cbn. auto.
       * cbn. contradiction.
       * cbn. contradiction.
-    + cbn. rewrite !subst_nil_id. reflexivity.
+    + cbn. rewrite !(subst_nil_id (sig := sign)). reflexivity.
   - eapply conv_proof_j.
     + eapply step with (r := to_rule r_S) (m := to_menv [ A ; B ; C ]) (x := tt).
       * cbn. auto.
       * cbn. contradiction.
       * cbn. contradiction.
-    + cbn. rewrite !subst_nil_id. reflexivity.
+    + cbn. rewrite !(subst_nil_id (sig := sign)). reflexivity.
   - eapply conv_proof_j.
     + eapply step with (r := to_rule r_app) (m := to_menv [ A ; B ; t ; u ]) (x := tt).
       * cbn. auto.
       * cbn. intros i' n Δ j conv hp.
         destruct hp as [ hp | [ hp | [] ] ].
         all: noconf hp.
-        all: cbn; rewrite !subst_nil_id, map_id.
+        all: cbn; rewrite !(subst_nil_id (sig := sign)), map_id.
         all: assumption.
       * cbn. intros P hp.
         destruct hp as [ hp | [ hp | [] ] ].
         all: discriminate hp.
-    + cbn. rewrite !subst_nil_id. reflexivity.
+    + cbn. rewrite !(subst_nil_id (sig := sign)). reflexivity.
 Qed.
 
 Lemma inctx_cinctx Γ n d :
@@ -523,13 +531,14 @@ Lemma typing_complete Γ j :
 Proof.
   induction 1 as [ [] m Γ r x hin hind ihind hpred | [] Γ n d hd].
   - cbn in hin. destruct hin as [ <- | [ <- | [ <- | [] ] ] ].
-    all: cbn. all: rewrite !subst_nil_id.
+    all: cbn. all: rewrite !(subst_nil_id (sig := sign)).
     1,2: econstructor.
     cbn in ihind.
     pose proof (ihind tt 0 mnil _ (λ X x, x) (or_introl eq_refl)) as h1.
     pose proof (ihind tt 0 mnil _ (λ X x, x) (or_intror (or_introl eq_refl))) as h2.
     cbn in h1, h2.
-    rewrite !subst_nil_id in h1. rewrite !subst_nil_id in h2.
+    rewrite !(subst_nil_id (sig := sign)) in h1.
+    rewrite !(subst_nil_id (sig := sign)) in h2.
     rewrite map_id in h1, h2.
     econstructor ; eassumption.
   - cbn. econstructor.
