@@ -192,7 +192,9 @@ Section ConcreteSyntax.
 
   Class ConcreteSyntax := {
     cvar : nat → T ;
-    crename : ren -> T -> T ;
+    crename : ren → T → T ;
+    ceval : expr Kt → T ;
+    creify : T → expr Kt ;
     cctor : ∀ c, cargs (ctor_type c) → T
   }.
 
@@ -203,8 +205,13 @@ Arguments cargs {sig}.
 Arguments ckind {sig}.
 
 Arguments cvar {sig T _}.
+Arguments ceval {sig T _}.
+Arguments creify {sig T _}.
 Arguments crename {sig T _}.
 Arguments cctor {sig T _}.
+
+Abbreviation ctx_rf Γ := (map creify Γ).
+Abbreviation jdg_rf j := (creify (fst j), creify (snd j)).
 
 (** Instantiate mexpr to concrete syntax *)
 
@@ -268,6 +275,21 @@ Section ConcreteJdg.
   Definition var_rule_type :=
     ∀ Γ n A, cinctx (crename rshift) Γ n A → J Γ (cvar n) A.
 
+  Lemma under_intro n ms K :
+    (∀ vs, List.length vs = n → K (rev ms ++ vs)) →
+    under n ms K.
+  Proof.
+    intros h.
+    induction n as [| n ih] in ms, K, h |- *.
+    - cbn.
+      specialize h with (vs := []) (1 := eq_refl).
+      rewrite app_nil_r in h. assumption.
+    - cbn. intros x.
+      apply ih. intros vs hvs.
+      cbn. rewrite <- app_assoc. cbn. apply h.
+      cbn. lia.
+  Qed.
+
 End ConcreteJdg.
 
 (** Deriving theorems for concrete syntax and judgments *)
@@ -275,7 +297,6 @@ End ConcreteJdg.
 Section ConcreteFacts.
 
   Context {sig : signature} {T : Type} {CS : ConcreteSyntax sig T}.
-  Context (J : list T → T → T → Prop).
   Context (desc : jdg_desc).
 
   Lemma subst_sig : SubstJSig (to_jdg_sig desc).
@@ -301,6 +322,25 @@ Section ConcreteFacts.
       intros Γ d t h.
       rewrite map_id. assumption.
   Qed.
+
+  (* Soundness of rules *)
+
+  Definition Pf Γ j :=
+    proof (jsig := to_jdg_sig desc) tt (ctx_rf Γ) (jdg_rf j).
+
+  Definition J Γ t A :=
+    Pf Γ (t, A).
+
+  Lemma sound_step d rd Γ :
+    In rd d →
+    rule_desc_type J rd Γ.
+  Proof.
+    intros h.
+    apply under_intro. intros vs hvs. cbn.
+    rewrite <- fold_impl_iff. intros hF.
+    rewrite Forall_map in hF.
+    unfold conc_jdg, J, Pf.
+  Admitted.
 
 End ConcreteFacts.
 
@@ -369,6 +409,8 @@ Inductive typing Γ : term → term → Prop :=
 #[local] Instance term_cs : ConcreteSyntax sign term := {|
   cvar := Var ;
   crename := rename ;
+  ceval := eval Kt ;
+  creify := reify ;
   cctor := λ c,
     match c return cargs term (ctor_type c) → term with
     | CtK => λ _, tK
@@ -392,8 +434,7 @@ Eval cbn in (∀ Γ, rule_desc_type typing r_app Γ).
 
 (* We prove the judgments are the same (for now on this specific case) *)
 
-Definition Pf (Γ : list term) (j : term * term) : Prop :=
-  proof (jsig := to_jdg_sig SK_desc) tt (map reify Γ) (reify (fst j), reify (snd j)).
+Definition PfSK := Pf SK_desc.
 
 Lemma reify_rename r t :
   reify (rename r t) = ParamSyntax.rename r (reify t).
@@ -433,7 +474,7 @@ Definition to_menv l : menv :=
 
 Lemma typing_sound Γ t A :
   typing Γ t A →
-  Pf Γ (t, A).
+  PfSK Γ (t, A).
 Proof.
   unfold Pf. induction 1. all: cbn.
   - eapply conv_proof_j.
@@ -518,7 +559,7 @@ Proof.
   induction 1 as [Δ σ | Δ σ Γ d h ih hd]. all: cbn.
   - constructor.
   - constructor. 1: exact ih.
-    apply typing_sound in hd. unfold Pf in hd. cbn in hd.
+    apply typing_sound in hd. unfold PfSK, Pf in hd. cbn in hd.
     rewrite reify_substitute in hd. exact hd.
 Qed.
 
