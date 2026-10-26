@@ -83,6 +83,14 @@ Section ToSig.
       exists rd'. cbn. intuition auto.
   Qed.
 
+  Lemma in_to_rules_intro rd rs :
+    In rd rs →
+    In (to_rule rd) (to_rules rs).
+  Proof.
+    induction rs as [| rd' rs ih]. 1: contradiction.
+    intros [-> | h]. all: cbn. all: auto.
+  Qed.
+
 End ToSig.
 
 #[local] Instance Sig_IDecl : IDecl I := λ _ X, X.
@@ -235,6 +243,61 @@ Section Lemmas.
 
 End Lemmas.
 
+(** Reification and lemmas *)
+
+Section Rf.
+
+  Context {sig : signature} {T : Type} {CS : ConcreteSyntax sig T}.
+
+  Fixpoint rf_arg (a : arg_ty) : carg T a → expr (Ka a) :=
+    match a with
+    | AT_base b => λ x, E_abase b x
+    | AT_term => λ t, E_aterm (creify t)
+    | AT_bind a => λ x, E_abind (rf_arg a x)
+    end.
+
+  Fixpoint rf_args (l : list arg_ty) : cargs T l → expr (Kal l) :=
+    match l with
+    | [] => λ _, E_al_nil
+    | a :: l => λ '(x, xs), E_al_cons (rf_arg a x) (rf_args l xs)
+    end.
+
+  Definition rf (k : kind) : ckind T k → expr k :=
+    match k with
+    | Kt => creify
+    | Ka a => rf_arg a
+    | Kal l => rf_args l
+    end.
+
+  Class ConcreteSyntaxLaws := {
+    rf_var : ∀ n, creify (cvar n) = E_var n ;
+    rf_rename : ∀ r t, creify (crename r t) = ParamSyntax.rename r (creify t) ;
+    rf_cctor :
+      ∀ c args, creify (cctor c args) = E_ctor c (rf_args (ctor_type c) args)
+  }.
+
+  (** Well-formed meta expression
+
+    Meta-variables below [m], applied to no substitution (which [cinst] drops)
+
+  *)
+  Fixpoint wf_mexpr (m : nat) {k s} (e : mexpr k s) {struct e} : bool :=
+    match e with
+    | M_var _ _ _ => true
+    | M_ctor _ _ al => wf_mexpr m al
+    | M_al_nil _ => true
+    | M_al_cons _ a al => wf_mexpr m a && wf_mexpr m al
+    | M_abase _ _ _ => true
+    | M_aterm _ t => wf_mexpr m t
+    | M_abind _ a => wf_mexpr m a
+    | M_mvar s k σ =>
+      Nat.ltb k m && Nat.eqb s 0 && match σ with [] => true | _ => false end
+    end.
+
+End Rf.
+
+Arguments ConcreteSyntaxLaws {sig T} CS.
+
 (** Instantiate mexpr to concrete syntax *)
 
 Section Inst.
@@ -353,16 +416,102 @@ Section ConcreteFacts.
   Definition J Γ t A :=
     Pf Γ (t, A).
 
-  Lemma sound_step d rd Γ :
-    In rd d →
+  Context {CL : ConcreteSyntaxLaws CS}.
+
+  Lemma rf_cinst ι m k s (e : mexpr k s) :
+    wf_mexpr m e = true →
+    rf k (cinst ι e) = inst (λ k _, creify (ι k)) e.
+  Proof.
+    revert k s e.
+    apply (
+      mexpr_ind (λ k s e,
+        wf_mexpr m e = true → rf k (cinst ι e) = inst (λ k _, creify (ι k)) e
+      )
+    ).
+    - intros. apply rf_var.
+    - intros. cbn. rewrite rf_cctor. f_equal. auto.
+    - intros. reflexivity.
+    - intros s ty tys a al ha hal h.
+      cbn in h. rewrite andb_true_iff in h. destruct h as [ea eal].
+      cbn. f_equal. all: eauto.
+    - reflexivity.
+    - cbn. intros s t ht h. rewrite ht. all: eauto.
+    - cbn. intros s ty a hty h. rewrite hty. all: eauto.
+    - intros s k σ hσ h. cbn - [Nat.ltb] in h.
+      rewrite andb_true_iff in h. destruct h as [h eσ].
+      destruct σ. 2: discriminate.
+      rewrite andb_true_iff in h. destruct h as [hkm e].
+      rewrite PeanoNat.Nat.ltb_lt in hkm.
+      rewrite PeanoNat.Nat.eqb_eq in e. subst.
+      cbn. rewrite subst_nil_id.
+      reflexivity.
+  Qed.
+
+  Lemma rf_cinst_t ι m s (e : mexpr Kt s) :
+    wf_mexpr m e = true →
+    creify (cinst ι e) = inst (λ k _, creify (ι k)) e.
+  Proof.
+    apply rf_cinst.
+  Qed.
+
+  Lemma cinctx_inctx Γ n A :
+    cinctx (crename rshift) Γ n A →
+    @inctx sig (declF tt) _ (map creify Γ) n (creify A).
+  Proof.
+    induction 1 as [d Γ | d d' Γ n h ih].
+    - cbn. eapply conv_in_d. 1: econstructor.
+      rewrite rf_rename. reflexivity.
+    - cbn. eapply conv_in_d. 1:{ econstructor. eassumption. }
+      rewrite rf_rename. reflexivity.
+  Qed.
+
+  Lemma sound_var : var_rule_type J.
+  Proof.
+    intros Γ n a h.
+    unfold J, Pf. cbn. rewrite rf_var.
+    eapply conv_proof_j.
+    + eapply tvar. eapply cinctx_inctx. eassumption.
+    + reflexivity.
+  Qed.
+
+  Definition wf_jdg m (j : mjdgd 0) :=
+    wf_mexpr m (fst j) && wf_mexpr m (snd j).
+
+  Definition wf_rule rd :=
+    forallb (wf_jdg rd.(rd_mvars)) rd.(rd_premises) &&
+    wf_jdg rd.(rd_mvars) rd.(rd_conclusion)
+    = true.
+
+  Lemma sound_step rd Γ :
+    In rd desc →
+    wf_rule rd →
     rule_desc_type J rd Γ.
   Proof.
-    intros h.
+    intros h hwf.
+    red in hwf. unfold wf_jdg in hwf. rewrite !andb_true_iff in hwf.
+    destruct hwf as (hwp & hwt & hwA).
     apply under_intro. intros vs hvs. cbn.
     rewrite <- fold_impl_iff. intros hF.
     rewrite Forall_map in hF.
-    unfold conc_jdg, J, Pf.
-  Admitted.
+    unfold conc_jdg, J, Pf. cbn.
+    erewrite 2!rf_cinst_t. 2,3: eassumption.
+    eapply conv_proof_j.
+    - eapply step with (r := to_rule rd) (m := λ k _, creify (nvar vs k)) (x := tt).
+      + apply in_to_rules_intro. assumption.
+      + intros i' n Δ j conv hin. cbn in hin.
+        rewrite in_map_iff in hin. destruct hin as [[t A] [hj hj']]. noconf hj.
+        cbn. rewrite map_id.
+        rewrite Forall_forall in hF. specialize (hF _ hj').
+        rewrite forallb_forall in hwp. specialize (hwp _ hj').
+        apply andb_prop in hwp as [].
+        unfold conc_jdg, J, Pf in hF. cbn in hF.
+        erewrite 2!rf_cinst_t in hF. 2,3: eassumption.
+        exact hF.
+      + intros P hin. cbn in hin.
+        rewrite in_map_iff in hin. destruct hin as [j' [hj _]].
+        discriminate hj.
+    - cbn. destruct (rd_conclusion rd). reflexivity.
+  Qed.
 
 End ConcreteFacts.
 
@@ -466,15 +615,18 @@ Proof.
   all: congruence.
 Qed.
 
-Lemma cinctx_inctx Γ n A :
-  cinctx (crename rshift) Γ n A →
-  @inctx sign (declF tt) _ (map reify Γ) n (reify A).
+#[local] Instance term_cl : ConcreteSyntaxLaws term_cs.
 Proof.
-  induction 1 as [d Γ | d d' Γ n h ih].
-  - cbn. eapply conv_in_d. 1: econstructor.
-    rewrite reify_rename. reflexivity.
-  - cbn. eapply conv_in_d. 1:{ econstructor. eassumption. }
-    rewrite reify_rename. reflexivity.
+  constructor.
+  - reflexivity.
+  - apply reify_rename.
+  - intros c args. destruct c. all: cbn in args.
+    all:
+      repeat match type of args with
+      | (_ * _)%type => destruct args as [? args]
+      | unit => destruct args
+      end.
+    all: reflexivity.
 Qed.
 
 Definition to_menv l : menv :=
@@ -485,33 +637,11 @@ Lemma typing_sound Γ t A :
   PfSK Γ (t, A).
 Proof.
   unfold Pf. induction 1. all: cbn.
-  - eapply conv_proof_j.
-    + eapply tvar. eapply cinctx_inctx. eassumption.
-    + reflexivity.
-  - eapply conv_proof_j.
-    + eapply step with (r := to_rule r_K) (m := to_menv [ A ; B ]) (x := tt).
-      * cbn. auto.
-      * cbn. contradiction.
-      * cbn. contradiction.
-    + cbn. rewrite !(subst_nil_id (sig := sign)). reflexivity.
-  - eapply conv_proof_j.
-    + eapply step with (r := to_rule r_S) (m := to_menv [ A ; B ; C ]) (x := tt).
-      * cbn. auto.
-      * cbn. contradiction.
-      * cbn. contradiction.
-    + cbn. rewrite !(subst_nil_id (sig := sign)). reflexivity.
-  - eapply conv_proof_j.
-    + eapply step with (r := to_rule r_app) (m := to_menv [ A ; B ; t ; u ]) (x := tt).
-      * cbn. auto.
-      * cbn. intros i' n Δ j conv hp.
-        destruct hp as [ hp | [ hp | [] ] ].
-        all: noconf hp.
-        all: cbn; rewrite !(subst_nil_id (sig := sign)), map_id.
-        all: assumption.
-      * cbn. intros P hp.
-        destruct hp as [ hp | [ hp | [] ] ].
-        all: discriminate hp.
-    + cbn. rewrite !(subst_nil_id (sig := sign)). reflexivity.
+  - exact (sound_var SK_desc Γ n A H).
+  - exact (sound_step SK_desc r_K Γ ltac:(cbn; auto) eq_refl A B).
+  - exact (sound_step SK_desc r_S Γ ltac:(cbn; auto) eq_refl A B C).
+  - eapply (sound_step SK_desc r_app Γ ltac:(cbn; auto) eq_refl A B t u).
+    all: assumption.
 Qed.
 
 Lemma inctx_cinctx Γ n d :
