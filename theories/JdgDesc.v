@@ -421,4 +421,35 @@ Proof.
     + cbn. rewrite !subst_nil_id. reflexivity.
 Qed.
 
+Lemma inctx_cinctx Γ n d :
+  @inctx sign (declF tt) _ Γ n d →
+  cinctx (crename rshift) (map (eval Kt) Γ) n (eval Kt d).
+Proof.
+  induction 1 as [d Γ | d d' Γ n h ih].
+  all: cbn. all: unfold fmap, Sig_FMapDecl, FMapId.
+  all: rewrite eval_rename.
+  - constructor.
+  - constructor. assumption.
+Qed.
+
+Lemma typing_complete Γ j :
+  proof (jsig := to_jdg_sig SK_desc) tt Γ j →
+  typing (map (eval Kt) Γ) (eval Kt (fst j)) (eval Kt (snd j)).
+Proof.
+  induction 1 as [ [] m Γ r x hin hind ihind hpred | [] Γ n d hd].
+  - cbn in hin. destruct hin as [ <- | [ <- | [ <- | [] ] ] ].
+    all: cbn. all: rewrite !subst_nil_id.
+    1,2: econstructor.
+    cbn in ihind.
+    pose proof (ihind tt 0 mnil _ (λ X x, x) (or_introl eq_refl)) as h1.
+    pose proof (ihind tt 0 mnil _ (λ X x, x) (or_intror (or_introl eq_refl))) as h2.
+    cbn in h1, h2.
+    rewrite !subst_nil_id in h1. rewrite !subst_nil_id in h2.
+    rewrite map_id in h1, h2.
+    econstructor ; eassumption.
+  - cbn. econstructor.
+    apply inctx_cinctx.
+    assumption.
+Qed.
+
 Check preserve_subst.
