@@ -452,4 +452,40 @@ Proof.
     assumption.
 Qed.
 
-Check preserve_subst.
+Lemma reify_substitute σ t :
+  reify (substitute σ t) = ParamSyntax.substitute (λ i, reify (σ i)) (reify t).
+Proof.
+  induction t in σ |- *.
+  all: cbn. all: try reflexivity.
+  all: rewrite IHt1, IHt2. all: reflexivity.
+Qed.
+
+Inductive cstyping : list term → (nat → term) → list term → Prop :=
+| cstyping_nil Δ σ : cstyping Δ σ []
+| cstyping_cons Δ σ Γ d :
+    cstyping Δ (λ k, σ (S k)) Γ →
+    typing Δ (σ 0) (substitute (λ k, σ (S k)) d) →
+    cstyping Δ σ (d :: Γ).
+
+Lemma cstyping_styping Δ σ Γ :
+  cstyping Δ σ Γ →
+  styping (jsig := to_jdg_sig SK_desc) tt (map reify Δ) (λ k, reify (σ k)) (map reify Γ).
+Proof.
+  induction 1 as [Δ σ | Δ σ Γ d h ih hd]. all: cbn.
+  - constructor.
+  - constructor. 1: exact ih.
+    apply typing_sound in hd. unfold Pf in hd. cbn in hd.
+    rewrite reify_substitute in hd. exact hd.
+Qed.
+
+Lemma cpreserve_subst Γ Δ t A σ :
+  typing Γ t A →
+  cstyping Δ σ Γ →
+  typing Δ (substitute σ t) (substitute σ A).
+Proof.
+  intros ht hs.
+  apply typing_sound in ht.
+  apply cstyping_styping in hs.
+  eapply preserve_subst in ht. 2: eassumption.
+  apply typing_complete in ht. cbn in ht.
+Admitted.
