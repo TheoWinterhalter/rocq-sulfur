@@ -105,7 +105,7 @@ VERNAC ARGUMENT EXTEND arity_decl
 END
 
 VERNAC ARGUMENT EXTEND rsignature
-| [ "[[" arity_decl_list(arities) rule_decl_list(rules) "]]" ] ->
+| [ "{{" arity_decl_list(arities) rule_decl_list(rules) "}}" ] ->
   {
     CAst.make ~loc { parity_decls = arities ; prule_decls = rules }
   }
