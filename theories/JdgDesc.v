@@ -12,6 +12,7 @@
 From Stdlib Require Import Utf8 String.
 From Sulfur Require Import Prelude Sig Renamings All.
 From Sulfur Require Import ParamSyntax JudgmentSyntaxScoped.
+From Utils Require Import Functor.
 
 (** Judgment description over a signature *)
 
@@ -69,7 +70,30 @@ Section ToSig.
     rules := λ 'tt, to_rules d
   |}.
 
+  Lemma in_to_rules r rs :
+    In r (to_rules rs) →
+    ∃ rd, In rd rs ∧ r = to_rule rd.
+  Proof.
+    intros h.
+    induction rs as [| rd rs ih] in h |- *.
+    1: contradiction.
+    cbn in h. destruct h as [h | h].
+    - exists rd. cbn. intuition auto.
+    - destruct (ih h) as [rd' ihd].
+      exists rd'. cbn. intuition auto.
+  Qed.
+
 End ToSig.
+
+#[local] Instance Sig_IDecl : IDecl I := λ _ X, X.
+#[local] Instance Sig_IJdg : IJdg I := λ _ X, (X * X)%type.
+#[local] Instance Sig_FMapDecl : ∀ i : I, FMap (declF i) := λ _, FMapId.
+#[local] Instance Sig_FMapJdg : ∀ i : I, FMap (jdgF i) := λ _, FMapProd _ _.
+#[local] Instance Sig_FuncDecl : ∀ i : I, Eq1Functor (declF i) := λ _, FId.
+#[local] Instance Sig_FuncJdg : ∀ i : I, Eq1Functor (jdgF i) := λ _, Eq1FProd _ _.
+#[local] Instance Sig_IMakeJdg : IMakeJdg I := λ _ X d x, (x, d).
+#[local] Instance Sig_NatMake : ∀ i : I, NatFromProd (make_jdg i).
+Proof. intro i. constructor. reflexivity. Qed.
 
 (** Higher-order presentation of rules
 
@@ -190,8 +214,6 @@ Section Inst.
 
   Context (ι : mvar → T).
 
-  (* TODO scope should be a param in mexpr *)
-
   Fixpoint cinst {k s} (e : mexpr k s) {struct e} : ckind T k :=
     match e with
     | M_var _ i h => cvar i
@@ -247,6 +269,40 @@ Section ConcreteJdg.
     ∀ Γ n A, cinctx (crename rshift) Γ n A → J Γ (cvar n) A.
 
 End ConcreteJdg.
+
+(** Deriving theorems for concrete syntax and judgments *)
+
+Section ConcreteFacts.
+
+  Context {sig : signature} {T : Type} {CS : ConcreteSyntax sig T}.
+  Context (J : list T → T → T → Prop).
+  Context (desc : jdg_desc).
+
+  Lemma subst_sig : SubstJSig (to_jdg_sig desc).
+  Proof.
+    constructor.
+    - intros [] r x P hr hP. cbn in hr.
+      apply in_to_rules in hr as [rd [hr ->]].
+      cbn in hP. rewrite in_map_iff in hP.
+      destruct hP as (j & hj & ?). discriminate.
+    - intros [] r x P hr hP. cbn in hr.
+      apply in_to_rules in hr as [rd [hr ->]].
+      cbn in hP. rewrite in_map_iff in hP.
+      destruct hP as (j & hj & ?). discriminate.
+    - intros [] r x hr n i' conv Δ j hP. cbn in hr.
+      apply in_to_rules in hr as [rd [hr ->]].
+      cbn in hP. rewrite in_map_iff in hP.
+      destruct hP as (j' & hj' & ?). noconf hj'.
+      intros X Y f d. reflexivity.
+    - intros [] r x hr n i' conv Δ j hP. cbn in hr.
+      apply in_to_rules in hr as [rd [hr ->]].
+      cbn in hP. rewrite in_map_iff in hP.
+      destruct hP as (j' & hj & ?). noconf hj.
+      intros Γ d t h.
+      rewrite map_id. assumption.
+  Qed.
+
+End ConcreteFacts.
 
 (** Test on combinatory logic *)
 
@@ -335,18 +391,6 @@ Arguments hmvar /.
 Eval cbn in (∀ Γ, rule_desc_type typing r_app Γ).
 
 (* We prove the judgments are the same (for now on this specific case) *)
-
-From Utils Require Import Functor.
-
-#[local] Instance Sig_IDecl : IDecl I := λ _ X, X.
-#[local] Instance Sig_IJdg : IJdg I := λ _ X, (X * X)%type.
-#[local] Instance Sig_FMapDecl : ∀ i : I, FMap (declF i) := λ _, FMapId.
-#[local] Instance Sig_FMapJdg : ∀ i : I, FMap (jdgF i) := λ _, FMapProd _ _.
-#[local] Instance Sig_FuncDecl : ∀ i : I, Eq1Functor (declF i) := λ _, FId.
-#[local] Instance Sig_FuncJdg : ∀ i : I, Eq1Functor (jdgF i) := λ _, Eq1FProd _ _.
-#[local] Instance Sig_IMakeJdg : IMakeJdg I := λ _ X d x, (x, d).
-#[local] Instance Sig_NatMake : ∀ i : I, NatFromProd (make_jdg i).
-Proof. intro i. constructor. reflexivity. Qed.
 
 Definition Pf (Γ : list term) (j : term * term) : Prop :=
   proof (jsig := to_jdg_sig SK_desc) tt (map reify Γ) (reify (fst j), reify (snd j)).
@@ -480,24 +524,7 @@ Qed.
 
 Lemma subst_sig_SK : SubstJSig (to_jdg_sig SK_desc).
 Proof.
-  constructor.
-  - intros [] r x P hr hP. cbn in hr.
-    destruct hr as [<- | [<- | [<- | [] ] ] ].
-    all: cbn in hP. all: intuition discriminate.
-  - intros [] r x P hr hP. cbn in hr.
-    destruct hr as [<- | [<- | [<- | [] ] ] ].
-    all: cbn in hP. all: intuition discriminate.
-  - intros [] r x hr n i' conv Δ j hP. cbn in hr.
-    destruct hr as [<- | [<- | [<- | [] ] ] ].
-    all: cbn in hP. 1,2: destruct hP.
-    destruct hP as [hP | [hP | [] ] ].
-    all: noconf hP. all: intros X Y f d. all: reflexivity.
-  - intros [] r x hr n i' conv Δ j hP. cbn in hr.
-    destruct hr as [<- | [<- | [<- | [] ] ] ].
-    all: cbn in hP. 1,2: destruct hP.
-    destruct hP as [hP | [hP | [] ] ].
-    all: noconf hP. all: intros Γ d t h.
-    all: rewrite map_id. all: exact h.
+  apply subst_sig.
 Qed.
 
 Lemma cpreserve_subst Γ Δ t A σ :
