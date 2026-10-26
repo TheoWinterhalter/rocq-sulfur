@@ -294,11 +294,11 @@ Eval cbn in SK_desc.
 
 (* Actual implementation we want to reach *)
 
-Definition inctx := @cinctx term (rename rshift).
+Definition varty := @cinctx term (rename rshift).
 
 Inductive typing Γ : term → term → Prop :=
 | ty_var n A :
-  inctx Γ n A →
+  varty Γ n A →
   typing Γ (Var n) A
 
 | ty_K A B :
