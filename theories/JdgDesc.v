@@ -203,6 +203,7 @@ Section ConcreteSyntax.
     crename : ren → T → T ;
     ceval : expr Kt → T ;
     creify : T → expr Kt ;
+    csubstitute : (nat → T) → T → T ;
     cctor : ∀ c, cargs (ctor_type c) → T
   }.
 
@@ -216,6 +217,7 @@ Arguments cvar {sig T _}.
 Arguments ceval {sig T _}.
 Arguments creify {sig T _}.
 Arguments crename {sig T _}.
+Arguments csubstitute {sig T _}.
 Arguments cctor {sig T _}.
 
 Abbreviation ctx_rf Γ := (map creify Γ).
@@ -275,7 +277,10 @@ Section Rf.
     rf_cctor :
       ∀ c args, creify (cctor c args) = E_ctor c (rf_args (ctor_type c) args) ;
     ev_rf : ∀ t, ceval (creify t) = t ;
-    rf_ev : ∀ e, creify (ceval e) = e
+    rf_ev : ∀ e, creify (ceval e) = e ;
+    ev_substitute :
+      ∀ s e, ceval (ParamSyntax.substitute s e) = csubstitute (λ i, ceval (s i)) (ceval e) ;
+    csubstitute_ext : ∀ s s' t, s =₁ s' → csubstitute s t = csubstitute s' t
   }.
 
   (** Well-formed meta expression
@@ -535,6 +540,38 @@ Section ConcreteFacts.
     - cbn. destruct (rd_conclusion rd). reflexivity.
   Qed.
 
+  (** Statements about a concrete judgment *)
+
+  Section Statements.
+
+    Context (R : list T → T → T → Prop).
+
+    Definition rules_type :=
+      var_rule_type R ∧
+      ∀ rd, In rd desc → ∀ Γ, rule_desc_type R rd Γ.
+
+    Definition sound_jdg :=
+      ∀ Γ t A, R Γ t A → J Γ t A.
+
+    Definition complete_jdg :=
+      ∀ Γ j,
+        proof (jsig := to_jdg_sig desc) tt Γ j →
+        R (map ceval Γ) (ceval (fst j)) (ceval (snd j)).
+
+    (* [σ] is a well-typed substitution from [Δ] to [Γ] *)
+    Inductive cstyping : list T → (nat → T) → list T → Prop :=
+    | cstyping_nil Δ σ : cstyping Δ σ []
+    | cstyping_cons Δ σ Γ d :
+        cstyping Δ (λ k, σ (S k)) Γ →
+        R Δ (σ 0) (csubstitute (λ k, σ (S k)) d) →
+        cstyping Δ σ (d :: Γ).
+
+    Definition preserve_stmt :=
+      ∀ Γ Δ σ t A,
+        R Γ t A → cstyping Δ σ Γ → R Δ (csubstitute σ t) (csubstitute σ A).
+
+  End Statements.
+
   (** Completeness against an abstract "concrete" judgment *)
 
   Lemma ev_var n : ceval (E_var n) = cvar n.
@@ -617,10 +654,9 @@ Section ConcreteFacts.
     Context (hrules : ∀ rd, In rd desc → ∀ Γ, rule_desc_type R rd Γ).
     Context (hwf : wf_desc).
 
-    Theorem jdg_complete Γ j :
-      proof (jsig := to_jdg_sig desc) tt Γ j →
-      R (map ceval Γ) (ceval (fst j)) (ceval (snd j)).
+    Theorem jdg_complete : complete_jdg R.
     Proof.
+      intros Γ j.
       induction 1 as [[] me Γ r x hin hind ih hpred | [] Γ n d hd].
       - cbn in hin. apply in_to_rules in hin as (rd & hin & ->).
         eapply wf_desc_rule in hwf. 2: exact hin.
@@ -719,6 +755,7 @@ Inductive typing Γ : term → term → Prop :=
   crename := rename ;
   ceval := eval Kt ;
   creify := reify ;
+  csubstitute := substitute ;
   cctor := λ c,
     match c return cargs term (ctor_type c) → term with
     | CtK => λ _, tK
@@ -811,6 +848,8 @@ Proof.
     all: reflexivity.
   - apply eval_reify_inv.
   - apply reify_eval_inv.
+  - apply eval_substitute.
+  - intros s s' t e. apply congr_substitute. all: auto.
 Qed.
 
 Definition to_menv l : menv :=
@@ -828,11 +867,10 @@ Proof.
     all: assumption.
 Qed.
 
-Lemma typing_complete Γ j :
-  proof (jsig := to_jdg_sig SK_desc) tt Γ j →
-  typing (map (eval Kt) Γ) (eval Kt (fst j)) (eval Kt (snd j)).
+Lemma typing_complete : complete_jdg SK_desc typing.
 Proof.
-  eapply jdg_complete with (1 := term_cl).
+  eapply jdg_complete.
+  - exact _.
   - exact ty_var.
   - intros rd hin. cbn in hin. destruct hin as [<- | [<- | [<- | []]]].
     + exact ty_K.
@@ -849,15 +887,8 @@ Proof.
   all: rewrite IHt1, IHt2. all: reflexivity.
 Qed.
 
-Inductive cstyping : list term → (nat → term) → list term → Prop :=
-| cstyping_nil Δ σ : cstyping Δ σ []
-| cstyping_cons Δ σ Γ d :
-    cstyping Δ (λ k, σ (S k)) Γ →
-    typing Δ (σ 0) (substitute (λ k, σ (S k)) d) →
-    cstyping Δ σ (d :: Γ).
-
 Lemma cstyping_styping Δ σ Γ :
-  cstyping Δ σ Γ →
+  cstyping typing Δ σ Γ →
   styping (jsig := to_jdg_sig SK_desc) tt (map reify Δ) (λ k, reify (σ k)) (map reify Γ).
 Proof.
   induction 1 as [Δ σ | Δ σ Γ d h ih hd]. all: cbn.
@@ -874,7 +905,7 @@ Qed.
 
 Lemma cpreserve_subst Γ Δ t A σ :
   typing Γ t A →
-  cstyping Δ σ Γ →
+  cstyping typing Δ σ Γ →
   typing Δ (substitute σ t) (substitute σ A).
 Proof.
   intros ht hs.
@@ -885,7 +916,7 @@ Proof.
   rewrite map_map in ht.
   erewrite map_ext, map_id in ht. 2: apply eval_reify_inv.
   cbv beta iota delta [substitute_jdg fmap Sig_FMapJdg FMapProd FMapId fst snd] in ht.
-  rewrite !eval_substitute, !eval_reify_inv in ht.
+  rewrite !ev_substitute, !ev_rf in ht.
   erewrite 2!(congr_substitute (seval (λ k, reify (σ k))) σ) in ht.
   1: exact ht.
   all: try reflexivity.
