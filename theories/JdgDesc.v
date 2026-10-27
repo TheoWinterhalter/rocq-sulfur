@@ -360,19 +360,27 @@ Section ConcreteJdg.
   Definition var_rule_type :=
     ∀ Γ n A, cinctx (crename rshift) Γ n A → J Γ (cvar n) A.
 
-  Lemma under_intro n ms K :
-    (∀ vs, List.length vs = n → K (rev ms ++ vs)) →
-    under n ms K.
+  Lemma under_iff n ms K :
+    (∀ vs, List.length vs = n → K (rev ms ++ vs)) ↔ under n ms K.
   Proof.
-    intros h.
-    induction n as [| n ih] in ms, K, h |- *.
-    - cbn.
-      specialize h with (vs := []) (1 := eq_refl).
-      rewrite app_nil_r in h. assumption.
-    - cbn. intros x.
-      apply ih. intros vs hvs.
-      cbn. rewrite <- app_assoc. cbn. apply h.
-      cbn. lia.
+    split.
+    - intros h.
+      induction n as [| n ih] in ms, K, h |- *.
+      + cbn.
+        specialize h with (vs := []) (1 := eq_refl).
+        rewrite app_nil_r in h. assumption.
+      + cbn. intros x.
+        apply ih. intros vs hvs.
+        cbn. rewrite <- app_assoc. cbn. apply h.
+        cbn. lia.
+    - intros h vs hl.
+      induction n as [| n ih] in ms, K, h, vs, hl |- *.
+      + cbn in h. destruct vs. 2: discriminate.
+        rewrite app_nil_r. assumption.
+      + cbn in h. destruct vs as [| v vs]. 1: discriminate.
+        cbn in hl. injection hl as e.
+        specialize (h v). eapply ih in h. 2: eassumption.
+        cbn in h. rewrite <- app_assoc in h. assumption.
   Qed.
 
 End ConcreteJdg.
@@ -490,7 +498,7 @@ Section ConcreteFacts.
     intros h hwf.
     red in hwf. unfold wf_jdg in hwf. rewrite !andb_true_iff in hwf.
     destruct hwf as (hwp & hwt & hwA).
-    apply under_intro. intros vs hvs. cbn.
+    red. rewrite <- under_iff. intros vs hvs. cbn.
     rewrite <- fold_impl_iff. intros hF.
     rewrite Forall_map in hF.
     unfold conc_jdg, J, Pf. cbn.
