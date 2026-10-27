@@ -109,7 +109,7 @@ Section Rf.
     | M_aterm _ t => wf_mexpr m t
     | M_abind _ a => wf_mexpr m a
     | M_mvar s k σ =>
-      Nat.ltb k m && Nat.eqb s 0 && match σ with [] => true | _ => false end
+      (k <? m) && (s =? 0) && match σ with [] => true | _ => false end
     end.
 
 End Rf.
