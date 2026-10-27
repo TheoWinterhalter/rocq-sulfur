@@ -489,8 +489,20 @@ Section ConcreteFacts.
 
   Definition wf_rule rd :=
     forallb (wf_jdg rd.(rd_mvars)) rd.(rd_premises) &&
-    wf_jdg rd.(rd_mvars) rd.(rd_conclusion)
-    = true.
+    wf_jdg rd.(rd_mvars) rd.(rd_conclusion).
+
+  Definition wf_desc :=
+    forallb wf_rule desc.
+
+  Lemma wf_desc_rule rd :
+    wf_desc →
+    In rd desc →
+    wf_rule rd.
+  Proof.
+    intros h hin.
+    unfold wf_desc in h. unfold is_true in h.
+    rewrite forallb_forall in h. auto.
+  Qed.
 
   Lemma sound_step rd Γ :
     In rd desc →
@@ -498,7 +510,7 @@ Section ConcreteFacts.
     rule_desc_type J rd Γ.
   Proof.
     intros h hwf.
-    red in hwf. unfold wf_jdg in hwf. rewrite !andb_true_iff in hwf.
+    red in hwf. unfold wf_rule, wf_jdg in hwf. rewrite !andb_true_iff in hwf.
     destruct hwf as (hwp & hwt & hwA).
     red. rewrite <- under_iff. intros vs hvs. cbn.
     rewrite <- fold_impl_iff. intros hF.
@@ -603,7 +615,7 @@ Section ConcreteFacts.
     Context (R : list T → T → T → Prop).
     Context (hvar : var_rule_type R).
     Context (hrules : ∀ rd, In rd desc → ∀ Γ, rule_desc_type R rd Γ).
-    Context (hwf : ∀ rd, In rd desc → wf_rule rd).
+    Context (hwf : wf_desc).
 
     Theorem jdg_complete Γ j :
       proof (jsig := to_jdg_sig desc) tt Γ j →
@@ -611,9 +623,9 @@ Section ConcreteFacts.
     Proof.
       induction 1 as [[] me Γ r x hin hind ih hpred | [] Γ n d hd].
       - cbn in hin. apply in_to_rules in hin as (rd & hin & ->).
-        specialize (hwf _ hin).
+        eapply wf_desc_rule in hwf. 2: exact hin.
         specialize (hrules _ hin (map ceval Γ)).
-        red in hwf. unfold wf_jdg in hwf. rewrite !andb_true_iff in hwf.
+        unfold is_true, wf_rule, wf_jdg in hwf. rewrite !andb_true_iff in hwf.
         destruct hwf as (hwp & hwt & hwA).
         destruct rd as [name m prems [t A]]. cbn in *.
         rewrite <- under_iff in hrules.
@@ -826,8 +838,7 @@ Proof.
     + exact ty_K.
     + exact ty_S.
     + exact ty_app.
-  - intros rd hin. cbn in hin. destruct hin as [<- | [<- | [<- | []]]].
-    all: reflexivity.
+  - reflexivity.
 Qed.
 
 Lemma reify_substitute σ t :
