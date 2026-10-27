@@ -897,9 +897,6 @@ Proof.
   - intros s s' t e. apply congr_substitute. all: auto.
 Qed.
 
-Definition to_menv l : menv :=
-  λ k _, nth k (map reify l) (E_var 0).
-
 Lemma typing_sound : sound_jdg SK_desc typing.
 Proof.
   intros Γ t A h.
@@ -921,14 +918,6 @@ Proof.
     + exact ty_S.
     + exact ty_app.
   - reflexivity.
-Qed.
-
-Lemma reify_substitute σ t :
-  reify (substitute σ t) = ParamSyntax.substitute (λ i, reify (σ i)) (reify t).
-Proof.
-  induction t in σ |- *.
-  all: cbn. all: try reflexivity.
-  all: rewrite IHt1, IHt2. all: reflexivity.
 Qed.
 
 Lemma cpreserve_subst Γ Δ t A σ :
