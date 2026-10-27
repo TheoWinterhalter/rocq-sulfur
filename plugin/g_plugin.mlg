@@ -2,6 +2,7 @@ DECLARE PLUGIN "rocq-sulfur.plugin"
 
 {
   open Signature
+  open Stdarg
   open Procq.Prim
   open Procq.Constr
 
@@ -60,6 +61,10 @@ END
 
 
 (* Relation generation *)
+
+VERNAC COMMAND EXTEND SulfurJudgment CLASSIFIED AS SIDEFF
+| [ "Sulfur" "Judgment" ident(name) constr(d) ] -> { Jdg.generate name d }
+END
 
 VERNAC ARGUMENT EXTEND conclusion
 | [ identref(ind) constr_list(args) ] ->

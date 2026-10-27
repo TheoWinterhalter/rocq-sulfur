@@ -41,6 +41,8 @@ Definition SK_desc : jdg_desc := [
   r_app
 ].
 
+Sulfur Judgment typing SK_desc.
+
 Arguments r_K /.
 Arguments r_S /.
 Arguments r_app /.
