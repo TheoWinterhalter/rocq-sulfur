@@ -31,12 +31,12 @@ Section ConcreteSyntax.
     | Kal l => cargs l
     end.
 
-  Class ConcreteSyntax := {
+  Class ConcreteSyntax := mkCS {
     cvar : nat → T ;
     crename : ren → T → T ;
+    csubstitute : (nat → T) → T → T ;
     ceval : expr Kt → T ;
     creify : T → expr Kt ;
-    csubstitute : (nat → T) → T → T ;
     cctor : ∀ c, cargs (ctor_type c) → T
   }.
 
@@ -47,10 +47,10 @@ Arguments cargs {sig}.
 Arguments ckind {sig}.
 
 Arguments cvar {sig T _}.
-Arguments ceval {sig T _}.
-Arguments creify {sig T _}.
 Arguments crename {sig T _}.
 Arguments csubstitute {sig T _}.
+Arguments ceval {sig T _}.
+Arguments creify {sig T _}.
 Arguments cctor {sig T _}.
 
 Abbreviation ctx_rf Γ := (map creify Γ).
@@ -60,12 +60,12 @@ Abbreviation jdg_rf j := (creify (fst j), creify (snd j)).
 
 Section Rf.
 
-  Context {sig : signature} {T : Type} {CS : ConcreteSyntax sig T}.
+  Context {sig : signature} {T : Type} (rf : T → expr Kt).
 
   Fixpoint rf_arg (a : arg_ty) : carg T a → expr (Ka a) :=
     match a with
     | AT_base b => λ x, E_abase b x
-    | AT_term => λ t, E_aterm (creify t)
+    | AT_term => λ t, E_aterm (rf t)
     | AT_bind a => λ x, E_abind (rf_arg a x)
     end.
 
@@ -75,18 +75,24 @@ Section Rf.
     | a :: l => λ '(x, xs), E_al_cons (rf_arg a x) (rf_args l xs)
     end.
 
-  Definition rf (k : kind) : ckind T k → expr k :=
+  Definition rfk (k : kind) : ckind T k → expr k :=
     match k with
-    | Kt => creify
+    | Kt => rf
     | Ka a => rf_arg a
     | Kal l => rf_args l
     end.
+
+End Rf.
+
+Section Laws.
+
+  Context {sig : signature} {T : Type} {CS : ConcreteSyntax sig T}.
 
   Class ConcreteSyntaxLaws := {
     rf_var : ∀ n, creify (cvar n) = E_var n ;
     rf_rename : ∀ r t, creify (crename r t) = rename r (creify t) ;
     rf_cctor :
-      ∀ c args, creify (cctor c args) = E_ctor c (rf_args (ctor_type c) args) ;
+      ∀ c args, creify (cctor c args) = E_ctor c (rf_args creify (ctor_type c) args) ;
     ev_rf : ∀ t, ceval (creify t) = t ;
     rf_ev : ∀ e, creify (ceval e) = e ;
     ev_substitute :
@@ -112,6 +118,58 @@ Section Rf.
       (k <? m) && (s =? 0) && match σ with [] => true | _ => false end
     end.
 
-End Rf.
+End Laws.
 
 Arguments ConcreteSyntaxLaws {sig T} CS.
+
+Lemma rf_rename_of_ev {sig : signature} {T : Type}
+  (rf : T → expr Kt) (ev : expr Kt → T) (ren : ren → T → T)
+  (ev_rf : ∀ t, ev (rf t) = t) (rf_ev : ∀ e, rf (ev e) = e)
+  (ev_rename : ∀ r e, ev (rename r e) = ren r (ev e)) :
+  ∀ r t, rf (ren r t) = rename r (rf t).
+Proof.
+  intros r t.
+  erewrite <- rf_ev. rewrite ev_rename, ev_rf.
+  reflexivity.
+Qed.
+
+(** Tactics run by [Sulfur Syntax] to derive the instances. *)
+
+Ltac destruct_params :=
+  repeat match goal with
+  | q : (_ * _)%type |- _ => destruct q
+  | q : unit |- _ => destruct q
+  end.
+
+(**
+  Prove [forall e, reify (eval Kt e) = e], by induction on [e] at every kind.
+  [ec] is the generated [eval_ctor].
+*)
+Ltac derive_rf_ev ec :=
+  lazymatch goal with
+  | [ |- forall e : @expr ?sg _, ?rf (?ev _ e) = e ] =>
+    let H := fresh "H" in
+    assert (H : forall c v, rf (ec c v) = @E_ctor sg c (rf_args rf _ v))
+      by (let c := fresh "c" in let v := fresh "v" in
+          intros c v; destruct c; cbn in v; destruct_params; reflexivity);
+    let HH := fresh "HH" in
+    enough (forall k (e : @expr sg k), rfk rf k (ev k e) = e) as HH
+      by (intro e; exact (HH Kt e));
+    let k := fresh "k" in let e := fresh "e" in
+    intros k e; induction e; cbn; try rewrite H;
+    solve [ reflexivity | f_equal; assumption ]
+  end.
+
+(** [ConcreteSyntaxLaws cs] from the generated lemmas. *)
+Ltac derive_cs_laws rf_ev ev_rf ev_rename ev_substitute congr_substitute :=
+  constructor;
+  [ intro; reflexivity
+  | exact (rf_rename_of_ev _ _ _ ev_rf rf_ev ev_rename)
+  | let c := fresh "c" in let a := fresh "a" in
+    intros c a; destruct c; cbn in a; destruct_params; reflexivity
+  | exact ev_rf
+  | exact rf_ev
+  | exact ev_substitute
+  | let h := fresh "h" in
+    intros ? ? ? h ; apply congr_substitute; [ exact h | reflexivity ]
+  ].

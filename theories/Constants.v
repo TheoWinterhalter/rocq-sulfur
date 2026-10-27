@@ -111,3 +111,5 @@ Register ParamSyntax.sig_ind as sulfur.param.sig_ind.
 Register ConcreteSyntax.carg as sulfur.cs.carg.
 Register ConcreteSyntax.cargs as sulfur.cs.cargs.
 Register ConcreteSyntax.ckind as sulfur.cs.ckind.
+Register ConcreteSyntax.mkCS as sulfur.cs.build.
+Register ConcreteSyntax.ConcreteSyntaxLaws as sulfur.cs.laws.

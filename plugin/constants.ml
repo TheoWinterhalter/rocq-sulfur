@@ -104,4 +104,6 @@ module CS = struct
   let carg = resolve "sulfur.cs.carg"
   let cargs = resolve "sulfur.cs.cargs"
   let ckind = resolve "sulfur.cs.ckind"
+  let build = resolve "sulfur.cs.build"
+  let laws = resolve "sulfur.cs.laws"
 end

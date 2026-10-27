@@ -324,12 +324,12 @@ Section ConcreteFacts.
 
   Lemma rf_cinst ι m k s (e : mexpr k s) :
     wf_mexpr m e = true →
-    rf k (cinst ι e) = inst (λ k _, creify (ι k)) e.
+    rfk creify k (cinst ι e) = inst (λ k _, creify (ι k)) e.
   Proof.
     revert k s e.
     apply (
       mexpr_ind (λ k s e,
-        wf_mexpr m e = true → rf k (cinst ι e) = inst (λ k _, creify (ι k)) e
+        wf_mexpr m e = true → rfk creify k (cinst ι e) = inst (λ k _, creify (ι k)) e
       )
     ).
     - intros. apply rf_var.
@@ -684,21 +684,6 @@ Inductive typing Γ : term → term → Prop :=
 | ty_app A B t u :
   typing Γ t (tarr A B) → typing Γ u A → typing Γ (tapp t u) B.
 
-#[local] Instance term_cs : ConcreteSyntax sign term := {|
-  cvar := Var ;
-  crename := rename ;
-  ceval := eval Kt ;
-  creify := reify ;
-  csubstitute := substitute ;
-  cctor := λ c,
-    match c return cargs term (ctor_type c) → term with
-    | CtK => λ _, tK
-    | CtS => λ _, tS
-    | Ctarr => λ '(A, (B, tt)), tarr A B
-    | Ctapp => λ '(t, (u, tt)), tapp t u
-    end
-|}.
-
 (* We can check the rules have the expected types *)
 
 Check (ty_var : var_rule_type typing).
@@ -714,77 +699,6 @@ Eval cbn in (∀ Γ, rule_desc_type typing r_app Γ).
 (* We prove the judgments are the same (for now on this specific case) *)
 
 Definition PfSK := Pf SK_desc.
-
-Lemma reify_rename r t :
-  reify (rename r t) = ParamSyntax.rename r (reify t).
-Proof.
-  induction t in r |- *.
-  all: cbn. all: try reflexivity.
-  all: congruence.
-Qed.
-
-(* Concrete variants of rf *)
-
-Fixpoint rfa (a : arg_ty) : eval_arg a → expr (Ka a) :=
-    match a with
-    | AT_base b => λ x, E_abase b x
-    | AT_term => λ t, E_aterm (creify t)
-    | AT_bind a => λ x, E_abind (rfa a x)
-    end.
-
-Fixpoint rfas (l : list arg_ty) : eval_args l → expr (Kal l) :=
-  match l with
-  | [] => λ _, E_al_nil
-  | a :: l => λ '(x, xs), E_al_cons (rfa a x) (rfas l xs)
-  end.
-
-Definition rfk (k : kind) : eval_kind k → expr k :=
-  match k return eval_kind k → expr k with
-  | Kt => reify
-  | Ka a => rfa a
-  | Kal l => rfas l
-  end.
-
-Lemma rf_eval_ctor c v :
-  reify (eval_ctor c v) = E_ctor c (rfas (ctor_type c) v).
-Proof.
-  destruct c. all: cbn in v.
-  all:
-    repeat match type of v with
-    | (_ * _)%type => destruct v as [? v]
-    | unit => destruct v
-    end.
-  all: reflexivity.
-Qed.
-
-Lemma reify_eval_inv : ∀ e : expr Kt, reify (eval Kt e) = e.
-Proof.
-  assert (h : ∀ k e, rfk k (eval k e) = e).
-  { intros k e.
-    induction e. all: cbn. all: try reflexivity.
-    all: try solve [ f_equal ; eauto ].
-    rewrite rf_eval_ctor. f_equal. auto.
-  }
-  firstorder.
-Qed.
-
-#[local] Instance term_cl : ConcreteSyntaxLaws term_cs.
-Proof.
-  constructor.
-  - reflexivity.
-  - apply reify_rename.
-  - intros c args. destruct c. all: cbn in args.
-    all:
-      repeat match type of args with
-      | (_ * _)%type => destruct args as [? args]
-      | unit => destruct args
-      end.
-    all: reflexivity.
-  - apply eval_reify_inv.
-  - apply reify_eval_inv.
-  - apply eval_substitute.
-  - intros s s' t e. apply congr_substitute. all: auto.
-Qed.
 
 Lemma typing_sound : sound_jdg SK_desc typing.
 Proof.
@@ -815,7 +729,7 @@ Lemma cpreserve_subst Γ Δ t A σ :
   typing Δ (substitute σ t) (substitute σ A).
 Proof.
   intros ht hs.
-  eapply gen_preserve_subst with (1 := term_cl).
+  eapply gen_preserve_subst with (1 := concrete_syntax_laws).
   - eapply typing_sound.
   - eapply typing_complete.
   - eassumption.
