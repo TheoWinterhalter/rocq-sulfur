@@ -64,47 +64,41 @@ struct
   (** *** Build the evaluation functions. *)
   (**************************************************************************************)
 
-  (** Build [eval_arg : arg_ty -> Type]. *)
+  (**
+    The types of evaluated arguments are the library's [carg], [cargs] and
+    [ckind], so that the generated syntax is a [ConcreteSyntax] on the nose.
+  *)
+
+  (** Build [eval_arg := carg term : arg_ty -> Type]. *)
   let build_eval_arg () : EConstr.t m =
-    let open EConstr in
-    let* t = fresh_type in
     let at = app (mkglob' C.arg_ty) @@ mkind P.osign.base in
-    fix "eval_arg" 0 (arrow at t) @@ fun eval_arg ->
     lambda "ty" at @@ fun ty ->
-    case (mkVar ty) ~return:(fun _ _ -> ret t) @@ fun i args ->
-    match i with
-    | 0 -> ret @@ app (mkconst P.osign.eval_base) @@ mkVar @@ List.hd args
-    | 1 -> ret @@ mkind P.oconc.term
-    | _ -> ret @@ app (mkVar eval_arg) @@ mkVar @@ List.hd args
+    ret @@ apps (mkglob' C.CS.carg) [|
+      mkconst P.osign.sign ;
+      mkind P.oconc.term ;
+      EConstr.mkVar ty
+    |]
 
-  (** Build [eval_args : arg_ty list -> Type]. *)
+  (** Build [eval_args := cargs term : arg_ty list -> Type]. *)
   let build_eval_args (eval_arg : Names.Constant.t) : EConstr.t m =
-    let open EConstr in
-    let* t = fresh_type in
     let at_list = app (mkglob' C.list) @@ app (mkglob' C.arg_ty) @@ mkind P.osign.base in
-    fix "eval_args" 0 (arrow at_list t) @@ fun eval_args ->
     lambda "tys" at_list @@ fun tys ->
-    case (mkVar tys) ~return:(fun _ _ -> ret t) @@ fun i args ->
-    match i with
-    | 0 -> ret @@ mkglob' C.unit
-    | _ ->
-        let ty = List.hd args in
-        let tys = List.hd @@ List.tl args in
-        ret
-        @@ apps (mkglob' C.prod)
-             [| app (mkconst eval_arg) @@ mkVar ty; app (mkVar eval_args) @@ mkVar tys |]
+    ret @@ apps (mkglob' C.CS.cargs) [|
+      mkconst P.osign.sign ;
+      mkind P.oconc.term ;
+      EConstr.mkVar tys
+    |]
 
-  (** Build [eval_kind : kind -> Type]. *)
+  (** Build [eval_kind := ckind term : kind -> Type]. *)
   let build_eval_kind (eval_arg : Names.Constant.t) (eval_args : Names.Constant.t) :
       EConstr.t m =
-    let open EConstr in
     let kind = app (mkglob' C.kind) @@ mkind P.osign.base in
     lambda "k" kind @@ fun k ->
-    case (mkVar k) ~return:(fun _ _ -> fresh_type) @@ fun i args ->
-    match i with
-    | 0 -> ret @@ mkind P.oconc.term
-    | 1 -> ret @@ app (mkconst eval_arg) @@ mkVar @@ List.hd args
-    | _ -> ret @@ app (mkconst eval_args) @@ mkVar @@ List.hd args
+    ret @@ apps (mkglob' C.CS.ckind) [|
+      mkconst P.osign.sign ;
+      mkind P.oconc.term ;
+      EConstr.mkVar k
+    |]
 
   (** Build [eval_ctor : ctor -> eval_args (ctor_type c) -> term]. *)
   let build_eval_ctor (eval_args : Names.Constant.t) : EConstr.t m =
@@ -187,8 +181,8 @@ let generate (sign : signature) (oconc : ops_concrete) (osign : ops_sign) : ops_
   end) in
   let reify = def "reify" ~kind:Decls.Fixpoint @@ M.build_reify () in
   let sreify = def "sreify" @@ M.build_sreify reify in
-  let eval_arg = def "eval_arg" ~kind:Decls.Fixpoint @@ M.build_eval_arg () in
-  let eval_args = def "eval_args" ~kind:Decls.Fixpoint @@ M.build_eval_args eval_arg in
+  let eval_arg = def "eval_arg" @@ M.build_eval_arg () in
+  let eval_args = def "eval_args" @@ M.build_eval_args eval_arg in
   let eval_kind = def "eval_kind" @@ M.build_eval_kind eval_arg eval_args in
   let eval_ctor = def "eval_ctor" @@ M.build_eval_ctor eval_args in
   let eval = def "eval" @@ M.build_eval eval_kind eval_ctor in

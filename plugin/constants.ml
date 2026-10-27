@@ -95,3 +95,13 @@ module P = struct
   let sig_ind_t = resolve "sulfur.param.sig_ind_t"
   let sig_ind = resolve "sulfur.param.sig_ind"
 end
+
+(**************************************************************************************)
+(** *** ConcreteSyntax class. *)
+(**************************************************************************************)
+
+module CS = struct
+  let carg = resolve "sulfur.cs.carg"
+  let cargs = resolve "sulfur.cs.cargs"
+  let ckind = resolve "sulfur.cs.ckind"
+end

@@ -1,7 +1,7 @@
 (** Concrete syntax corresponding to a signature *)
 
 From Stdlib Require Import Utf8 String.
-From Sulfur Require Import Prelude Sig Renamings All.
+From Sulfur Require Import Prelude Sig Renamings.
 From Sulfur Require Import ParamSyntax JudgmentSyntaxScoped.
 From Utils Require Import Functor.
 

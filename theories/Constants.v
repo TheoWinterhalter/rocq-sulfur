@@ -2,7 +2,7 @@
     Constants are accessed in the plugin from [plugin/constants.ml]. *)
 
 From Sulfur Require Import Prelude Sig Renamings.
-From Sulfur Require ParamSyntax.
+From Sulfur Require ParamSyntax ConcreteSyntax.
 
 (*********************************************************************************)
 (** *** Basic constants. *)
@@ -105,3 +105,9 @@ Register ParamSyntax.inv_Ka_bind as sulfur.param.inv_Ka_bind.
 
 Register ParamSyntax.sig_ind_t as sulfur.param.sig_ind_t.
 Register ParamSyntax.sig_ind as sulfur.param.sig_ind.
+
+(** ConcreteSyntax *)
+
+Register ConcreteSyntax.carg as sulfur.cs.carg.
+Register ConcreteSyntax.cargs as sulfur.cs.cargs.
+Register ConcreteSyntax.ckind as sulfur.cs.ckind.
