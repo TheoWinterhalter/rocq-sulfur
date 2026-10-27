@@ -95,7 +95,7 @@ Proof.
   eapply jdg_complete.
   - exact _.
   - exact ty_var.
-  - intros rd hin. cbn in hin. destruct hin as [<- | [<- | [<- | []]]].
+  - repeat eapply Forall_cons + eapply Forall_nil.
     + exact ty_K.
     + exact ty_S.
     + exact ty_app.

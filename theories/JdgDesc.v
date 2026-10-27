@@ -436,8 +436,7 @@ Section ConcreteFacts.
     Context (R : list T → T → T → Prop).
 
     Definition rules_type :=
-      var_rule_type R ∧
-      ∀ rd, In rd desc → ∀ Γ, rule_desc_type R rd Γ.
+      Forall (λ rd, ∀ Γ, rule_desc_type R rd Γ) desc.
 
     Definition sound_jdg :=
       ∀ Γ t A, R Γ t A → J Γ t A.
@@ -548,7 +547,7 @@ Section ConcreteFacts.
 
     Context (R : list T → T → T → Prop).
     Context (hvar : var_rule_type R).
-    Context (hrules : ∀ rd, In rd desc → ∀ Γ, rule_desc_type R rd Γ).
+    Context (hrules : rules_type R).
     Context (hwf : wf_desc).
 
     Theorem jdg_complete : complete_jdg R.
@@ -557,6 +556,7 @@ Section ConcreteFacts.
       induction 1 as [[] me Γ r x hin hind ih hpred | [] Γ n d hd].
       - cbn in hin. apply in_to_rules in hin as (rd & hin & ->).
         eapply wf_desc_rule in hwf. 2: exact hin.
+        unfold rules_type in hrules. rewrite Forall_forall in hrules.
         specialize (hrules _ hin (map ceval Γ)).
         unfold is_true, wf_rule, wf_jdg in hwf. rewrite !andb_true_iff in hwf.
         destruct hwf as (hwp & hwt & hwA).
