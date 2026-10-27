@@ -566,7 +566,7 @@ Section ConcreteFacts.
         R Δ (σ 0) (csubstitute (λ k, σ (S k)) d) →
         cstyping Δ σ (d :: Γ).
 
-    Definition preserve_stmt :=
+    Definition preserve_subst_jdg :=
       ∀ Γ Δ σ t A,
         R Γ t A → cstyping Δ σ Γ → R Δ (csubstitute σ t) (csubstitute σ A).
 
@@ -582,6 +582,14 @@ Section ConcreteFacts.
   Lemma ev_rename r e : ceval (ParamSyntax.rename r e) = crename r (ceval e).
   Proof.
     rewrite <- (rf_ev e) at 1. rewrite <- rf_rename. apply ev_rf.
+  Qed.
+
+  Lemma rf_substitute σ t :
+    creify (csubstitute σ t) = substitute (λ i, creify (σ i)) (creify t).
+  Proof.
+    erewrite <- rf_ev.
+    rewrite ev_substitute, ev_rf. f_equal.
+    apply csubstitute_ext. intro i. rewrite ev_rf. reflexivity.
   Qed.
 
   Lemma inst_ext_wf m (me me' : menv) k s (e : mexpr k s) :
@@ -685,6 +693,43 @@ Section ConcreteFacts.
     Qed.
 
   End Completeness.
+
+  (** Preservation of substitution from soundness and completeness *)
+
+  Section Preservation.
+
+    Context (R : list T → T → T → Prop).
+    Context (hsound : sound_jdg R).
+    Context (hcomplete : complete_jdg R).
+
+    Lemma cstyping_styping Δ σ Γ :
+      cstyping R Δ σ Γ →
+      styping (jsig := to_jdg_sig desc) tt (ctx_rf Δ) (λ k, creify (σ k)) (ctx_rf Γ).
+    Proof.
+      induction 1 as [Δ σ | Δ σ Γ d h ih hd].
+      - constructor.
+      - cbn. constructor. 1: exact ih.
+        apply hsound in hd. unfold J, Pf in hd. cbn in hd.
+        rewrite rf_substitute in hd. exact hd.
+    Qed.
+
+    Theorem gen_preserve_subst : preserve_subst_jdg R.
+    Proof.
+      intros Γ Δ σ t A ht hs.
+      apply hsound in ht. unfold J, Pf in ht.
+      apply cstyping_styping in hs.
+      eapply (preserve_subst (HSubstSig := subst_sig)) in ht. 2: eassumption.
+      apply hcomplete in ht.
+      rewrite map_map in ht.
+      erewrite map_ext, map_id in ht. 2: apply ev_rf.
+      cbv beta iota delta [substitute_jdg fmap Sig_FMapJdg FMapProd FMapId fst snd] in ht.
+      rewrite !ev_substitute, !ev_rf in ht.
+      erewrite 2!(csubstitute_ext (λ i, ceval (creify (σ i))) σ) in ht.
+      1: exact ht.
+      all: intro i. all: apply ev_rf.
+    Qed.
+
+  End Preservation.
 
 End ConcreteFacts.
 
@@ -855,11 +900,10 @@ Qed.
 Definition to_menv l : menv :=
   λ k _, nth k (map reify l) (E_var 0).
 
-Lemma typing_sound Γ t A :
-  typing Γ t A →
-  PfSK Γ (t, A).
+Lemma typing_sound : sound_jdg SK_desc typing.
 Proof.
-  unfold Pf. induction 1. all: cbn.
+  intros Γ t A h.
+  unfold J, Pf. induction h. all: cbn.
   - exact (sound_var SK_desc Γ n A H).
   - exact (sound_step SK_desc r_K Γ ltac:(cbn; auto) eq_refl A B).
   - exact (sound_step SK_desc r_S Γ ltac:(cbn; auto) eq_refl A B C).
@@ -887,38 +931,15 @@ Proof.
   all: rewrite IHt1, IHt2. all: reflexivity.
 Qed.
 
-Lemma cstyping_styping Δ σ Γ :
-  cstyping typing Δ σ Γ →
-  styping (jsig := to_jdg_sig SK_desc) tt (map reify Δ) (λ k, reify (σ k)) (map reify Γ).
-Proof.
-  induction 1 as [Δ σ | Δ σ Γ d h ih hd]. all: cbn.
-  - constructor.
-  - constructor. 1: exact ih.
-    apply typing_sound in hd. unfold PfSK, Pf in hd. cbn in hd.
-    rewrite reify_substitute in hd. exact hd.
-Qed.
-
-Lemma subst_sig_SK : SubstJSig (to_jdg_sig SK_desc).
-Proof.
-  apply subst_sig.
-Qed.
-
 Lemma cpreserve_subst Γ Δ t A σ :
   typing Γ t A →
   cstyping typing Δ σ Γ →
   typing Δ (substitute σ t) (substitute σ A).
 Proof.
   intros ht hs.
-  apply typing_sound in ht.
-  apply cstyping_styping in hs.
-  eapply (preserve_subst (HSubstSig := subst_sig_SK)) in ht. 2: eassumption.
-  apply typing_complete in ht.
-  rewrite map_map in ht.
-  erewrite map_ext, map_id in ht. 2: apply eval_reify_inv.
-  cbv beta iota delta [substitute_jdg fmap Sig_FMapJdg FMapProd FMapId fst snd] in ht.
-  rewrite !ev_substitute, !ev_rf in ht.
-  erewrite 2!(congr_substitute (seval (λ k, reify (σ k))) σ) in ht.
-  1: exact ht.
-  all: try reflexivity.
-  all: intro i. all: unfold seval. all: apply eval_reify_inv.
+  eapply gen_preserve_subst with (1 := term_cl).
+  - eapply typing_sound.
+  - eapply typing_complete.
+  - eassumption.
+  - assumption.
 Qed.
