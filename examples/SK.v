@@ -79,8 +79,6 @@ Eval cbn in (∀ Γ, rule_desc_type typing r_app Γ).
 
 (* We prove the judgments are the same (for now on this specific case) *)
 
-Definition PfSK := Pf SK_desc.
-
 Lemma typing_sound : sound_jdg SK_desc typing.
 Proof.
   intros Γ t A h.
