@@ -273,7 +273,9 @@ Section Rf.
     rf_var : ∀ n, creify (cvar n) = E_var n ;
     rf_rename : ∀ r t, creify (crename r t) = ParamSyntax.rename r (creify t) ;
     rf_cctor :
-      ∀ c args, creify (cctor c args) = E_ctor c (rf_args (ctor_type c) args)
+      ∀ c args, creify (cctor c args) = E_ctor c (rf_args (ctor_type c) args) ;
+    ev_rf : ∀ t, ceval (creify t) = t ;
+    rf_ev : ∀ e, creify (ceval e) = e
   }.
 
   (** Well-formed meta expression
@@ -521,6 +523,121 @@ Section ConcreteFacts.
     - cbn. destruct (rd_conclusion rd). reflexivity.
   Qed.
 
+  (** Completeness against an abstract "concrete" judgment *)
+
+  Lemma ev_var n : ceval (E_var n) = cvar n.
+  Proof.
+    rewrite <- rf_var. apply ev_rf.
+  Qed.
+
+  Lemma ev_rename r e : ceval (ParamSyntax.rename r e) = crename r (ceval e).
+  Proof.
+    rewrite <- (rf_ev e) at 1. rewrite <- rf_rename. apply ev_rf.
+  Qed.
+
+  Lemma inst_ext_wf m (me me' : menv) k s (e : mexpr k s) :
+    (∀ k, k < m → me k 0 = me' k 0) →
+    wf_mexpr m e = true →
+    inst me e = inst me' e.
+  Proof.
+    intros hme. revert k s e.
+    apply (mexpr_ind (λ k s e, wf_mexpr m e = true → inst me e = inst me' e)).
+    - intros. reflexivity.
+    - intros s c al ih h. cbn in h. cbn. f_equal. auto.
+    - intros. reflexivity.
+    - intros s ty tys a al ha hal h.
+      cbn in h. rewrite andb_true_iff in h. destruct h as [ea eal].
+      cbn. f_equal. all: auto.
+    - intros. reflexivity.
+    - intros s t ih h. cbn in h. cbn. f_equal. auto.
+    - intros s ty a ih h. cbn in h. cbn. f_equal. auto.
+    - intros s k σ ih h. cbn - ["<?"] in h.
+      destruct σ. 2: rewrite andb_false_r in h. 2: discriminate.
+      rewrite !andb_true_iff in h. destruct h as [[hk _] _].
+      rewrite PeanoNat.Nat.ltb_lt in hk.
+      cbn. rewrite hme. 2: assumption.
+      reflexivity.
+  Qed.
+
+  Definition ev_vs m (me : menv) : list T :=
+    map (λ k, ceval (me k 0)) (seq 0 m).
+
+  Lemma ev_vs_length m me :
+    List.length (ev_vs m me) = m.
+  Proof.
+    unfold ev_vs.
+    rewrite length_map, length_seq.
+    reflexivity.
+  Qed.
+
+  Definition ev_vals m me :=
+    nvar (ev_vs m me).
+
+  Lemma ev_inst m me s (e : mexpr Kt s) :
+    wf_mexpr m e = true →
+    ceval (inst me e) = cinst (ev_vals m me) e.
+  Proof.
+    intros h.
+    rewrite <- ev_rf.
+    erewrite rf_cinst_t. 2: eassumption.
+    f_equal. eapply inst_ext_wf. 2: eassumption.
+    intros k hk.
+    unfold ev_vals, ev_vs, nvar.
+    rewrite nth_map_seq. 2: assumption.
+    rewrite rf_ev. reflexivity.
+  Qed.
+
+  Lemma inctx_cinctx Γ n d :
+    @inctx sig (declF tt) _ Γ n d →
+    cinctx (crename rshift) (map ceval Γ) n (ceval d).
+  Proof.
+    induction 1 as [d Γ | d d' Γ n h ih].
+    all: cbn. all: unfold fmap, Sig_FMapDecl, FMapId.
+    all: rewrite ev_rename.
+    - constructor.
+    - constructor. assumption.
+  Qed.
+
+  Section Completeness.
+
+    Context (R : list T → T → T → Prop).
+    Context (hvar : var_rule_type R).
+    Context (hrules : ∀ rd, In rd desc → ∀ Γ, rule_desc_type R rd Γ).
+    Context (hwf : ∀ rd, In rd desc → wf_rule rd).
+
+    Theorem jdg_complete Γ j :
+      proof (jsig := to_jdg_sig desc) tt Γ j →
+      R (map ceval Γ) (ceval (fst j)) (ceval (snd j)).
+    Proof.
+      induction 1 as [[] me Γ r x hin hind ih hpred | [] Γ n d hd].
+      - cbn in hin. apply in_to_rules in hin as (rd & hin & ->).
+        specialize (hwf _ hin).
+        specialize (hrules _ hin (map ceval Γ)).
+        red in hwf. unfold wf_jdg in hwf. rewrite !andb_true_iff in hwf.
+        destruct hwf as (hwp & hwt & hwA).
+        destruct rd as [name m prems [t A]]. cbn in *.
+        rewrite <- under_iff in hrules.
+        specialize hrules with (1 := ev_vs_length m me).
+        rewrite <- fold_impl_iff in hrules. cbn in hrules.
+        unfold conc_jdg in hrules. cbn in hrules.
+        unfold fmap, FMapId.
+        erewrite !ev_inst. 2,3: eassumption.
+        apply hrules.
+        rewrite Forall_map, Forall_forall.
+        intros [t' A'] hj'. cbn.
+        rewrite forallb_forall in hwp. specialize (hwp _ hj'). cbn in hwp.
+        rewrite andb_true_iff in hwp. destruct hwp as [hwt' hwA'].
+        specialize (ih tt 0 mnil (t', A') (λ X x, x)).
+        specialize ih with (1 := in_map (λ j, prem_ind tt (λ X x, x) mnil j) _ _ hj').
+        cbn in ih. unfold fmap, FMapId in ih. rewrite map_id in ih.
+        rewrite 2!(ev_inst m me) in ih. 2,3: assumption.
+        exact ih.
+      - cbn. rewrite ev_var.
+        apply hvar. apply inctx_cinctx. assumption.
+    Qed.
+
+  End Completeness.
+
 End ConcreteFacts.
 
 (** Test on combinatory logic *)
@@ -623,6 +740,51 @@ Proof.
   all: congruence.
 Qed.
 
+(* Concrete variants of rf *)
+
+Fixpoint rfa (a : arg_ty) : eval_arg a → expr (Ka a) :=
+    match a with
+    | AT_base b => λ x, E_abase b x
+    | AT_term => λ t, E_aterm (creify t)
+    | AT_bind a => λ x, E_abind (rfa a x)
+    end.
+
+Fixpoint rfas (l : list arg_ty) : eval_args l → expr (Kal l) :=
+  match l with
+  | [] => λ _, E_al_nil
+  | a :: l => λ '(x, xs), E_al_cons (rfa a x) (rfas l xs)
+  end.
+
+Definition rfk (k : kind) : eval_kind k → expr k :=
+  match k return eval_kind k → expr k with
+  | Kt => reify
+  | Ka a => rfa a
+  | Kal l => rfas l
+  end.
+
+Lemma rf_eval_ctor c v :
+  reify (eval_ctor c v) = E_ctor c (rfas (ctor_type c) v).
+Proof.
+  destruct c. all: cbn in v.
+  all:
+    repeat match type of v with
+    | (_ * _)%type => destruct v as [? v]
+    | unit => destruct v
+    end.
+  all: reflexivity.
+Qed.
+
+Lemma reify_eval_inv : ∀ e : expr Kt, reify (eval Kt e) = e.
+Proof.
+  assert (h : ∀ k e, rfk k (eval k e) = e).
+  { intros k e.
+    induction e. all: cbn. all: try reflexivity.
+    all: try solve [ f_equal ; eauto ].
+    rewrite rf_eval_ctor. f_equal. auto.
+  }
+  firstorder.
+Qed.
+
 #[local] Instance term_cl : ConcreteSyntaxLaws term_cs.
 Proof.
   constructor.
@@ -635,6 +797,8 @@ Proof.
       | unit => destruct args
       end.
     all: reflexivity.
+  - apply eval_reify_inv.
+  - apply reify_eval_inv.
 Qed.
 
 Definition to_menv l : menv :=
@@ -652,36 +816,18 @@ Proof.
     all: assumption.
 Qed.
 
-Lemma inctx_cinctx Γ n d :
-  @inctx sign (declF tt) _ Γ n d →
-  cinctx (crename rshift) (map (eval Kt) Γ) n (eval Kt d).
-Proof.
-  induction 1 as [d Γ | d d' Γ n h ih].
-  all: cbn. all: unfold fmap, Sig_FMapDecl, FMapId.
-  all: rewrite eval_rename.
-  - constructor.
-  - constructor. assumption.
-Qed.
-
 Lemma typing_complete Γ j :
   proof (jsig := to_jdg_sig SK_desc) tt Γ j →
   typing (map (eval Kt) Γ) (eval Kt (fst j)) (eval Kt (snd j)).
 Proof.
-  induction 1 as [ [] m Γ r x hin hind ihind hpred | [] Γ n d hd].
-  - cbn in hin. destruct hin as [ <- | [ <- | [ <- | [] ] ] ].
-    all: cbn. all: rewrite !(subst_nil_id (sig := sign)).
-    1,2: econstructor.
-    cbn in ihind.
-    pose proof (ihind tt 0 mnil _ (λ X x, x) (or_introl eq_refl)) as h1.
-    pose proof (ihind tt 0 mnil _ (λ X x, x) (or_intror (or_introl eq_refl))) as h2.
-    cbn in h1, h2.
-    rewrite !(subst_nil_id (sig := sign)) in h1.
-    rewrite !(subst_nil_id (sig := sign)) in h2.
-    rewrite map_id in h1, h2.
-    econstructor ; eassumption.
-  - cbn. econstructor.
-    apply inctx_cinctx.
-    assumption.
+  eapply jdg_complete with (1 := term_cl).
+  - exact ty_var.
+  - intros rd hin. cbn in hin. destruct hin as [<- | [<- | [<- | []]]].
+    + exact ty_K.
+    + exact ty_S.
+    + exact ty_app.
+  - intros rd hin. cbn in hin. destruct hin as [<- | [<- | [<- | []]]].
+    all: reflexivity.
 Qed.
 
 Lemma reify_substitute σ t :

@@ -1,4 +1,4 @@
-From Stdlib Require Import Utf8 List.
+From Stdlib Require Import Utf8 List Lia.
 From Stdlib Require Export Morphisms Relations.
 
 Import ListNotations.
@@ -24,4 +24,13 @@ Proof.
   - intros h hF. induction Ps as [| P Ps ih] in h, hF |- *.
     + cbn in h. assumption.
     + cbn in h. inversion hF. eauto.
+Qed.
+
+Lemma nth_map_seq {X} (f : nat → X) n k d :
+  k < n →
+  nth k (map f (seq 0 n)) d = f k.
+Proof.
+  intros h.
+  rewrite nth_indep with (d' := f 0). 2: rewrite length_map, length_seq. 2: lia.
+  rewrite map_nth, seq_nth. 2: lia. reflexivity.
 Qed.
