@@ -43,76 +43,25 @@ Definition SK_desc : jdg_desc := [
 
 Sulfur Judgment typing SK_desc.
 
-Arguments r_K /.
-Arguments r_S /.
-Arguments r_app /.
-Arguments SK_desc /.
-Eval cbn in SK_desc.
+(* The generated inductive, with the variable rule first *)
 
-(* Actual implementation we want to reach *)
+Print typing.
 
-Definition varty := @cinctx term (rename rshift).
+(* The generated lemmas *)
 
-Inductive typing Γ : term → term → Prop :=
-| ty_var n A :
-  varty Γ n A →
-  typing Γ (Var n) A
+Check typing_var : var_rule_type typing.
+Check type_K : ∀ Γ, rule_desc_type typing r_K Γ.
+Check type_S : ∀ Γ, rule_desc_type typing r_S Γ.
+Check ty_app : ∀ Γ, rule_desc_type typing r_app Γ.
 
-| ty_K A B :
-  typing Γ tK (tarr A (tarr B A))
+Check typing_wf : wf_desc SK_desc.
+Check typing_rules : rules_type SK_desc typing.
+Check typing_sound : sound_jdg SK_desc typing.
+Check typing_complete : complete_jdg SK_desc typing.
+Check typing_subst :
+  ∀ Γ Δ σ t A,
+    typing Γ t A →
+    cstyping typing Δ σ Γ →
+    typing Δ (substitute σ t) (substitute σ A).
 
-| ty_S A B C :
-  typing Γ tS (tarr (tarr A (tarr B C)) (tarr (tarr A B) (tarr A C)))
-
-| ty_app A B t u :
-  typing Γ t (tarr A B) → typing Γ u A → typing Γ (tapp t u) B.
-
-(* We can check the rules have the expected types *)
-
-Check (ty_var : var_rule_type typing).
-Check (ty_K : ∀ Γ, rule_desc_type typing r_K Γ).
-Check (ty_S : ∀ Γ, rule_desc_type typing r_S Γ).
-Check (ty_app : ∀ Γ, rule_desc_type typing r_app Γ).
-
-Arguments conc_jdg /.
-Arguments nvar /.
-Arguments hmvar /.
-Eval cbn in (∀ Γ, rule_desc_type typing r_app Γ).
-
-(* We prove the judgments are the same (for now on this specific case) *)
-
-Lemma typing_sound : sound_jdg SK_desc typing.
-Proof.
-  intros Γ t A h.
-  unfold J, Pf. induction h. all: cbn.
-  - exact (sound_var SK_desc Γ n A H).
-  - exact (sound_step SK_desc r_K Γ ltac:(cbn; auto) eq_refl A B).
-  - exact (sound_step SK_desc r_S Γ ltac:(cbn; auto) eq_refl A B C).
-  - eapply (sound_step SK_desc r_app Γ ltac:(cbn; auto) eq_refl A B t u).
-    all: assumption.
-Qed.
-
-Lemma typing_complete : complete_jdg SK_desc typing.
-Proof.
-  eapply jdg_complete.
-  - exact _.
-  - exact ty_var.
-  - repeat eapply Forall_cons + eapply Forall_nil.
-    + exact ty_K.
-    + exact ty_S.
-    + exact ty_app.
-  - reflexivity.
-Qed.
-
-Lemma cpreserve_subst Γ Δ t A σ :
-  typing Γ t A →
-  cstyping typing Δ σ Γ →
-  typing Δ (substitute σ t) (substitute σ A).
-Proof.
-  intros ht hs.
-  eapply gen_preserve_subst with (1 := concrete_syntax_laws).
-  - eapply typing_sound.
-  - eapply typing_complete.
-  - eassumption.
-  - assumption.
-Qed.
+Print Assumptions typing_subst.

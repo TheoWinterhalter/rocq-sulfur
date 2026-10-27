@@ -231,3 +231,29 @@ val declare_mut_ind :
     Names.Id.t list list ->
     (Names.Id.t list -> EConstr.t m) list list ->
     Names.MutInd.t m
+
+(**************************************************************************************)
+(** *** Reduction, binders, typeclasses. *)
+(**************************************************************************************)
+
+(** The constant behind a global reference (fails on anything else). *)
+val const_of_ref : Names.GlobRef.t -> Names.Constant.t
+
+(** The head constant of an application, if any. *)
+val head_const : EConstr.t -> Names.Constant.t option m
+
+(** [reduce_except opaque t] fully normalizes [t], unfolding every constant except those
+    in [opaque]. *)
+val reduce_except : Names.Constant.t list -> EConstr.t -> EConstr.t m
+
+(** [reduce_only transparent t] fully normalizes [t], unfolding only the constants in
+    [transparent]. *)
+val reduce_only : Names.Constant.t list -> EConstr.t -> EConstr.t m
+
+(** [rename_binders names t] renames the leading products of [t], one per element of
+    [names] ([None] keeps the current name). [t] must start with at least that many
+    products. *)
+val rename_binders : string option list -> EConstr.t -> EConstr.t m
+
+(** [resolve_tc ty] finds an instance of the class [ty] by typeclass resolution. *)
+val resolve_tc : EConstr.t -> EConstr.t m

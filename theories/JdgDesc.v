@@ -10,7 +10,7 @@
 *)
 
 From Stdlib Require Import Utf8 String.
-From Sulfur Require Import Prelude Sig Renamings All.
+From Sulfur Require Import Prelude Sig Renamings.
 From Sulfur Require Import ParamSyntax JudgmentSyntaxScoped ConcreteSyntax.
 From Utils Require Import Functor.
 
@@ -281,6 +281,33 @@ Section ConcreteJdg.
 
 End ConcreteJdg.
 
+(** Induction principle for a concrete judgment *)
+
+Section Ind.
+
+  Context {sig : signature} {T : Type} {CS : ConcreteSyntax sig T}.
+  Context (desc : jdg_desc).
+  Context (J : list T → T → T → Prop).
+
+  (* Like [rule_desc_type] but collecting induction hypotheses *)
+  Definition rule_ind_case P (rd : rule_desc) (Γ : list T) : Prop :=
+    under rd.(rd_mvars) [] (λ vs,
+      fold_right
+        (λ j K, conc_jdg J Γ (nvar vs) j → conc_jdg P Γ (nvar vs) j → K)
+        (conc_jdg P Γ (nvar vs) rd.(rd_conclusion))
+        rd.(rd_premises)
+    ).
+
+  Definition ind_type :=
+    ∀ P,
+      var_rule_type P →
+      fold_right
+        (λ rd K, (∀ Γ, rule_ind_case P rd Γ) → K)
+        (∀ Γ t A, J Γ t A → P Γ t A)
+        desc.
+
+End Ind.
+
 (** Deriving theorems for concrete syntax and judgments *)
 
 Section ConcreteFacts.
@@ -385,7 +412,7 @@ Section ConcreteFacts.
     forallb (wf_jdg rd.(rd_mvars)) rd.(rd_premises) &&
     wf_jdg rd.(rd_mvars) rd.(rd_conclusion).
 
-  Definition wf_desc :=
+  Definition wf_desc : Prop :=
     forallb wf_rule desc.
 
   Lemma wf_desc_rule rd :
@@ -459,6 +486,43 @@ Section ConcreteFacts.
         R Γ t A → cstyping Δ σ Γ → R Δ (csubstitute σ t) (csubstitute σ A).
 
   End Statements.
+
+  (** Proving soundness from induction principle *)
+
+  Lemma fold_cases_elim {X} (C : X → Prop) (B : Prop) (l : list X) :
+    Forall C l →
+    fold_right (λ x K, C x → K) B l →
+    B.
+  Proof.
+    intros hF h. induction hF as [| x l hx hl ih]. 1: exact h.
+    cbn in h. auto.
+  Qed.
+
+  Lemma rule_ind_case_of_type R P rd Γ :
+    rule_desc_type P rd Γ →
+    rule_ind_case R P rd Γ.
+  Proof.
+    unfold rule_desc_type, rule_ind_case.
+    rewrite <- !under_iff. intros h vs hl. specialize (h vs hl).
+    cbn in *.
+    induction (rd_premises rd) as [| j l ih] in h |- *.
+    - exact h.
+    - cbn in *. intros _ hj. apply ih. apply h. exact hj.
+  Qed.
+
+  Lemma sound_of_ind R :
+    wf_desc →
+    ind_type desc R →
+    sound_jdg R.
+  Proof.
+    intros hwf hind.
+    specialize (hind J sound_var).
+    eapply fold_cases_elim in hind. 1: exact hind.
+    rewrite Forall_forall. intros rd hin Γ.
+    apply rule_ind_case_of_type.
+    apply sound_step. 1: assumption.
+    eapply wf_desc_rule. all: assumption.
+  Qed.
 
   (** Completeness against an abstract "concrete" judgment *)
 
