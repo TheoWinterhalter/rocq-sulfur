@@ -23,10 +23,10 @@ Sulfur Syntax
 {{
   term : Type
 
-  Ty : {{nat}} -> term
-  Pi : term -> (bind term in term) -> term
-  lam : (bind term in term) -> term
-  app : term -> term -> term
+  Ty : {{nat}} → term
+  Pi : term → (bind term in term) → term
+  lam : (bind term in term) → term
+  app : term → term → term
 }}.
 ```
 
@@ -79,7 +79,7 @@ and [ident] stands for valid Rocq identifiers.
 [ctor_decl] ::= [ident] : [ctor_type]       (* Declare a constructor with the given type. )
 
 [ctor_type] ::= [ident]
-              | [arg_typ] -> [ctor_type]
+              | [arg_typ] → [ctor_type]
 
 [arg_type] ::= [ident]                      (* Just a sort. )
              | ( bind [ident]+ in [ident] ) (* Bind a list of sorts (from left to right) in a sort. *)

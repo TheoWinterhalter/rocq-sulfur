@@ -20,15 +20,21 @@ VERNAC ARGUMENT EXTEND arg_ty
     { CAst.make ~loc (PAT_bind (ids, ty)) }
 END
 
+(** The two possible spellings for an arrow *)
+VERNAC ARGUMENT EXTEND arrow
+| [ "->" ] -> { () }
+| [ "→" ] -> { () }
+END
+
 (** The type of a constructor, e.g. "ty -> (bind term in term) -> term". *)
 VERNAC ARGUMENT EXTEND pctor_ty
 | [ identref(i) ] -> { ([], i) }
-| [ identref(i) "->" pctor_ty(cty) ] ->
+| [ identref(i) arrow(_) pctor_ty(cty) ] ->
   {
     let (tys, rty) = cty in
     (CAst.map (fun _ -> PAT_sort i) i :: tys, rty)
   }
-| [ arg_ty(ty) "->" pctor_ty(cty) ] -> { let (tys, rty) = cty in (ty :: tys, rty) }
+| [ arg_ty(ty) arrow(_) pctor_ty(cty) ] -> { let (tys, rty) = cty in (ty :: tys, rty) }
 END
 
 (** A single sort/constructor declaration. *)

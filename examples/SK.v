@@ -10,8 +10,8 @@ Sulfur Syntax {{
 
   tK : term
   tS : term
-  tarr : term -> term -> term
-  tapp : term -> term -> term
+  tarr : term → term → term
+  tapp : term → term → term
 }}.
 
 Existing Instance sign.
