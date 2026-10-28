@@ -72,13 +72,13 @@ let decode_cs_ops (cs : EConstr.t) : EConstr.t list m =
     [ C.CS.build, fun a -> ret [ a.(2) ; a.(3) ; a.(4) ; a.(5) ; a.(6) ] ]
     cs
 
-let generate (name : Names.Id.t) (desc_expr : Constrexpr.constr_expr) : unit =
+let generate_desc (name : Names.Id.t) (desc : EConstr.t) : unit =
   let sname = Names.Id.to_string name in
   let mk s = Names.Id.of_string_soft (sname ^ s) in
-  (* The description, its signature, the term type, the instance and laws. *)
-  let desc, sg, ty, cs, cl, rules, opaque =
+  (* The signature of the description, the term type, the instance and its
+     laws. *)
+  let sg, ty, cs, cl, rules, opaque =
     monad_run begin
-      let* desc = pretype desc_expr in
       let* desc_ty = typecheck desc None in
       let* sg = decode_sig desc_ty in
       let* ty = fresh_evar None in
@@ -103,7 +103,7 @@ let generate (name : Names.Id.t) (desc_expr : Constrexpr.constr_expr) : unit =
           C.Jdg.j
         ]
       in
-      ret (desc, sg, ty, cs, cl, rules, opaque)
+      ret (sg, ty, cs, cl, rules, opaque)
     end
   in
   let list_ty = app (mkglob' C.list) ty in
@@ -231,3 +231,92 @@ let generate (name : Names.Id.t) (desc_expr : Constrexpr.constr_expr) : unit =
       ))
   in
   ()
+
+(** [Sulfur Judgment R d] with [d] a Gallina expression. *)
+let generate (name : Names.Id.t) (desc : Constrexpr.constr_expr) : unit =
+  generate_desc name (monad_run (pretype desc))
+
+(******************************************************************************)
+(** *** Judgments written as rules. *)
+(******************************************************************************)
+
+(** A rule as written in the command:
+  [| name (x1 ... : t1) ... : p1 ; ... ; pn ⟹ c].
+*)
+type prule = {
+  pr_name : Names.Id.t ;
+  pr_binders : Constrexpr.local_binder_expr list ;
+  pr_prems : Constrexpr.constr_expr list ;
+  pr_concl : Constrexpr.constr_expr
+}
+
+(** The description written by the user, as the Gallina expression
+
+    let term := hterm in let R := hjdg in let c := hctor Cc in ...
+    [ hrule "name" n (λ binders, [p1 ; ... ; pn]) (λ binders, c) ; ... ]
+
+  where [term] is the sort of the syntax, [R] the judgment and [c] ranges over
+  the constructors. Elaboration then resolves every name: inside the rules,
+  [term], the constructors and [R] denote their HOAS versions.
+*)
+let desc_expr (name : Names.Id.t) (rules : prule list) :
+  Constrexpr.constr_expr =
+  let open Constrexpr_ops in
+  let sign, ops =
+    match !Main.saved_ops with
+    | Some x -> x
+    | None -> Log.error "Sulfur Judgment: no syntax was generated beforehand."
+  in
+  let gref g =
+    mkRefC (Nametab.shortest_qualid_of_global Names.Id.Set.empty g)
+  in
+  let const g = gref (Lazy.force g) in
+  let prim scope p =
+    let p = CAst.make (Constrexpr.CPrim p) in
+    let depth = Constrexpr.DelimUnboundedScope in
+    CAst.make (Constrexpr.CDelimiters (depth, scope, p))
+  in
+  let string s = prim "string" (Constrexpr.String s) in
+  let nat n =
+    let n = NumTok.Signed.of_int_string (string_of_int n) in
+    prim "nat" (Constrexpr.Number n)
+  in
+  let list l =
+    let cons x l = mkAppC (const C.cons, [ x ; l ]) in
+    List.fold_right cons l (const C.nil)
+  in
+  let rule r =
+    let lam = mkCLambdaN r.pr_binders in
+    mkAppC (const C.Jdg.hrule, [
+      string (Names.Id.to_string r.pr_name) ;
+      nat (List.length (names_of_local_binders r.pr_binders)) ;
+      lam (list r.pr_prems) ;
+      lam r.pr_concl
+    ])
+  in
+  let hctor i =
+    let c = Names.GlobRef.ConstructRef (ops.ops_si.ctor, i + 1) in
+    mkAppC (const C.Jdg.hctor, [ gref c ])
+  in
+  let defs =
+    (sign.Signature.sort_name, const C.Jdg.hterm) ::
+    (name, const C.Jdg.hjdg) ::
+    List.mapi (fun i c -> (c, hctor i))
+      (Array.to_list sign.Signature.ctor_names)
+  in
+  List.fold_right
+    (fun (x, v) body -> mkLetInC (CAst.make (Names.Name x), v, None, body))
+    defs (list (List.map rule rules))
+
+(** [Sulfur Judgment R {{ rules }}]: the description is declared as [R_desc]
+  (with the local definitions substituted), then handled as above.
+*)
+let generate_rules (name : Names.Id.t) (rules : prule list) : unit =
+  let desc =
+    def (Names.Id.to_string name ^ "_desc") begin
+      let* d = pretype (desc_expr name rules) in
+      (* Substitute the local definitions *)
+      reduce_only [] d
+    end
+  in
+  generate_desc name (mkconst desc)

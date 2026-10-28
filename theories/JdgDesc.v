@@ -170,6 +170,9 @@ Section HOAS.
     rd_conclusion := happly n 0 concl
   |}.
 
+  Definition hjdg (t A : hterm) : mjdgd 0 :=
+    (t, A).
+
 End HOAS.
 
 (** Generic lemmas *)

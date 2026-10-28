@@ -60,10 +60,20 @@ VERNAC COMMAND EXTEND SulfurSyntax CLASSIFIED AS SIDEFF
 END
 
 
-(* Relation generation *)
+(* Judgment generation *)
+
+(** [| name (A B : term) : R t A ; R u B ⟹ R (c t u) C]. *)
+VERNAC ARGUMENT EXTEND jdg_rule
+| [ "|" ident(n) binders(bs) ":"
+      lconstr_list_sep(ps, ";") "⟹" lconstr(c) ] ->
+  { Jdg.{ pr_name = n ; pr_binders = bs ; pr_prems = ps ; pr_concl = c } }
+END
 
 VERNAC COMMAND EXTEND SulfurJudgment CLASSIFIED AS SIDEFF
-| [ "Sulfur" "Judgment" ident(name) constr(d) ] -> { Jdg.generate name d }
+| [ "Sulfur" "Judgment" ident(name) "{{" jdg_rule_list(rs) "}}" ] ->
+  { Jdg.generate_rules name rs }
+| [ "Sulfur" "Judgment" ident(name) constr(d) ] ->
+  { Jdg.generate name d }
 END
 
 VERNAC ARGUMENT EXTEND conclusion
