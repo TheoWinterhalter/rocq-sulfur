@@ -32,10 +32,10 @@ Sulfur Syntax
 {{
   term : Type
 
-  Ty : {{nat}} → term
-  Pi : term → (bind term in term) → term
-  lam : (bind term in term) → term
-  app : term → term → term
+  | Ty : nat -> term
+  | Pi : term -> (term -> term) -> term
+  | lam : (term -> term) -> term
+  | app : term -> term -> term
 }}.
 ```
 
