@@ -95,3 +95,4 @@ _whizzy*
 
 # VSCode
 .vscode*
+.DS_Store

@@ -1,5 +1,10 @@
 # Sulfur: Substitution Logical Framework Using Reflection
 
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="img/sulfur-logo-dark.svg">
+  <img alt="Sulfur" src="img/sulfur-logo.svg" width="300">
+</picture>
+
 Sulfur is a plugin for Rocq which lets you generate syntaxes with binders,
 generating renaming and substitution lemmas automatically.
 It also provides a `ssimpl` tactic for simplifying expressions featuring
