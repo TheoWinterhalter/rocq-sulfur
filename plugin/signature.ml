@@ -84,9 +84,9 @@ type checked_ctor = { cname : Names.Id.t; arg_tys : arg_ty list }
 type state = {
   (* The (unique) sort, or [None] if we haven't encountered it yet. *)
   sort : checked_sort option ;
-  (* The list of declared constructors, most recent last. *)
+  (* The list of declared constructors, most recent first. *)
   ctors : checked_ctor list ;
-  (* The list of base types, most recent last. *)
+  (* The list of base types, most recent first. *)
   base_types : EConstr.t list
 }
 
