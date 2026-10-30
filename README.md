@@ -1,4 +1,13 @@
-# Sulfur: Substitution Logical Framework Using Reflection
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="img/sulfur-logo-dark.svg">
+    <img alt="Sulfur" src="img/sulfur-logo.svg" width="340">
+  </picture>
+</p>
+
+<p align="center">
+  <b>Su</b>bstitution <b>L</b>ogical <b>F</b>ramework <b>U</b>sing <b>R</b>eflection
+</p>
 
 Sulfur is a plugin for Rocq which lets you generate syntaxes with binders,
 generating renaming and substitution lemmas automatically.
@@ -8,7 +17,7 @@ renamings and substitutions.
 `ssimpl` is a *proof-by-reflection* tactic, so it is quite fast.
 The whole spirit of Sulfur is to derive properties once and for all by devising
 a notion of signature for syntaxes and proving theorems about them generically.
-The plugin the generates syntaxes as inductive types that are more palatable to
+The plugin then generates syntaxes as inductive types that are more palatable to
 humans, and formally connect with the corresponding signature to leverage the
 generic theorems.
 
@@ -23,10 +32,10 @@ Sulfur Syntax
 {{
   term : Type
 
-  Ty : {{nat}} -> term
-  Pi : term -> (bind term in term) -> term
-  lam : (bind term in term) -> term
-  app : term -> term -> term
+  Ty : {{nat}} → term
+  Pi : term → (bind term in term) → term
+  lam : (bind term in term) → term
+  app : term → term → term
 }}.
 ```
 
@@ -79,7 +88,7 @@ and [ident] stands for valid Rocq identifiers.
 [ctor_decl] ::= [ident] : [ctor_type]       (* Declare a constructor with the given type. )
 
 [ctor_type] ::= [ident]
-              | [arg_typ] -> [ctor_type]
+              | [arg_typ] → [ctor_type]
 
 [arg_type] ::= [ident]                      (* Just a sort. )
              | ( bind [ident]+ in [ident] ) (* Bind a list of sorts (from left to right) in a sort. *)

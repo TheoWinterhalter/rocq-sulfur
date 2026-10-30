@@ -10,7 +10,7 @@ Sulfur Syntax
   app : term -> term -> term
 }}.
 
-Ren Generate [[
+Ren Generate {{
   Relation uconv : term -> term -> Prop, Declaring unit in Γ;
 
   Rule my_urefl :
@@ -62,11 +62,11 @@ Ren Generate [[
     Conclusion :
       uconv (app (lam b) u) (substitute (scons u sid) b)
   ;
-]].
+}}.
 
 Print uconv.
 
-Ren Generate [[
+Ren Generate {{
   Relation type : term -> term -> Prop, Declaring term in Γ;
 
   Rule my_type_Ty :
@@ -107,11 +107,11 @@ Ren Generate [[
     Conclusion :
       type (lam b) (Pi A B)
   ;
-]].
+}}.
 
 Print type.
 
-Ren Generate [[
+Ren Generate {{
   Relation conv : term -> term -> term -> Prop, Declaring term in Γ;
   Relation typ : term -> term -> Prop, Declaring term in Γ;
 
@@ -209,6 +209,6 @@ Ren Generate [[
     Conclusion :
       typ t A'
   ;
-]].
+}}.
 
 Print conv.

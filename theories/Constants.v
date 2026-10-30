@@ -2,7 +2,7 @@
     Constants are accessed in the plugin from [plugin/constants.ml]. *)
 
 From Sulfur Require Import Prelude Sig Renamings.
-From Sulfur Require ParamSyntax.
+From Sulfur Require ParamSyntax ConcreteSyntax JdgDesc.
 
 (*********************************************************************************)
 (** *** Basic constants. *)
@@ -105,3 +105,37 @@ Register ParamSyntax.inv_Ka_bind as sulfur.param.inv_Ka_bind.
 
 Register ParamSyntax.sig_ind_t as sulfur.param.sig_ind_t.
 Register ParamSyntax.sig_ind as sulfur.param.sig_ind.
+
+(** ConcreteSyntax *)
+
+Register ConcreteSyntax.carg as sulfur.cs.carg.
+Register ConcreteSyntax.cargs as sulfur.cs.cargs.
+Register ConcreteSyntax.ckind as sulfur.cs.ckind.
+Register ConcreteSyntax.mkCS as sulfur.cs.build.
+Register ConcreteSyntax.ConcreteSyntaxLaws as sulfur.cs.laws.
+Register ConcreteSyntax.csubstitute as sulfur.cs.csubstitute.
+Register ConcreteSyntax.ConcreteSyntax as sulfur.cs.type.
+
+(** JdgDesc *)
+
+Register JdgDesc.rule_desc as sulfur.jdg.rule_desc.
+Register JdgDesc.Build_rule_desc as sulfur.jdg.build_rule_desc.
+Register JdgDesc.jdg_desc as sulfur.jdg.jdg_desc.
+Register JdgDesc.happly as sulfur.jdg.happly.
+Register JdgDesc.hterm as sulfur.jdg.hterm.
+Register JdgDesc.hctor as sulfur.jdg.hctor.
+Register JdgDesc.hjdg as sulfur.jdg.hjdg.
+Register JdgDesc.hrule as sulfur.jdg.hrule.
+Register JdgDesc.rule_desc_type as sulfur.jdg.rule_desc_type.
+Register JdgDesc.var_rule_type as sulfur.jdg.var_rule_type.
+Register JdgDesc.J as sulfur.jdg.J.
+Register JdgDesc.wf_desc as sulfur.jdg.wf_desc.
+Register JdgDesc.rules_type as sulfur.jdg.rules_type.
+Register JdgDesc.sound_jdg as sulfur.jdg.sound_jdg.
+Register JdgDesc.complete_jdg as sulfur.jdg.complete_jdg.
+Register JdgDesc.preserve_subst_jdg as sulfur.jdg.preserve_subst_jdg.
+Register JdgDesc.sound_of_ind as sulfur.jdg.sound_of_ind.
+Register JdgDesc.jdg_complete as sulfur.jdg.jdg_complete.
+Register JdgDesc.gen_preserve_subst as sulfur.jdg.gen_preserve_subst.
+Register Stdlib.Lists.List.Forall_nil as sulfur.list.forall_nil.
+Register Stdlib.Lists.List.Forall_cons as sulfur.list.forall_cons.

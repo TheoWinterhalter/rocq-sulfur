@@ -2,6 +2,7 @@ DECLARE PLUGIN "rocq-sulfur.plugin"
 
 {
   open Signature
+  open Stdarg
   open Procq.Prim
   open Procq.Constr
 
@@ -19,15 +20,21 @@ VERNAC ARGUMENT EXTEND arg_ty
     { CAst.make ~loc (PAT_bind (ids, ty)) }
 END
 
+(** The two possible spellings for an arrow *)
+VERNAC ARGUMENT EXTEND arrow
+| [ "->" ] -> { () }
+| [ "→" ] -> { () }
+END
+
 (** The type of a constructor, e.g. "ty -> (bind term in term) -> term". *)
 VERNAC ARGUMENT EXTEND pctor_ty
 | [ identref(i) ] -> { ([], i) }
-| [ identref(i) "->" pctor_ty(cty) ] ->
+| [ identref(i) arrow(_) pctor_ty(cty) ] ->
   {
     let (tys, rty) = cty in
     (CAst.map (fun _ -> PAT_sort i) i :: tys, rty)
   }
-| [ arg_ty(ty) "->" pctor_ty(cty) ] -> { let (tys, rty) = cty in (ty :: tys, rty) }
+| [ arg_ty(ty) arrow(_) pctor_ty(cty) ] -> { let (tys, rty) = cty in (ty :: tys, rty) }
 END
 
 (** A single sort/constructor declaration. *)
@@ -59,7 +66,21 @@ VERNAC COMMAND EXTEND SulfurSyntax CLASSIFIED AS SIDEFF
 END
 
 
-(* Relation generation *)
+(* Judgment generation *)
+
+(** [| name (A B : term) : R t A ; R u B ⟹ R (c t u) C]. *)
+VERNAC ARGUMENT EXTEND jdg_rule
+| [ "|" ident(n) binders(bs) ":"
+      lconstr_list_sep(ps, ";") "⟹" lconstr(c) ] ->
+  { Jdg.{ pr_name = n ; pr_binders = bs ; pr_prems = ps ; pr_concl = c } }
+END
+
+VERNAC COMMAND EXTEND SulfurJudgment CLASSIFIED AS SIDEFF
+| [ "Sulfur" "Judgment" ident(name) "{{" jdg_rule_list(rs) "}}" ] ->
+  { Jdg.generate_rules name rs }
+| [ "Sulfur" "Judgment" ident(name) constr(d) ] ->
+  { Jdg.generate name d }
+END
 
 VERNAC ARGUMENT EXTEND conclusion
 | [ identref(ind) constr_list(args) ] ->
@@ -105,7 +126,7 @@ VERNAC ARGUMENT EXTEND arity_decl
 END
 
 VERNAC ARGUMENT EXTEND rsignature
-| [ "[[" arity_decl_list(arities) rule_decl_list(rules) "]]" ] ->
+| [ "{{" arity_decl_list(arities) rule_decl_list(rules) "}}" ] ->
   {
     CAst.make ~loc { parity_decls = arities ; prule_decls = rules }
   }

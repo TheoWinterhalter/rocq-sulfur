@@ -82,6 +82,8 @@ let generate (psign : psignature) : unit =
   let ops = generate_operations sign term in
   (* Register [sunfold] hints. *)
   register_sunfold_hints sign ops;
+  (* Declare the [ConcreteSyntax] instances. *)
+  Gen_ops_cs.generate sign ops;
   (* Save the operations. *)
   Lib.add_leaf @@ update_saved_ops (Some (sign, ops))
 

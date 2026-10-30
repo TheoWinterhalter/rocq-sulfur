@@ -459,3 +459,53 @@ let declare_ind (name : Names.Id.t) (arity : EConstr.t) (ctor_names : Names.Id.t
   in
   let mname = monad_run @@ declare_mut_ind [name] [arity] [ctor_names] [List.map make_dep_on_one ctor_types] in
   ret (mname, 0)
+
+(**************************************************************************************)
+(** *** Reduction, binders, typeclasses. *)
+(**************************************************************************************)
+
+let const_of_ref (g : Names.GlobRef.t) : Names.Constant.t =
+  match g with
+  | Names.GlobRef.ConstRef c -> c
+  | _ -> CErrors.user_err Pp.(str "Expected a constant but got " ++ Printer.pr_global g)
+
+let head_const (t : EConstr.t) : Names.Constant.t option m =
+  let* sigma = get_sigma in
+  match EConstr.kind sigma (fst (EConstr.decompose_app sigma t)) with
+  | Const (c, _) -> ret (Some c)
+  | _ -> ret None
+
+let norm_with (ts : TransparentState.t) (t : EConstr.t) : EConstr.t m =
+ fun env sigma ->
+  let flags = RedFlags.red_add_transparent RedFlags.all ts in
+  (sigma, Reductionops.clos_norm_flags flags env sigma t)
+
+let reduce_except (opaque : Names.Constant.t list) : EConstr.t -> EConstr.t m =
+  norm_with
+    { TransparentState.full with
+      tr_cst = List.fold_left (fun p c -> Names.Cpred.remove c p) Names.Cpred.full opaque }
+
+let reduce_only (transparent : Names.Constant.t list) : EConstr.t -> EConstr.t m =
+  norm_with
+    { TransparentState.empty with
+      tr_cst = List.fold_left (fun p c -> Names.Cpred.add c p) Names.Cpred.empty transparent }
+
+let rename_binders (names : string option list) (t : EConstr.t) : EConstr.t m =
+  let* sigma = get_sigma in
+  let bs, body = EConstr.decompose_prod_n sigma (List.length names) t in
+  (* [bs] is innermost first. *)
+  let bs =
+    List.map2
+      (fun (na, ty) name ->
+        match name with
+        | None -> (na, ty)
+        | Some name ->
+            (Context.map_annot (fun _ -> Names.Name (Names.Id.of_string_soft name)) na, ty))
+      bs (List.rev names)
+  in
+  ret @@ List.fold_left (fun body (na, ty) -> EConstr.mkProd (na, ty, body)) body bs
+
+let resolve_tc (ty : EConstr.t) : EConstr.t m =
+ fun env sigma ->
+  let sigma, inst = Class_tactics.resolve_one_typeclass env sigma ty in
+  (sigma, Evarutil.nf_evar sigma inst)

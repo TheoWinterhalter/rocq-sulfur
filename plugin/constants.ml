@@ -95,3 +95,45 @@ module P = struct
   let sig_ind_t = resolve "sulfur.param.sig_ind_t"
   let sig_ind = resolve "sulfur.param.sig_ind"
 end
+
+(**************************************************************************************)
+(** *** ConcreteSyntax class. *)
+(**************************************************************************************)
+
+module CS = struct
+  let carg = resolve "sulfur.cs.carg"
+  let cargs = resolve "sulfur.cs.cargs"
+  let ckind = resolve "sulfur.cs.ckind"
+  let build = resolve "sulfur.cs.build"
+  let laws = resolve "sulfur.cs.laws"
+  let csubstitute = resolve "sulfur.cs.csubstitute"
+  let typ = resolve "sulfur.cs.type"
+end
+
+(**************************************************************************************)
+(** *** Judgment descriptions (theories/JdgDesc.v). *)
+(**************************************************************************************)
+
+module Jdg = struct
+  let rule_desc = resolve "sulfur.jdg.rule_desc"
+  let build_rule_desc = resolve "sulfur.jdg.build_rule_desc"
+  let jdg_desc = resolve "sulfur.jdg.jdg_desc"
+  let happly = resolve "sulfur.jdg.happly"
+  let hterm = resolve "sulfur.jdg.hterm"
+  let hctor = resolve "sulfur.jdg.hctor"
+  let hjdg = resolve "sulfur.jdg.hjdg"
+  let hrule = resolve "sulfur.jdg.hrule"
+  let rule_desc_type = resolve "sulfur.jdg.rule_desc_type"
+  let var_rule_type = resolve "sulfur.jdg.var_rule_type"
+  let j = resolve "sulfur.jdg.J"
+  let wf_desc = resolve "sulfur.jdg.wf_desc"
+  let rules_type = resolve "sulfur.jdg.rules_type"
+  let sound_jdg = resolve "sulfur.jdg.sound_jdg"
+  let complete_jdg = resolve "sulfur.jdg.complete_jdg"
+  let preserve_subst_jdg = resolve "sulfur.jdg.preserve_subst_jdg"
+  let sound_of_ind = resolve "sulfur.jdg.sound_of_ind"
+  let jdg_complete = resolve "sulfur.jdg.jdg_complete"
+  let gen_preserve_subst = resolve "sulfur.jdg.gen_preserve_subst"
+  let forall_nil = resolve "sulfur.list.forall_nil"
+  let forall_cons = resolve "sulfur.list.forall_cons"
+end
