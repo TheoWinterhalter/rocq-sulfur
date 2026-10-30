@@ -8,10 +8,10 @@ From Sulfur Require Import ConcreteSyntax JdgDesc.
 Sulfur Syntax {{
   term : Type
 
-  tK : term
-  tS : term
-  tarr : term → term → term
-  tapp : term → term → term
+  | tK : term
+  | tS : term
+  | tarr : term → term → term
+  | tapp : term → term → term
 }}.
 
 Existing Instance sign.

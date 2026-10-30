@@ -9,56 +9,24 @@ DECLARE PLUGIN "rocq-sulfur.plugin"
   open Rel_signature
 }
 
-(** A single argument type, e.g. "(bind ty in term)".
-    For technical reasons we have to move the rule for single identifiers to [ctor_ty]. *)
-VERNAC ARGUMENT EXTEND arg_ty
-| [ identref(id) ] ->
-    { CAst.make ~loc (PAT_sort id) }
-| [ "{{" lconstr(c) "}}" ] ->
-    { CAst.make ~loc (PAT_base c) }
-| [ "(" "bind" ne_identref_list(ids) "in" arg_ty(ty) ")" ] ->
-    { CAst.make ~loc (PAT_bind (ids, ty)) }
-END
-
-(** The two possible spellings for an arrow *)
-VERNAC ARGUMENT EXTEND arrow
-| [ "->" ] -> { () }
-| [ "→" ] -> { () }
-END
-
-(** The type of a constructor, e.g. "ty -> (bind term in term) -> term". *)
-VERNAC ARGUMENT EXTEND pctor_ty
-| [ identref(i) ] -> { ([], i) }
-| [ identref(i) arrow(_) pctor_ty(cty) ] ->
-  {
-    let (tys, rty) = cty in
-    (CAst.map (fun _ -> PAT_sort i) i :: tys, rty)
-  }
-| [ arg_ty(ty) arrow(_) pctor_ty(cty) ] -> { let (tys, rty) = cty in (ty :: tys, rty) }
+(** Signature declaration body *)
+VERNAC ARGUMENT EXTEND decl_body
+| [ identref(name) "(" identref(v) ")" ":" lconstr(ty) ] ->
+  { CAst.make ~loc { name ; var_ctor = Some v ; ty } }
+| [ identref(name) ":" lconstr(ty) ] ->
+  { CAst.make ~loc { name ; var_ctor = None ; ty } }
 END
 
 (** A single sort/constructor declaration. *)
 VERNAC ARGUMENT EXTEND decl
-| [ identref(name) "(" identref(var_ctor) ")" ":" "Type" ] ->
-  {
-    CAst.make ~loc (SortDecl { name ; var_ctor = Some var_ctor })
-  }
-| [ identref(name) ":" "Type" ] ->
-  {
-    CAst.make ~loc (SortDecl { name ; var_ctor = None })
-  }
-| [ identref(name) ":" pctor_ty(cty) ] ->
-  {
-    let (arg_tys, ret_ty) = cty in
-    CAst.make ~loc (CtorDecl { name ; arg_tys ; ret_ty })
-  }
+| [ "|" decl_body(d) ] -> { d }
 END
 
+(** A signature, a list of declarations where the first may omit its pipe. *)
 VERNAC ARGUMENT EXTEND signature
-| [ "{{" decl_list(decls) "}}" ] ->
-  {
-    CAst.make ~loc { decls }
-  }
+| [ "{{" decl_body(d) decl_list(decls) "}}" ] ->
+  { CAst.make ~loc { decls = d :: decls } }
+| [ "{{" decl_list(decls) "}}" ] -> { CAst.make ~loc { decls } }
 END
 
 VERNAC COMMAND EXTEND SulfurSyntax CLASSIFIED AS SIDEFF
