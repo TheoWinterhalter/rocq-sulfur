@@ -21,6 +21,11 @@ let pretype (t : Constrexpr.constr_expr) : EConstr.t m =
   let t, ustate = Pretyping.understand env sigma t in
   (Evd.merge_ustate sigma ustate, t)
 
+let pretype_type (t : Constrexpr.constr_expr) : EConstr.types m =
+ fun env sigma ->
+  let sigma, t = Constrintern.interp_type_evars env sigma t in
+  (sigma, Evarutil.nf_evar sigma t)
+
 let typecheck ?(solve_tc = false) (t : EConstr.t) (expected_ty : EConstr.t option) :
     EConstr.types m =
  fun env sigma ->

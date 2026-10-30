@@ -1,5 +1,5 @@
-(** This file defines the OCaml representation of signatures, as well utilities for
-    parsing and validating signatures written by the user. *)
+(** This file defines the OCaml representation of signatures, as well utilities
+  for parsing and validating signatures written by the user. *)
 
 open Prelude
 module C = Constants
@@ -8,25 +8,22 @@ module C = Constants
 (** *** Pre-signature. *)
 (**************************************************************************************)
 
-(** A pre-signature is a parse tree of a user-written signature. It still contains
-    location information, and can contain mistakes (for instance declaring the same
-    constructor twice). A pre-signature can be checked and turned into a real signature
-    using [check_psignature]. *)
+(** A pre-signature is the parse tree of a user-written signature: declarations
+  [name : ty], the first one being the sort [term (Var) : Type]. Types are Rocq
+  terms, elaborated by [check_psignature] with the sort as a local variable,
+  once the global environment is available. *)
 
-(** Argument type. *)
-type parg_ty_r =
-  | PAT_base of Constrexpr.constr_expr
-  | PAT_sort of Names.lident
-  | PAT_bind of Names.lident list * parg_ty
+(** Declaration.
 
-and parg_ty = parg_ty_r CAst.t
+  Either a sort declaration eg, [term (Var) : Type], or a constructor
+  [app : term -> term -> term].
 
-(** Declaration. *)
-type decl_r =
-  | SortDecl of { name : Names.lident; var_ctor : Names.lident option }
-      (** Sort declaration, e.g. [term : Type]. *)
-  | CtorDecl of { name : Names.lident; arg_tys : parg_ty list; ret_ty : Names.lident }
-      (** Constructor declaration, e.g. [app : term -> option term -> term]. *)
+*)
+type decl_r = {
+  name : Names.lident ;
+  var_ctor : Names.lident option ;
+  ty : Constrexpr.constr_expr
+}
 
 and decl = decl_r CAst.t
 
@@ -84,19 +81,14 @@ type checked_sort = { sname : Names.Id.t; var_ctor : Names.Id.t }
 type checked_ctor = { cname : Names.Id.t; arg_tys : arg_ty list }
 
 (** State we maintain while validating a pre-signature. *)
-type state =
-  { (* The global environment. *)
-    env : Environ.env
-  ; (* The evar map, which contains the universe constraints
-    generated while internalizing the base types. *)
-    sigma : Evd.evar_map
-  ; (* The (unique) sort, or [None] if we haven't encountered it yet. *)
-    sort : checked_sort option
-  ; (* The list of declared constructors, most recent last. *)
-    ctors : checked_ctor list
-  ; (* The list of base types, most recent last. *)
-    base_types : EConstr.t list
-  }
+type state = {
+  (* The (unique) sort, or [None] if we haven't encountered it yet. *)
+  sort : checked_sort option ;
+  (* The list of declared constructors, most recent first. *)
+  ctors : checked_ctor list ;
+  (* The list of base types, most recent first. *)
+  base_types : EConstr.t list
+}
 
 (** Check a name is fresh, i.e. it is not already present in the state. *)
 let check_fresh (st : state) (name : Names.lident) : unit =
@@ -110,98 +102,91 @@ let check_fresh (st : state) (name : Names.lident) : unit =
   if b1 || b2
   then Log.error ?loc:name.loc "%s is already declared." (Names.Id.to_string name.v)
 
-(** Check a sort is declared. *)
-let check_sort (st : state) (sort : Names.lident) : unit =
-  match st.sort with
-  | Some s when Names.Id.equal sort.v s.sname -> ()
-  | _ -> Log.error ?loc:sort.loc "Undeclared sort %s." (Names.Id.to_string sort.v)
-
-(** Internalize a base type and add it to the list of base types. *)
-let check_base (st : state) (c : Constrexpr.constr_expr) : state * int =
-  (* Internalize the base type, updating the evar context along the way. *)
-  let c, ustate = Constrintern.interp_type st.env st.sigma c in
-  let sigma = Evd.merge_ustate st.sigma ustate in
-  let c = Evarutil.nf_evar sigma c in
-  (* Add it to the list. *)
-  let idx = List.length st.base_types in
-  let st = { st with sigma; base_types = st.base_types @ [ c ] } in
-  (st, idx)
-
-(** Check an argument type. *)
-let rec check_arg_ty (st : state) (ty : parg_ty) : state * arg_ty =
-  match ty.v with
-  | PAT_base c ->
-      let st, idx = check_base st c in
-      (st, AT_base idx)
-  | PAT_sort sort ->
-      check_sort st sort;
-      (st, AT_term)
-  | PAT_bind (ids, ty) ->
-      List.iter (check_sort st) ids;
-      let st, ty = check_arg_ty st ty in
-      (st, List.fold_right (fun _ ty -> AT_bind ty) ids ty)
-
-(** Check a list of argument types. *)
-let rec check_arg_tys (st : state) (ptys : parg_ty list) : state * arg_ty list =
-  match ptys with
-  | [] -> (st, [])
-  | pty :: ptys ->
-      let st, ty = check_arg_ty st pty in
-      let st, tys = check_arg_tys st ptys in
-      (st, ty :: tys)
-
-let typecheck_fctor (f : Names.GlobRef.t) : unit m =
-  let* t1 = fresh_type in
-  let* t2 = fresh_type in
-  let* _ = typecheck (mkglob f) (Some (arrow t1 t2)) in
-  ret ()
+(** Read an argument type from the domain [d] of a constructor type, where
+  [sort] is the local variable standing for the sort: the sort itself, a binder
+  [sort -> .. -> ty], or any other (closed) type, which is a base type.
+  [invalid ()] reports an error. *)
+let rec check_arg (sort : Names.Id.t) (invalid : unit -> state * arg_ty)
+    (st : state) (d : EConstr.t) : (state * arg_ty) m =
+  let* env = get_env in
+  let* sigma = get_sigma in
+  let is_sort t = EConstr.isVarId sigma sort t in
+  let binders, body = EConstr.decompose_prod sigma d in
+  if is_sort d
+  then ret (st, AT_term)
+  else if binders <> [] && List.for_all (fun (_, t) -> is_sort t) binders
+  then
+    let* st, ty = check_arg sort invalid st body in
+    ret (st, List.fold_left (fun ty _ -> AT_bind ty) ty binders)
+  else if EConstr.Vars.closed0 sigma d && not (Termops.occur_var env sigma sort d)
+  then
+    let idx = List.length st.base_types in
+    ret ({ st with base_types = d :: st.base_types }, AT_base idx)
+  else ret (invalid ())
 
 (** Check a declaration. *)
-let check_decl (st : state) (d : decl) : state =
-  match d.v with
-  (* Constructor declaration. *)
-  | CtorDecl d' ->
-      check_fresh st d'.name;
-      let st, tys = check_arg_tys st d'.arg_tys in
-      check_sort st d'.ret_ty;
-      { st with ctors = st.ctors @ [ { cname = d'.name.v; arg_tys = tys } ] }
-  (* Sort declaration. *)
-  | SortDecl d' ->
-      (* Check we haven't declared a sort yet. *)
-      begin
-        match st.sort with
-        | Some _ -> Log.error ?loc:d.loc "Only one sort can be declared."
-        | None -> ()
-      end;
-      check_fresh st d'.name;
-      (* Choose a variable constructor. *)
+let check_decl (st : state) (d : decl) : state m =
+  check_fresh st d.v.name ;
+  match st.sort, d.v.ty.CAst.v with
+  (* The first declaration is the sort. *)
+  | None, Constrexpr.CSort _ ->
       let var_ctor =
-        match d'.var_ctor with None -> Names.Id.of_string_soft "Var" | Some var -> var.v
+        match d.v.var_ctor with
+        | None -> Names.Id.of_string_soft "var"
+        | Some var -> var.v
       in
-      { st with sort = Some { sname = d'.name.v; var_ctor } }
+      ret { st with sort = Some { sname = d.v.name.v ; var_ctor } }
+  | None, _ -> Log.error ?loc:d.loc "The sort must be declared first."
+  | Some _, Constrexpr.CSort _ ->
+      Log.error ?loc:d.loc "Only one sort can be declared."
+  (* Constructor declaration: elaborate its type with the sort as a local
+    variable. *)
+  | Some sort, _ ->
+      let* univ = fresh_type in
+      let name = Names.Name sort.sname in
+      let annot = Context.make_annot name EConstr.ERelevance.relevant in
+      with_local_decl (Context.Rel.Declaration.LocalAssum (annot, univ)) @@ fun sort ->
+      let* ty = pretype_type d.v.ty in
+      let* env = get_env in
+      let* sigma = get_sigma in
+      let invalid () =
+        Log.error ?loc:d.loc
+          "Invalid constructor type %s: it must be [a1 -> .. -> an -> %s] where \
+           each argument is the sort, a binder [%s -> .. -> a] or a base type \
+           that does not depend on the other arguments."
+          (Pp.string_of_ppcmds (Printer.pr_econstr_env env sigma ty))
+          (Names.Id.to_string sort) (Names.Id.to_string sort)
+      in
+      let binders, body = EConstr.decompose_prod sigma ty in
+      if not (EConstr.isVarId sigma sort body) then ignore (invalid ()) ;
+      let* st, tys =
+        List.monad_fold_left
+          (fun (st, tys) (_, dom) ->
+            let* st, ty = check_arg sort invalid st dom in
+            ret (st, ty :: tys))
+          (st, []) (List.rev binders)
+      in
+      let ctor = { cname = d.v.name.v ; arg_tys = List.rev tys } in
+      ret { st with ctors = ctor :: st.ctors }
 
-(** Check a pre-signature. Raises an error (using Rocq's error reporting mechanism) if the
-    pre-signature is not valid. *)
+(** Check a pre-signature. Raises an error (using Rocq's error reporting
+  mechanism) if the pre-signature is not valid. *)
 let check_psignature (s : psignature) : signature m =
- fun env sigma ->
-  (* Build the initial state. *)
-  let st = { env; sigma; sort = None; ctors = []; base_types = [] } in
-  (* Check each constructor declaration. *)
-  let st = List.fold_left check_decl st s.v.decls in
-  (* Check we declared a sort. *)
+  let st = { sort = None ; ctors = [] ; base_types = [] } in
+  let* st = List.monad_fold_left check_decl st s.v.decls in
+  (* The lists were built most recent first. *)
+  let ctors = List.rev st.ctors in
+  let base_types = List.rev st.base_types in
   let sort =
     match st.sort with
     | Some s -> s
     | None -> Log.error ?loc:s.loc "At least one sort must be declared."
   in
-  (* Build the signature. *)
-  let sign =
-    { sort_name = sort.sname
-    ; var_ctor_name = sort.var_ctor
-    ; n_ctors = List.length st.ctors
-    ; base_types = st.base_types |> Array.of_list
-    ; ctor_names = st.ctors |> List.map (fun c -> c.cname) |> Array.of_list
-    ; ctor_types = st.ctors |> List.map (fun c -> c.arg_tys) |> Array.of_list
-    }
-  in
-  (sigma, sign)
+  ret {
+    sort_name = sort.sname ;
+    var_ctor_name = sort.var_ctor ;
+    n_ctors = List.length ctors ;
+    base_types = Array.of_list base_types ;
+    ctor_names = ctors |> List.map (fun c -> c.cname) |> Array.of_list ;
+    ctor_types = ctors |> List.map (fun c -> c.arg_tys) |> Array.of_list
+  }

@@ -32,18 +32,18 @@ Sulfur Syntax
 {{
   term : Type
 
-  Ty : {{nat}} → term
-  Pi : term → (bind term in term) → term
-  lam : (bind term in term) → term
-  app : term → term → term
+  | Ty : nat -> term
+  | Pi : term -> (term -> term) -> term
+  | lam : (term -> term) -> term
+  | app : term -> term -> term
 }}.
 ```
 
-Here we generate a syntax for the λΠ-calculus.
-
-The `{{ _ }}` syntax inside the global `{{ _ }}` lets you include proper Rocq
-terms.
-`bind` is used to indicate the presence of a binder.
+Here we generate a syntax for the λΠ-calculus using higher-order abstract
+syntax (HOAS) so `(term -> term)` indicates a `term` where another `term` is
+bound.
+This builds on Rocq's parser and elaborator, so one can use notations and
+existing types such as `nat` above.
 
 ## Install
 
@@ -79,22 +79,21 @@ Here is the grammar of signatures. Non-terminals are surrounded with square brac
 and [ident] stands for valid Rocq identifiers.
 
 ```
-[signature] ::= {{ [sort_decl] [ctor_decl]* }} (* There must be exactly one sort declaration. *)
+[signature] ::= {{ [decl] ( | [decl] )* }}  (* The first declaration is the sort. *)
 
-[sort_decl] ::= [ident] : Type              (* Declare a sort. *)
-              | [ident] ( [ident] ) : Type  (* Declare a sort, specifying the name of
-                                               the variable constructor between parentheses. *)
+[decl] ::= [ident] : Type                (* Declare the sort. *)
+         | [ident] ( [ident] ) : Type    (* Declare the sort, specifying the name of
+                                            the variable constructor between parentheses
+                                            ([var] by default). *)
+         | [ident] : [constr]            (* Declare a constructor with the given type,
+                                            [constr] being any Rocq type of the form
+                                            [arg] -> ... -> [arg] -> [sort]. *)
 
-[ctor_decl] ::= [ident] : [ctor_type]       (* Declare a constructor with the given type. )
-
-[ctor_type] ::= [ident]
-              | [arg_typ] → [ctor_type]
-
-[arg_type] ::= [ident]                      (* Just a sort. )
-             | ( bind [ident]+ in [ident] ) (* Bind a list of sorts (from left to right) in a sort. *)
-             | {{ [constr] }}               (* [constr] is any Rocq term of type [Set], [Prop], or [Type].
-                                               Universe polymorphic terms will be instantiated with
-                                               new monomorphic (global) universes. *)
+[arg] ::= [sort]                         (* A term. *)
+        | [sort] -> ... -> [sort] -> [arg] (* Bind that many variables in an argument. *)
+        | [constr]                       (* Any other Rocq type: a base type. Universe
+                                            polymorphic types are instantiated with new
+                                            monomorphic (global) universes. *)
 ```
 
 ## Simplification
