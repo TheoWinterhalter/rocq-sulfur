@@ -16,6 +16,7 @@ let pair = resolve "sulfur.prod.pair"
 let nat = resolve "sulfur.nat.type"
 let zero = resolve "sulfur.nat.zero"
 let succ = resolve "sulfur.nat.succ"
+let sub = resolve "sulfur.nat.sub"
 let list = resolve "sulfur.list.type"
 let nil = resolve "sulfur.list.nil"
 let cons = resolve "sulfur.list.cons"
@@ -115,6 +116,8 @@ end
 (**************************************************************************************)
 
 module Jdg = struct
+  let rp_term = resolve "sulfur.jdg.rp_term"
+  let rp_param = resolve "sulfur.jdg.rp_param"
   let rule_desc = resolve "sulfur.jdg.rule_desc"
   let build_rule_desc = resolve "sulfur.jdg.build_rule_desc"
   let jdg_desc = resolve "sulfur.jdg.jdg_desc"

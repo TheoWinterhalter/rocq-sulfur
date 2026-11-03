@@ -100,24 +100,6 @@ Section Laws.
     csubstitute_ext : ∀ s s' t, s =₁ s' → csubstitute s t = csubstitute s' t
   }.
 
-  (** Well-formed meta expression
-
-    Meta-variables below [m], applied to no substitution (which [cinst] drops)
-
-  *)
-  Fixpoint wf_mexpr (m : nat) {k s} (e : mexpr k s) {struct e} : bool :=
-    match e with
-    | M_var _ _ _ => true
-    | M_ctor _ _ al => wf_mexpr m al
-    | M_al_nil _ => true
-    | M_al_cons _ a al => wf_mexpr m a && wf_mexpr m al
-    | M_abase _ _ _ => true
-    | M_aterm _ t => wf_mexpr m t
-    | M_abind _ a => wf_mexpr m a
-    | M_mvar s k σ =>
-      (k <? m) && (s =? 0) && match σ with [] => true | _ => false end
-    end.
-
 End Laws.
 
 Arguments ConcreteSyntaxLaws {sig T} CS.

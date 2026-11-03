@@ -14,16 +14,15 @@
 open Prelude
 module C = Constants
 
-(** A rule: its term, its name, its number of meta-variables and their names. *)
+(** A rule: term, name, names of meta-variables. *)
 type rule = {
   r_term : EConstr.t ;
   r_name : string ;
-  r_mvars : int ;
   r_binders : string list
 }
 
 (** The names of the [n] meta-variables of a rule, read off the HOAS binders of
-  its conclusion [happly n 0 (λ x1 ... xn, _)];
+  its conclusion [λ p, snd (happly sg ps 0 (λ x1 ... xn, _) p)];
   or use [x1 ... xn] when they are not available.
 *)
 let binder_names (n : int) (concl : EConstr.t) : string list m =
@@ -31,18 +30,21 @@ let binder_names (n : int) (concl : EConstr.t) : string list m =
   let* sigma = get_sigma in
   let default = List.init n (fun i -> "x" ^ string_of_int (i + 1)) in
   let is_happly = EConstr.isRefX env sigma (Lazy.force C.Jdg.happly) in
-  match EConstr.decompose_app sigma concl with
-  | h, [| _; _; _; _; f |] when is_happly h ->
-      let bs = List.rev (fst (EConstr.decompose_lambda sigma f)) in
-      if List.length bs <> n then ret default
-      else (
-        let name (na, _) =
-          match na.Context.binder_name with
-          | Names.Name id -> Names.Id.to_string id
-          | _ -> "x"
-        in
-        ret (List.map name bs)
-      )
+  let _, body = EConstr.decompose_lambda sigma concl in
+  let _, args = EConstr.decompose_app sigma body in
+  let happly = if Array.length args = 3 then args.(2) else body in
+  match EConstr.decompose_app sigma happly with
+  | h, [| _ ; _ ; _ ; _ ; f ; _ |] when is_happly h ->
+    let bs = List.rev (fst (EConstr.decompose_lambda sigma f)) in
+    if List.length bs <> n then ret default
+    else (
+      let name (na, _) =
+        match na.Context.binder_name with
+        | Names.Name id -> Names.Id.to_string id
+        | _ -> "x"
+      in
+      ret (List.map name bs)
+    )
   | _ -> ret default
 
 let decode_rule (t : EConstr.t) : rule m =
@@ -50,9 +52,9 @@ let decode_rule (t : EConstr.t) : rule m =
     [
       C.Jdg.build_rule_desc, fun a ->
         let* r_name = decode_string a.(1) in
-        let* r_mvars = decode_nat a.(2) in
-        let* r_binders = binder_names r_mvars a.(4) in
-        ret { r_term = t ; r_name ; r_mvars ; r_binders }
+        let* ps = decode_list a.(2) in
+        let* r_binders = binder_names (List.length ps) a.(4) in
+        ret { r_term = t ; r_name ; r_binders }
     ]
     t
 
@@ -77,7 +79,7 @@ let generate_desc (name : Names.Id.t) (desc : EConstr.t) : unit =
   let mk s = Names.Id.of_string_soft (sname ^ s) in
   (* The signature of the description, the term type, the instance and its
      laws. *)
-  let sg, ty, cs, cl, rules, opaque =
+  let sg, ty, cs, cl, rules, transparent =
     monad_run begin
       let* desc_ty = typecheck desc None in
       let* sg = decode_sig desc_ty in
@@ -89,7 +91,8 @@ let generate_desc (name : Names.Id.t) (desc : EConstr.t) : unit =
       let* rules = decode_list desc in
       let* rules = List.monad_map decode_rule rules in
       (* The constants which stay folded in the statements: the description, the
-        operations of the syntax, the renamings and the generic judgment [J]. *)
+        operations of the syntax, the renamings, the generic judgment [J],
+        and [Nat.sub] which would otherwise pollute [csub]. *)
       let* ops = decode_cs_ops cs in
       let* opaque = List.monad_map head_const (desc :: ops) in
       let opaque =
@@ -100,10 +103,25 @@ let generate_desc (name : Names.Id.t) (desc : EConstr.t) : unit =
           C.rcons ;
           C.rcomp ;
           C.up_ren ;
-          C.Jdg.j
+          C.Jdg.j ;
+          C.sub
         ]
       in
-      ret (sg, ty, cs, cl, rules, opaque)
+      (* The constants the statements may unfold: those reachable from the
+        library's definitions and the instance, but not those of the user's
+        parameters. *)
+      let jdg s = apps (mkglob' s) [| sg ; ty ; cs |] in
+      let* transparent =
+        constants_closure (
+          jdg C.Jdg.rule_desc_type :: jdg C.Jdg.var_rule_type ::
+          List.map mkglob'
+            [ C.Jdg.hrule ; C.Jdg.hctor ; C.Jdg.hjdg ]
+        )
+      in
+      let transparent =
+        List.filter (fun c -> not (List.mem c opaque)) transparent
+      in
+      ret (sg, ty, cs, cl, rules, transparent)
     end
   in
   let list_ty = app (mkglob' C.list) ty in
@@ -112,7 +130,7 @@ let generate_desc (name : Names.Id.t) (desc : EConstr.t) : unit =
   (* The constructor types of a relation [r]: the reduced [var_rule_type] and
     [rule_desc_type], with the meta-variables named as in the description. *)
   let var_type (r : EConstr.t) : EConstr.t m =
-    reduce_except opaque (app (jdg C.Jdg.var_rule_type) r)
+    reduce_only transparent (app (jdg C.Jdg.var_rule_type) r)
   in
   let rule_type (r : EConstr.t) (rd : rule) : EConstr.t m =
     let* t =
@@ -120,7 +138,7 @@ let generate_desc (name : Names.Id.t) (desc : EConstr.t) : unit =
         ret @@
         apps (jdg C.Jdg.rule_desc_type) [| r ; rd.r_term ; EConstr.mkVar g |]
     in
-    let* t = reduce_except opaque t in
+    let* t = reduce_only transparent t in
     rename_binders (None :: List.map (fun x -> Some x) rd.r_binders) t
   in
   (* The inductive. *)
@@ -136,11 +154,11 @@ let generate_desc (name : Names.Id.t) (desc : EConstr.t) : unit =
   let r = mkind ind in
   let ctor i = mkctor (ind, i) in
   let stmt s = ret @@ apps (jdg s) [| desc ; r |] in
-  (* [R_wf : wf_desc d], by computation. *)
+  (* [R_wf : wf_desc d], using tactic [JdgDesc.wf_desc_tac]. *)
   let wf =
     lemma (sname ^ "_wf")
       (ret @@ apps (mkglob' C.Jdg.wf_desc) [| sg ; desc |])
-      Tactics.reflexivity
+      (run_ltac "JdgDesc" "wf_desc_tac" [])
   in
   (* [R_rules : rules_type d R], the [Forall] built from the constructors. *)
   let rules_lemma =
@@ -188,7 +206,6 @@ let generate_desc (name : Names.Id.t) (desc : EConstr.t) : unit =
           desc ;
           cl ;
           r ;
-          mkconst wf ;
           mkconst scheme
         |]
       ))
@@ -253,11 +270,12 @@ type prule = {
 (** The description written by the user, as the Gallina expression
 
     let term := hterm in let R := hjdg in let c := hctor Cc in ...
-    [ hrule "name" n (λ binders, [p1 ; ... ; pn]) (λ binders, c) ; ... ]
+    [ hrule "name" ps (λ binders, ([p1 ; ... ; pn], c)) ; ... ]
 
-  where [term] is the sort of the syntax, [R] the judgment and [c] ranges over
-  the constructors. Elaboration then resolves every name: inside the rules,
-  [term], the constructors and [R] denote their HOAS versions.
+  where [term] is the sort of the syntax, [R] the judgment, [c] ranges over the
+  constructors and [ps] is the parameters.
+  Elaboration then resolves every name: inside the rules, [term], the
+  constructors and [R] denote their HOAS versions.
 *)
 let desc_expr (name : Names.Id.t) (rules : prule list) :
   Constrexpr.constr_expr =
@@ -285,13 +303,68 @@ let desc_expr (name : Names.Id.t) (rules : prule list) :
     let cons x l = mkAppC (const C.cons, [ x ; l ]) in
     List.fold_right cons l (const C.nil)
   in
+  let pair a b = mkAppC (const C.pair, [ a ; b ]) in
+  (* A binder [(x : term)] or [x] (no type) is a meta-variable, any other type
+    is a parameter; the sort may not occur in it. *)
+  let sort = sign.Signature.sort_name in
+  (* Force annotation-free binders to be the sort *)
+  let typed b =
+    match b with
+    | Constrexpr.CLocalAssum (xs, r, k, { CAst.v = Constrexpr.CHole _ ; _ }) ->
+      Constrexpr.CLocalAssum (xs, r, k, mkIdentC sort)
+    | b -> b
+  in
+  let is_sort (ty : Constrexpr.constr_expr) =
+    match ty.CAst.v with
+    | Constrexpr.CRef (q, None) ->
+      Libnames.qualid_is_ident q &&
+      Names.Id.equal (Libnames.qualid_basename q) sort
+    | _ -> false
+  in
+  (* The arity of a meta-variable type [term → ... → term], if it is one.
+    [->] parses as a product, [→] as the notation of [Utf8_core]. *)
+  let rec arity (ty : Constrexpr.constr_expr) : int option =
+    if is_sort ty then Some 0
+    else
+      match ty.CAst.v with
+      | Constrexpr.CProdN (bs, c) ->
+        let dom b =
+          match b with
+          | Constrexpr.CLocalAssum (xs, _, _, d) when is_sort d ->
+            Some (List.length xs)
+          | _ -> None
+        in
+        List.fold_left
+          (fun acc b -> Option.bind acc (fun n -> Option.map (( + ) n) (dom b)))
+          (arity c) bs
+      | Constrexpr.CNotation (_, (_, "_ → _"), ([ d ; c ], _, _, _))
+        when is_sort d ->
+        Option.map succ (arity c)
+      | _ -> None
+  in
+  let param (ty : Constrexpr.constr_expr) =
+    match arity ty with
+    | Some n -> mkAppC (const C.Jdg.rp_term, [ nat n ])
+    | None when Constrexpr_ops.occur_var_constr_expr sort ty ->
+      Log.error ?loc:ty.CAst.loc
+        "A parameter type cannot mention the sort %s." (Names.Id.to_string sort)
+    | None -> mkAppC (const C.Jdg.rp_param, [ ty ])
+  in
+  let params bs =
+    bs |> List.concat_map @@ fun b ->
+      match b with
+      | Constrexpr.CLocalAssum (xs, _, _, ty) ->
+        List.map (fun _ -> param ty) xs
+      | Constrexpr.CLocalDef ({ CAst.loc ; _ }, _, _, _)
+      | Constrexpr.CLocalPattern { CAst.loc ; _ } ->
+        Log.error ?loc "Rule binders must be assumptions (x : A)."
+  in
   let rule r =
-    let lam = mkCLambdaN r.pr_binders in
+    let bs = List.map typed r.pr_binders in
     mkAppC (const C.Jdg.hrule, [
       string (Names.Id.to_string r.pr_name) ;
-      nat (List.length (names_of_local_binders r.pr_binders)) ;
-      lam (list r.pr_prems) ;
-      lam r.pr_concl
+      list (params bs) ;
+      mkCLambdaN bs (pair (list r.pr_prems) r.pr_concl)
     ])
   in
   let hctor i =

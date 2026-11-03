@@ -245,13 +245,18 @@ val const_of_ref : Names.GlobRef.t -> Names.Constant.t
 (** The head constant of an application, if any. *)
 val head_const : EConstr.t -> Names.Constant.t option m
 
-(** [reduce_except opaque t] fully normalizes [t], unfolding every constant except those
-    in [opaque]. *)
+(** [reduce_except opaque t] fully normalizes [t], unfolding every constant
+    except those in [opaque]. *)
 val reduce_except : Names.Constant.t list -> EConstr.t -> EConstr.t m
 
-(** [reduce_only transparent t] fully normalizes [t], unfolding only the constants in
-    [transparent]. *)
+(** [reduce_only transparent t] fully normalizes [t], unfolding only the
+    constants in [transparent]. *)
 val reduce_only : Names.Constant.t list -> EConstr.t -> EConstr.t m
+
+(** [constants_closure roots] is the set of constants reachable from the terms
+    [roots] through the bodies of transparent constants: what a reduction of a
+    term built from [roots] may unfold. *)
+val constants_closure : EConstr.t list -> Names.Constant.t list m
 
 (** [rename_binders names t] renames the leading products of [t], one per element of
     [names] ([None] keeps the current name). [t] must start with at least that many

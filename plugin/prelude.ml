@@ -185,7 +185,7 @@ let lemma (name : string) ?(refresh = false) (mk_stmt : EConstr.t m)
       declare_theorem Decls.Lemma name stmt tac
     end
 
-(** Running a tactic from [Sulfur.{name}]. *)
+(** [run_ltac name tac args] runs tactic [tac] from [Sulfur.{name}]. *)
 let run_ltac name (tac : string) (args : Names.GlobRef.t list) : unit Proofview.tactic =
   let open Ltac_plugin in
   let qualid g =

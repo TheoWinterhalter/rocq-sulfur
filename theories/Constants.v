@@ -17,6 +17,7 @@ Register pair as sulfur.prod.pair.
 Register nat as sulfur.nat.type.
 Register O as sulfur.nat.zero.
 Register S as sulfur.nat.succ.
+Register Nat.sub as sulfur.nat.sub.
 
 Register list as sulfur.list.type.
 Register nil as sulfur.list.nil.
@@ -118,6 +119,8 @@ Register ConcreteSyntax.ConcreteSyntax as sulfur.cs.type.
 
 (** JdgDesc *)
 
+Register JdgDesc.rp_term as sulfur.jdg.rp_term.
+Register JdgDesc.rp_param as sulfur.jdg.rp_param.
 Register JdgDesc.rule_desc as sulfur.jdg.rule_desc.
 Register JdgDesc.Build_rule_desc as sulfur.jdg.build_rule_desc.
 Register JdgDesc.jdg_desc as sulfur.jdg.jdg_desc.
