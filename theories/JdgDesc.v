@@ -66,14 +66,14 @@ Section ToSig.
   Context {sig : signature}.
 
   (* For now we assume only one judgment *)
-  Definition I := unit.
+  Definition Idx := unit.
 
   (* Contexts only store terms *)
-  #[local] Instance: IDecl I :=
+  #[local] Instance: IDecl Idx :=
     λ _ X, X.
 
   (* Context judgment has to be typing *)
-  #[local] Instance: IJdg I :=
+  #[local] Instance: IJdg Idx :=
     λ _ X, (X * X)%type.
 
   Definition to_premise (pd : premise_desc) : premise tt :=
@@ -119,14 +119,14 @@ Section ToSig.
 
 End ToSig.
 
-#[local] Instance Sig_IDecl : IDecl I := λ _ X, X.
-#[local] Instance Sig_IJdg : IJdg I := λ _ X, (X * X)%type.
-#[local] Instance Sig_FMapDecl : ∀ i : I, FMap (declF i) := λ _, FMapId.
-#[local] Instance Sig_FMapJdg : ∀ i : I, FMap (jdgF i) := λ _, FMapProd _ _.
-#[local] Instance Sig_FuncDecl : ∀ i : I, Eq1Functor (declF i) := λ _, FId.
-#[local] Instance Sig_FuncJdg : ∀ i : I, Eq1Functor (jdgF i) := λ _, Eq1FProd _ _.
-#[local] Instance Sig_IMakeJdg : IMakeJdg I := λ _ X d x, (x, d).
-#[local] Instance Sig_NatMake : ∀ i : I, NatFromProd (make_jdg i).
+#[local] Instance Sig_IDecl : IDecl Idx := λ _ X, X.
+#[local] Instance Sig_IJdg : IJdg Idx := λ _ X, (X * X)%type.
+#[local] Instance Sig_FMapDecl : ∀ i, FMap (declF i) := λ _, FMapId.
+#[local] Instance Sig_FMapJdg : ∀ i, FMap (jdgF i) := λ _, FMapProd _ _.
+#[local] Instance Sig_FuncDecl : ∀ i, Eq1Functor (declF i) := λ _, FId.
+#[local] Instance Sig_FuncJdg : ∀ i, Eq1Functor (jdgF i) := λ _, Eq1FProd _ _.
+#[local] Instance Sig_IMakeJdg : IMakeJdg Idx := λ _ X d x, (x, d).
+#[local] Instance Sig_NatMake : ∀ i, NatFromProd (make_jdg i).
 Proof. intro i. constructor. reflexivity. Qed.
 
 (** Higher-order presentation of rules
