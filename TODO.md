@@ -11,3 +11,7 @@
 ## Sulfur Judgment
 
 - [ ] Improve `⟨ x : A ⊢ t ⟩` notation to be n-ary.
+
+## Extension ideas
+
+- We could implement a `Sulfur SOGAT` command to define syntax and typing at once.
