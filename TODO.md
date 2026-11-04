@@ -7,3 +7,7 @@
 - [ ] Mutual sorts
 - [ ] Scoped syntax
 - [ ] Phantom names
+
+## Sulfur Judgment
+
+- [ ] Improve `⟨ x : A ⊢ t ⟩` notation to be n-ary.
