@@ -23,19 +23,20 @@ generic theorems.
 
 ## Usage
 
+### Syntax
+
 One can generate a syntax from a Rocq file using the following commands.
 
 ```rocq
 From Sulfur Require Import All.
 
-Sulfur Syntax
-{{
-  term : Type
+Sulfur Syntax {{
+  tm : Type
 
-  | Ty : nat -> term
-  | Pi : term -> (term -> term) -> term
-  | lam : (term -> term) -> term
-  | app : term -> term -> term
+  | tTy : nat → tm
+  | tPi : tm → (tm → tm) → tm
+  | tlam : tm → (tm → tm) → tm
+  | tapp : tm → tm → tm
 }}.
 ```
 
@@ -44,6 +45,37 @@ syntax (HOAS) so `(term -> term)` indicates a `term` where another `term` is
 bound.
 This builds on Rocq's parser and elaborator, so one can use notations and
 existing types such as `nat` above.
+
+### Judgments
+
+One can generate judgments from Sulfur as well.
+The syntax is work-in-progress. Currently one can do the following.
+
+```rocq
+Sulfur Judgment conv {{
+| beta A (b : tm → tm) u :
+    ⟹ conv (tapp (tlam A b) u) (b u)
+| congr_lam A A' (b b' : tm → tm) :
+    conv A A' ;
+    ⟨ x : A ⊢ conv (b x) (b' x) ⟩
+    ⟹ conv (tlam A b) (tlam A' b')
+}}.
+```
+
+This defines a new inductive type `conv` which quantifies explicitly over a
+notion of contexts:
+```rocq
+conv : list tm → tm → tm → Prop
+```
+
+This also generates a substitution lemma for free:
+```rocq
+conv_subst :
+  ∀ (Γ Δ : list tm) (σ : nat → tm) (t A : tm),
+    conv Γ t A →
+    cstyping conv Δ σ Γ →
+    conv Δ (substitute σ t) (substitute σ A)
+```
 
 ## Install
 
