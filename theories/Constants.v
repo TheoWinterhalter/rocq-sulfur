@@ -128,6 +128,9 @@ Register JdgDesc.happly as sulfur.jdg.happly.
 Register JdgDesc.hterm as sulfur.jdg.hterm.
 Register JdgDesc.hctor as sulfur.jdg.hctor.
 Register JdgDesc.hjdg as sulfur.jdg.hjdg.
+Register JdgDesc.hext as sulfur.jdg.hext.
+Register JdgDesc.hjp as sulfur.jdg.hjp.
+Register JdgDesc.hprem as sulfur.jdg.hprem.
 Register JdgDesc.hrule as sulfur.jdg.hrule.
 Register JdgDesc.rule_desc_type as sulfur.jdg.rule_desc_type.
 Register JdgDesc.var_rule_type as sulfur.jdg.var_rule_type.

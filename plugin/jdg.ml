@@ -21,8 +21,8 @@ type rule = {
   r_binders : string list
 }
 
-(** The names of the [n] meta-variables of a rule, read off the HOAS binders of
-  its conclusion [λ p, snd (happly sg ps 0 (λ x1 ... xn, _) p)];
+(** The names of the [n] meta-variables of a rule, read off the HOAS binders
+  [λ x1 ... xn, _] under [happly] in its conclusion;
   or use [x1 ... xn] when they are not available.
 *)
 let binder_names (n : int) (concl : EConstr.t) : string list m =
@@ -31,10 +31,14 @@ let binder_names (n : int) (concl : EConstr.t) : string list m =
   let default = List.init n (fun i -> "x" ^ string_of_int (i + 1)) in
   let is_happly = EConstr.isRefX env sigma (Lazy.force C.Jdg.happly) in
   let _, body = EConstr.decompose_lambda sigma concl in
-  let _, args = EConstr.decompose_app sigma body in
-  let happly = if Array.length args = 3 then args.(2) else body in
-  match EConstr.decompose_app sigma happly with
-  | h, [| _ ; _ ; _ ; _ ; f ; _ |] when is_happly h ->
+  (* The first [happly] application found through the arguments *)
+  let rec find t =
+    match EConstr.decompose_app sigma t with
+    | h, args when is_happly h -> Some args
+    | _, args -> List.find_map find (Array.to_list args)
+  in
+  match find body with
+  | Some [| _ ; _ ; _ ; _ ; f ; _ |] ->
     let bs = List.rev (fst (EConstr.decompose_lambda sigma f)) in
     if List.length bs <> n then ret default
     else (
@@ -115,7 +119,7 @@ let generate_desc (name : Names.Id.t) (desc : EConstr.t) : unit =
         constants_closure (
           jdg C.Jdg.rule_desc_type :: jdg C.Jdg.var_rule_type ::
           List.map mkglob'
-            [ C.Jdg.hrule ; C.Jdg.hctor ; C.Jdg.hjdg ]
+            [ C.Jdg.hrule ; C.Jdg.hctor ; C.Jdg.hjdg ; C.Jdg.hjp ; C.Jdg.hext ]
         )
       in
       let transparent =
@@ -304,6 +308,18 @@ let desc_expr (name : Names.Id.t) (rules : prule list) :
     List.fold_right cons l (const C.nil)
   in
   let pair a b = mkAppC (const C.pair, [ a ; b ]) in
+  (* The premises, as [@cons hprem p l]: with the type explicit.
+    A judgment [p] is checked against [hprem] and coerced;
+    [cons p l] alone would infer the type from [p] first.
+  *)
+  let prems l =
+    let qid g = Nametab.shortest_qualid_of_global Names.Id.Set.empty g in
+    let cons x l =
+      CAst.make (Constrexpr.CAppExpl (
+        (qid (Lazy.force C.cons), None), [ const C.Jdg.hprem ; x ; l ]))
+    in
+    List.fold_right cons l (const C.nil)
+  in
   (* A binder [(x : term)] or [x] (no type) is a meta-variable, any other type
     is a parameter; the sort may not occur in it. *)
   let sort = sign.Signature.sort_name in
@@ -364,7 +380,7 @@ let desc_expr (name : Names.Id.t) (rules : prule list) :
     mkAppC (const C.Jdg.hrule, [
       string (Names.Id.to_string r.pr_name) ;
       list (params bs) ;
-      mkCLambdaN bs (pair (list r.pr_prems) r.pr_concl)
+      mkCLambdaN bs (pair (prems r.pr_prems) r.pr_concl)
     ])
   in
   let hctor i =
