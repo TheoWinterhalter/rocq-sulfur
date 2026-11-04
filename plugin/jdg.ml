@@ -31,11 +31,14 @@ let binder_names (n : int) (concl : EConstr.t) : string list m =
   let default = List.init n (fun i -> "x" ^ string_of_int (i + 1)) in
   let is_happly = EConstr.isRefX env sigma (Lazy.force C.Jdg.happly) in
   let _, body = EConstr.decompose_lambda sigma concl in
-  (* The first [happly] application found through the arguments *)
+  (* The first [happly] application found through the subterms *)
   let rec find t =
     match EConstr.decompose_app sigma t with
     | h, args when is_happly h -> Some args
-    | _, args -> List.find_map find (Array.to_list args)
+    | _ ->
+      EConstr.fold sigma (fun acc t ->
+        match acc with Some _ -> acc | None -> find t
+      ) None t
   in
   match find body with
   | Some [| _ ; _ ; _ ; _ ; f ; _ |] ->
