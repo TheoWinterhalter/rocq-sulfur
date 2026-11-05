@@ -44,6 +44,11 @@ Sulfur Judgment typing {{
     typing f (tPi A B) ;
     typing u A
     ⟹ typing (tapp f u) (B u)
+
+| type_conv A A' t :
+    typing t A ;
+    {{ conv Γ A A' }}
+    ⟹ typing t A'
 }}.
 
 Print typing_desc.
@@ -53,10 +58,6 @@ Check typing_wf : wf_desc typing_desc.
 Check typing_rules : rules_type typing_desc typing.
 Check typing_sound : sound_jdg typing_desc typing.
 Check typing_complete : complete_jdg typing_desc typing.
-Check typing_subst :
-  ∀ Γ Δ σ t A,
-    typing Γ t A →
-    cstyping typing Δ σ Γ →
-    typing Δ (substitute σ t) (substitute σ A).
+Check typing_subst.
 
 Print Assumptions typing_subst.
