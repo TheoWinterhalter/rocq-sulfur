@@ -51,6 +51,14 @@ Sulfur Judgment typing {{
     ⟹ typing t A'
 }}.
 
+(* Needed for the substitution lemma, currently false *)
+#[local] Instance: typing_obligations.
+Proof.
+  red.
+  intros A A' t Γ Δ σ hs hA.
+  eapply conv_subst. 1: eassumption.
+Admitted.
+
 Print typing_desc.
 Print typing.
 

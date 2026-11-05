@@ -34,3 +34,43 @@ Proof.
   rewrite nth_indep with (d' := f 0). 2: rewrite length_map, length_seq. 2: lia.
   rewrite map_nth, seq_nth. 2: lia. reflexivity.
 Qed.
+
+Fixpoint Forall_rec [A : Type] (P : A → Prop) l :=
+  match l with
+  | [] => True
+  | [ a ] => P a
+  | a :: l => P a ∧ Forall_rec P l
+  end.
+
+Fixpoint Forall_rec_alt [A : Type] (P : A → Prop) l :=
+  match l with
+  | [] => True
+  | a :: l => P a ∧ Forall_rec_alt P l
+  end.
+
+Lemma Forall_rec_alt_iff A P l :
+  @Forall_rec A P l ↔ Forall_rec_alt P l.
+Proof.
+  split.
+  - intros h. induction l as [| a [|b l] ih].
+    + constructor.
+    + cbn in *. intuition auto.
+    + cbn in *. intuition auto.
+  - intros h. induction l as [| a [|b l] ih].
+    + constructor.
+    + cbn in *. intuition auto.
+    + cbn in *. intuition auto.
+Qed.
+
+Lemma Forall_rec_iff A P l :
+  @Forall_rec A P l ↔ Forall P l.
+Proof.
+  rewrite Forall_rec_alt_iff.
+  split.
+  - intros h. induction l as [| a l ih].
+    + constructor.
+    + cbn in h. constructor. all: intuition auto.
+  - induction 1 as [| a l ha hl ih].
+    + constructor.
+    + cbn. intuition auto.
+Qed.

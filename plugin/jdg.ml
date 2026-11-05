@@ -138,6 +138,7 @@ let generate_desc (name : Names.Id.t) (desc : EConstr.t) : unit =
           jdg C.Jdg.rule_desc_type ::
           jdg C.Jdg.var_rule_type ::
           jdg C.Jdg.pred_obl ::
+          jdg C.Jdg.obligations ::
           List.map mkglob' [
             C.Jdg.hrule ;
             C.Jdg.hctor ;
@@ -263,7 +264,25 @@ let generate_desc (name : Names.Id.t) (desc : EConstr.t) : unit =
       if i = 0 then mkglob' C.zero else app (mkglob' C.succ) (nat (i - 1))
     in
     let obls =
-      List.concat_map (fun rd -> List.map (fun i -> (rd, i)) rd.r_preds) rules
+      List.concat (List.mapi (fun r rd ->
+        List.map (fun i -> (r, rd, i)) rd.r_preds) rules
+      )
+    in
+    let nat_ty = mkglob' C.nat in
+    let pos_ty = apps (mkglob' C.prod) [| nat_ty ; nat_ty |] in
+    let ps =
+      List.fold_right (fun (r, _, i) l ->
+        apps (mkglob' C.cons) [|
+          pos_ty ;
+          apps (mkglob' C.pair) [| nat_ty ; nat_ty ; nat r ; nat i |] ;
+          l
+        |]
+      ) obls (app (mkglob' C.nil) pos_ty)
+    in
+    let ok =
+      lemma (sname ^ "_obls_wf")
+        (ret @@ apps (mkglob' C.Jdg.obls_ok) [| sg ; ty ; desc ; ps |])
+        (run_ltac "JdgDesc" "wf_desc_tac" [])
     in
     let stmt =
       let* cs_const = head_const cs in
@@ -272,25 +291,61 @@ let generate_desc (name : Names.Id.t) (desc : EConstr.t) : unit =
         C.CS.csubstitute
       ] in
       let transp = match cs_const with Some c -> c :: transp | None -> transp in
-      let* concl = reduce_only transp (app (jdg C.Jdg.preserve_subst_jdg) r) in
-      let obl (rd, i) =
-        let* t =
-          reduce_only transparent
-            (apps (jdg C.Jdg.pred_obl) [| r ; rd.r_term ; nat i |])
-        in
-        rename_binders (List.map (fun x -> Some x) rd.r_binders) t
-      in
-      let* hyps = List.monad_map obl obls in
-      ret (arrows hyps concl)
+      reduce_only transp (app (jdg C.Jdg.preserve_subst_jdg) r)
     in
-    lemma (sname ^ "_subst") stmt (
-      Tacticals.tclTHEN
-        (Tacticals.tclDO (List.length obls) Tactics.intro)
-        (run_ltac "JdgDesc" "subst_tac" [
-          Names.GlobRef.ConstRef sound ;
-          Names.GlobRef.ConstRef complete
-        ])
-    )
+    let proof h =
+      apps (jdg C.Jdg.gen_preserve_subst) [|
+        desc ; cl ; r ; mkconst sound ; mkconst complete ; ps ; mkconst ok ; h
+      |]
+    in
+    if obls = [] then
+      ignore (lemma (sname ^ "_subst") stmt
+        (Tactics.exact_check (proof (mkglob (Rocqlib.lib_ref "core.True.I")))))
+    else begin
+      (* The conjunction of the obligations, each with the binders of its
+        rule *)
+      let rename_obls (t : EConstr.t) : EConstr.t m =
+        let* sigma = get_sigma in
+        let rec go t = function
+          | [] -> ret t
+          | [ (_, rd, _) ] ->
+            rename_binders (List.map (fun x -> Some x) rd.r_binders) t
+          | (_, rd, _) :: obls ->
+            match EConstr.decompose_app sigma t with
+            | h, [| a ; b |] ->
+              let* a =
+                rename_binders (List.map (fun x -> Some x) rd.r_binders) a
+              in
+              let* b = go b obls in
+              ret (apps h [| a ; b |])
+            | _ -> ret t
+        in
+        go t obls
+      in
+      let obls_def =
+        def (sname ^ "_obligations") begin
+          let* desc_const = head_const desc in
+          let transparent =
+            match desc_const with Some c -> c :: transparent | None -> transparent
+          in
+          let* t =
+            reduce_only transparent
+              (apps (jdg C.Jdg.obligations) [| desc ; r ; ps |])
+          in
+          rename_obls t
+        end
+      in
+      Record.declare_existing_class (Names.GlobRef.ConstRef obls_def) ;
+      let subst =
+        lemma (sname ^ "_subst")
+          (let* concl = stmt in prod "H" (mkconst obls_def) (fun _ -> ret concl))
+          (Tactics.exact_check
+            (monad_run (lambda "H" (mkconst obls_def) (fun h ->
+              ret (proof (EConstr.mkVar h))))))
+      in
+      Impargs.declare_manual_implicits false (Names.GlobRef.ConstRef subst)
+        [ CAst.make (Some (Names.Name (Names.Id.of_string "H"), true)) ]
+    end
   in
   ()
 

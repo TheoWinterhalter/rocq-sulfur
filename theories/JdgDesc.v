@@ -901,18 +901,103 @@ Section ConcreteFacts.
           stable_at ar nt Γ Δ σ vs (rd.(rd_premises) x) i
       ).
 
-    Definition pred_obls l :=
-      Forall (λ rd, ∀ i, pred_obl rd i) l.
+    (** Obligations as stated by the command are identified by
+      - the index of its rule in the description and
+      - the position of the premise.
+      They are therefore reprenseted as [nat * nat].
+    *)
 
-    Lemma pred_obls_in l rd i :
-      pred_obls l →
-      In rd l →
-      pred_obl rd i.
+    Definition obl_at r i : Prop :=
+      match nth_error desc r with
+      | Some rd => pred_obl rd i
+      | None => True
+      end.
+
+    Definition obligations (ps : list (nat * nat)) :=
+      Forall_rec (λ '(r, i), obl_at r i) ps.
+
+    Definition is_pred (pd : premise_desc (T := T)) :=
+      match pd with
+      | pd_pred _ _ => true
+      | pd_jdg _ _ => false
+      end.
+
+    Definition mem (r i : nat) (ps : list (nat * nat)) :=
+      existsb (λ '(r', i'), (r =? r') && (i =? i')) ps.
+
+    (* The predicate premises of a rule, from position [i], are listed *)
+    Fixpoint pos_ok r i (prems : list (premise_desc (T := T))) ps :=
+      match prems with
+      | [] => true
+      | pd :: prems =>
+        (negb (is_pred pd) || mem r i ps) && pos_ok r (S i) prems ps
+      end.
+
+    Fixpoint obls_ok_from r (d : list rule_desc) ps : Prop :=
+      match d with
+      | [] => True
+      | rd :: d =>
+        (∀ x, pos_ok r 0 (rd.(rd_premises) x) ps = true) ∧
+        obls_ok_from (S r) d ps
+      end.
+
+    Definition obls_ok ps : Prop :=
+      obls_ok_from 0 desc ps.
+
+    Lemma mem_in r i ps :
+      mem r i ps = true →
+      In (r, i) ps.
     Proof.
-      intros h hin.
-      induction h as [| rd' l hrd' hl ih]. 1: contradiction.
-      cbn in *.
-      destruct hin as [-> | hin]. all: auto.
+      unfold mem. intros h.
+      apply existsb_exists in h as ([r' i'] & hin & e).
+      rewrite andb_true_iff, !PeanoNat.Nat.eqb_eq in e.
+      destruct e as [-> ->]. assumption.
+    Qed.
+
+    Lemma pos_ok_nth r i prems ps k pd :
+      pos_ok r i prems ps = true →
+      nth_error prems k = Some pd →
+      is_pred pd = true →
+      mem r (i + k) ps = true.
+    Proof.
+      induction prems as [| pd' prems ih] in i, k |- *.
+      - destruct k. all: discriminate.
+      - cbn. intros h e hp.
+        rewrite andb_true_iff in h. destruct h as [h1 h2].
+        destruct k as [| k].
+        + injection e as ->. rewrite hp in h1. cbn in h1.
+          rewrite PeanoNat.Nat.add_0_r. assumption.
+        + rewrite <- PeanoNat.Nat.add_succ_comm.
+          eapply ih. all: eassumption.
+    Qed.
+
+    Lemma obls_ok_nth r d ps k rd :
+      obls_ok_from r d ps →
+      nth_error d k = Some rd →
+      ∀ x, pos_ok (r + k) 0 (rd.(rd_premises) x) ps = true.
+    Proof.
+      induction d as [| rd' d ih] in r, k |- *.
+      - destruct k. all: discriminate.
+      - intros [h1 h2] e. destruct k as [| k].
+        + injection e as ->. rewrite <- plus_n_O. assumption.
+        + rewrite <- PeanoNat.Nat.add_succ_comm. eapply ih. all: eassumption.
+    Qed.
+
+    (* The obligation of the predicate premise [k] of rule [r] *)
+    Lemma obligation_at ps r rd x k n P :
+      obls_ok ps →
+      obligations ps →
+      nth_error desc r = Some rd →
+      nth_error (rd.(rd_premises) x) k = Some (pd_pred n P) →
+      pred_obl rd k.
+    Proof.
+      intros hok ho hr hk.
+      eapply obls_ok_nth in hok. 2: exact hr. cbn in hok.
+      eapply pos_ok_nth in hok. 2: exact hk. 2: reflexivity.
+      cbn in hok. apply mem_in in hok.
+      unfold obligations in ho. rewrite Forall_rec_iff, Forall_forall in ho.
+      specialize (ho _ hok). unfold obl_at in ho. rewrite hr in ho.
+      exact ho.
     Qed.
 
   End Statements.
@@ -1115,7 +1200,7 @@ Section ConcreteFacts.
     Context (R : list T → T → T → Prop).
     Context (hsound : sound_jdg R).
     Context (hcomplete : complete_jdg R).
-    Context (hobl : pred_obls R desc).
+    Context ps (hok : obls_ok ps) (hobls : obligations R ps).
 
     Lemma cstyping_styping Δ σ Γ :
       cstyping R Δ σ Γ →
@@ -1151,7 +1236,8 @@ Section ConcreteFacts.
         noconf hpd.
         intros Γ σ Δ m hs h.
         apply In_nth_error in hin as [i hi].
-        eapply pred_obls_in with (i := i) in hobl as ho. 2: exact hr.
+        apply In_nth_error in hr as [ri hr].
+        eapply obligation_at in hok as ho. 2-4: eassumption.
         unfold pred_obl in ho. rewrite <- under_iff in ho.
         specialize ho with (x := x) (1 :=
           ev_vs_length (CS := CS) (rd_arity rd) (rd_nterms rd) m
@@ -1213,30 +1299,3 @@ End ConcreteFacts.
 Ltac wf_desc_tac :=
   repeat constructor ;
   intro ; reflexivity.
-
-(** Prove [pred_obls] from the obligations in the context, every other
-  premise being trivial: [i] is split as far as the premise list goes.
-  [intros] does not unfold [under], [intro] does.
-*)
-Ltac pred_obl_at i :=
-  first [
-    solve [ eassumption ]
-  | solve [ repeat intro ; exact I ]
-  | destruct i as [| i ] ; [
-      solve [ eassumption | repeat intro ; exact I ]
-    | pred_obl_at i
-    ]
-  ].
-
-Ltac pred_obls_tac :=
-  repeat (eapply Forall_cons + eapply Forall_nil) ;
-  let i := fresh "i" in
-  intro i ;
-  pred_obl_at i.
-
-(** Prove [R_subst] from [R_sound] and [R_complete], the obligations being
-  introduced.
-*)
-Ltac subst_tac sound complete :=
-  refine (gen_preserve_subst _ _ sound complete _) ;
-  pred_obls_tac.
