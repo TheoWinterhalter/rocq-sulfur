@@ -58,20 +58,21 @@ let decode_rule (t : EConstr.t) : rule m =
   decode "a rule"
     [
       C.Jdg.build_rule_desc, fun a ->
-        let* r_name = decode_string a.(1) in
-        let* ps = decode_list a.(2) in
-        let* r_binders = binder_names (List.length ps) a.(4) in
+        let* r_name = decode_string a.(2) in
+        let* ps = decode_list a.(3) in
+        let* r_binders = binder_names (List.length ps) a.(5) in
         ret { r_term = t ; r_name ; r_binders }
     ]
     t
 
-(** The signature of a description, from its type [jdg_desc sg]. *)
-let decode_sig (desc_ty : EConstr.t) : EConstr.t m =
+(** The signature and term type of a description, from its type
+  [jdg_desc sg T]. *)
+let decode_sig (desc_ty : EConstr.t) : (EConstr.t * EConstr.t) m =
   let what = "a judgment description" in
   decode what
     [
       C.list, fun a ->
-        decode what [ C.Jdg.rule_desc, fun a -> ret a.(0) ] a.(0)
+        decode what [ C.Jdg.rule_desc, fun a -> ret (a.(0), a.(1)) ] a.(0)
     ]
     desc_ty
 
@@ -89,11 +90,8 @@ let generate_desc (name : Names.Id.t) (desc : EConstr.t) : unit =
   let sg, ty, cs, cl, rules, transparent =
     monad_run begin
       let* desc_ty = typecheck desc None in
-      let* sg = decode_sig desc_ty in
-      let* ty = fresh_evar None in
+      let* sg, ty = decode_sig desc_ty in
       let* cs = resolve_tc (apps (mkglob' C.CS.typ) [| sg ; ty |]) in
-      let* sigma = get_sigma in
-      let ty = Evarutil.nf_evar sigma ty in
       let* cl = resolve_tc (apps (mkglob' C.CS.laws) [| sg ; ty ; cs |]) in
       let* rules = decode_list desc in
       let* rules = List.monad_map decode_rule rules in
@@ -132,7 +130,7 @@ let generate_desc (name : Names.Id.t) (desc : EConstr.t) : unit =
     end
   in
   let list_ty = app (mkglob' C.list) ty in
-  let rule_desc_ty = app (mkglob' C.Jdg.rule_desc) sg in
+  let rule_desc_ty = apps (mkglob' C.Jdg.rule_desc) [| sg ; ty |] in
   let jdg s = apps (mkglob' s) [| sg ; ty ; cs |] in
   (* The constructor types of a relation [r]: the reduced [var_rule_type] and
     [rule_desc_type], with the meta-variables named as in the description. *)
@@ -164,7 +162,7 @@ let generate_desc (name : Names.Id.t) (desc : EConstr.t) : unit =
   (* [R_wf : wf_desc d], using tactic [JdgDesc.wf_desc_tac]. *)
   let wf =
     lemma (sname ^ "_wf")
-      (ret @@ apps (mkglob' C.Jdg.wf_desc) [| sg ; desc |])
+      (ret @@ apps (mkglob' C.Jdg.wf_desc) [| sg ; ty ; desc |])
       (run_ltac "JdgDesc" "wf_desc_tac" [])
   in
   (* [R_rules : rules_type d R], the [Forall] built from the constructors. *)
@@ -232,7 +230,9 @@ let generate_desc (name : Names.Id.t) (desc : EConstr.t) : unit =
         |]
       ))
   in
-  (* [R_subst : preserve_subst_jdg R], stated with [csubstitute] unfolded. *)
+  (* [R_subst : preserve_subst_jdg R], stated with [csubstitute] unfolded,
+    proven by the tactic [JdgDesc.subst_tac].
+  *)
   let _subst =
     let stmt =
       let* cs_const = head_const cs in
@@ -243,16 +243,12 @@ let generate_desc (name : Names.Id.t) (desc : EConstr.t) : unit =
       let transp = match cs_const with Some c -> c :: transp | None -> transp in
       reduce_only transp (app (jdg C.Jdg.preserve_subst_jdg) r)
     in
-    lemma (sname ^ "_subst") stmt
-      (Tactics.exact_check (
-        apps (jdg C.Jdg.gen_preserve_subst) [|
-          desc ;
-          cl ;
-          r ;
-          mkconst sound ;
-          mkconst complete
-        |]
-      ))
+    lemma (sname ^ "_subst") stmt (
+      run_ltac "JdgDesc" "subst_tac" [
+        Names.GlobRef.ConstRef sound ;
+        Names.GlobRef.ConstRef complete
+      ]
+    )
   in
   ()
 
@@ -315,12 +311,12 @@ let desc_expr (name : Names.Id.t) (rules : prule list) :
     A judgment [p] is checked against [hprem] and coerced;
     [cons p l] alone would infer the type from [p] first.
   *)
+  let qid g = Nametab.shortest_qualid_of_global Names.Id.Set.empty g in
+  let app_expl g args =
+    CAst.make (Constrexpr.CAppExpl ((qid (Lazy.force g), None), args))
+  in
   let prems l =
-    let qid g = Nametab.shortest_qualid_of_global Names.Id.Set.empty g in
-    let cons x l =
-      CAst.make (Constrexpr.CAppExpl (
-        (qid (Lazy.force C.cons), None), [ const C.Jdg.hprem ; x ; l ]))
-    in
+    let cons x l = app_expl C.cons [ const C.Jdg.hprem ; x ; l ] in
     List.fold_right cons l (const C.nil)
   in
   (* A binder [(x : term)] or [x] (no type) is a meta-variable, any other type
@@ -396,9 +392,17 @@ let desc_expr (name : Names.Id.t) (rules : prule list) :
     List.mapi (fun i c -> (c, hctor i))
       (Array.to_list sign.Signature.ctor_names)
   in
-  List.fold_right
-    (fun (x, v) body -> mkLetInC (CAst.make (Names.Name x), v, None, body))
-    defs (list (List.map rule rules))
+  let desc =
+    List.fold_right
+      (fun (x, v) body -> mkLetInC (CAst.make (Names.Name x), v, None, body))
+      defs (list (List.map rule rules))
+  in
+  let hole = CAst.make (Constrexpr.CHole None) in
+  mkCastC (
+    desc,
+    Some Constr.DEFAULTcast,
+    app_expl C.Jdg.jdg_desc [ hole ; mkIdentC sort ]
+  )
 
 (** [Sulfur Judgment R {{ rules }}]: the description is declared as [R_desc]
   (with the local definitions substituted), then handled as above.
