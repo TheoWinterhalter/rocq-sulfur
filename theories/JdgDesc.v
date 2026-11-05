@@ -14,6 +14,18 @@ From Sulfur Require Import Prelude Sig Renamings.
 From Sulfur Require Import ParamSyntax JudgmentSyntaxScoped ConcreteSyntax.
 From Utils Require Import Functor.
 
+(** n-ary (non-dependent) functions
+
+  A pattern we reuse several times in this file.
+  [nary n A B] is [A → … → A → B] with [n] times [A].
+
+*)
+Fixpoint nary n A B :=
+  match n with
+  | 0 => B
+  | S n => A → nary n A B
+  end.
+
 (** Judgment description over a signature *)
 
 Section Desc.
@@ -143,11 +155,8 @@ Section HOAS.
   Definition hterm := ∀ s, mexpr Kt s.
 
   (* [n]-ary [hterm] *)
-  Fixpoint hterm_n n :=
-    match n with
-    | 0 => hterm
-    | S n => hterm → hterm_n n
-    end.
+  Definition hterm_n n :=
+    nary n hterm hterm.
 
   Fixpoint hmvar_aux (k : mvar) n (l : list hterm) : hterm_n n :=
     match n with
