@@ -26,18 +26,3 @@ Sulfur Judgment typing {{
     typing u A
     ⟹ typing (tapp t u) B
 }}.
-
-Print typing_desc.
-Print typing.
-
-Check typing_wf : wf_desc typing_desc.
-Check typing_rules : rules_type typing_desc typing.
-Check typing_sound : sound_jdg typing_desc typing.
-Check typing_complete : complete_jdg typing_desc typing.
-Check typing_subst :
-  ∀ Γ Δ σ t A,
-    typing Γ t A →
-    cstyping typing Δ σ Γ →
-    typing Δ (substitute σ t) (substitute σ A).
-
-Print Assumptions typing_subst.

@@ -58,14 +58,3 @@ Proof.
   intros A A' t Γ Δ σ hs hA.
   eapply conv_subst. 1: eassumption.
 Admitted.
-
-Print typing_desc.
-Print typing.
-
-Check typing_wf : wf_desc typing_desc.
-Check typing_rules : rules_type typing_desc typing.
-Check typing_sound : sound_jdg typing_desc typing.
-Check typing_complete : complete_jdg typing_desc typing.
-Check typing_subst.
-
-Print Assumptions typing_subst.
