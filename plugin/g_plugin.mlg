@@ -36,10 +36,16 @@ END
 
 (* Judgment generation *)
 
+(** A premise: a judgment, or [{{ P }}] with [P] a proposition over the
+  context [Γ] and the meta-variables as concrete terms. *)
+VERNAC ARGUMENT EXTEND jdg_prem
+| [ "{{" lconstr(e) "}}" ] -> { Jdg.PPred e }
+| [ lconstr(e) ] -> { Jdg.PJdg e }
+END
+
 (** [| name (A B : term) : R t A ; R u B ⟹ R (c t u) C]. *)
 VERNAC ARGUMENT EXTEND jdg_rule
-| [ "|" ident(n) binders(bs) ":"
-      lconstr_list_sep(ps, ";") "⟹" lconstr(c) ] ->
+| [ "|" ident(n) binders(bs) ":" jdg_prem_list_sep(ps, ";") "⟹" lconstr(c) ] ->
   { Jdg.{ pr_name = n ; pr_binders = bs ; pr_prems = ps ; pr_concl = c } }
 END
 

@@ -14,11 +14,13 @@
 open Prelude
 module C = Constants
 
-(** A rule: term, name, names of meta-variables. *)
+(** A rule: term, name, names of meta-variables, positions of predicate
+  premises. *)
 type rule = {
   r_term : EConstr.t ;
   r_name : string ;
-  r_binders : string list
+  r_binders : string list ;
+  r_preds : int list
 }
 
 (** The names of the [n] meta-variables of a rule, read off the HOAS binders
@@ -31,11 +33,14 @@ let binder_names (n : int) (concl : EConstr.t) : string list m =
   let default = List.init n (fun i -> "x" ^ string_of_int (i + 1)) in
   let is_happly = EConstr.isRefX env sigma (Lazy.force C.Jdg.happly) in
   let _, body = EConstr.decompose_lambda sigma concl in
-  (* The first [happly] application found through the arguments *)
+  (* The first [happly] application found through the subterms *)
   let rec find t =
     match EConstr.decompose_app sigma t with
     | h, args when is_happly h -> Some args
-    | _, args -> List.find_map find (Array.to_list args)
+    | _ ->
+      EConstr.fold sigma (fun acc t ->
+        match acc with Some _ -> acc | None -> find t
+      ) None t
   in
   match find body with
   | Some [| _ ; _ ; _ ; _ ; f ; _ |] ->
@@ -51,24 +56,39 @@ let binder_names (n : int) (concl : EConstr.t) : string list m =
     )
   | _ -> ret default
 
+(** The positions of the predicate premises of a rule *)
+let pred_positions (prems : EConstr.t) : int list m =
+  let* x = fresh_evar None in
+  let* l = decode_list (app prems x) in
+  let is_pred =
+    decode "a premise" [
+      C.Jdg.pd_jdg, (fun _ -> ret false) ;
+      C.Jdg.pd_pred, (fun _ -> ret true)
+    ]
+  in
+  let* bs = List.monad_map is_pred l in
+  ret (List.concat (List.mapi (fun i b -> if b then [ i ] else []) bs))
+
 let decode_rule (t : EConstr.t) : rule m =
   decode "a rule"
     [
       C.Jdg.build_rule_desc, fun a ->
-        let* r_name = decode_string a.(1) in
-        let* ps = decode_list a.(2) in
-        let* r_binders = binder_names (List.length ps) a.(4) in
-        ret { r_term = t ; r_name ; r_binders }
+        let* r_name = decode_string a.(2) in
+        let* ps = decode_list a.(3) in
+        let* r_binders = binder_names (List.length ps) a.(5) in
+        let* r_preds = pred_positions a.(4) in
+        ret { r_term = t ; r_name ; r_binders ; r_preds }
     ]
     t
 
-(** The signature of a description, from its type [jdg_desc sg]. *)
-let decode_sig (desc_ty : EConstr.t) : EConstr.t m =
+(** The signature and term type of a description, from its type
+  [jdg_desc sg T]. *)
+let decode_sig (desc_ty : EConstr.t) : (EConstr.t * EConstr.t) m =
   let what = "a judgment description" in
   decode what
     [
       C.list, fun a ->
-        decode what [ C.Jdg.rule_desc, fun a -> ret a.(0) ] a.(0)
+        decode what [ C.Jdg.rule_desc, fun a -> ret (a.(0), a.(1)) ] a.(0)
     ]
     desc_ty
 
@@ -86,11 +106,8 @@ let generate_desc (name : Names.Id.t) (desc : EConstr.t) : unit =
   let sg, ty, cs, cl, rules, transparent =
     monad_run begin
       let* desc_ty = typecheck desc None in
-      let* sg = decode_sig desc_ty in
-      let* ty = fresh_evar None in
+      let* sg, ty = decode_sig desc_ty in
       let* cs = resolve_tc (apps (mkglob' C.CS.typ) [| sg ; ty |]) in
-      let* sigma = get_sigma in
-      let ty = Evarutil.nf_evar sigma ty in
       let* cl = resolve_tc (apps (mkglob' C.CS.laws) [| sg ; ty ; cs |]) in
       let* rules = decode_list desc in
       let* rules = List.monad_map decode_rule rules in
@@ -107,6 +124,7 @@ let generate_desc (name : Names.Id.t) (desc : EConstr.t) : unit =
           C.rcons ;
           C.rcomp ;
           C.up_ren ;
+          C.Jdg.cup_subst ;
           C.Jdg.j ;
           C.sub
         ]
@@ -117,9 +135,18 @@ let generate_desc (name : Names.Id.t) (desc : EConstr.t) : unit =
       let jdg s = apps (mkglob' s) [| sg ; ty ; cs |] in
       let* transparent =
         constants_closure (
-          jdg C.Jdg.rule_desc_type :: jdg C.Jdg.var_rule_type ::
-          List.map mkglob'
-            [ C.Jdg.hrule ; C.Jdg.hctor ; C.Jdg.hjdg ; C.Jdg.hjp ; C.Jdg.hext ]
+          jdg C.Jdg.rule_desc_type ::
+          jdg C.Jdg.var_rule_type ::
+          jdg C.Jdg.pred_obl ::
+          jdg C.Jdg.obligations ::
+          List.map mkglob' [
+            C.Jdg.hrule ;
+            C.Jdg.hctor ;
+            C.Jdg.hjdg ;
+            C.Jdg.hjp ;
+            C.Jdg.hext ;
+            C.Jdg.hpred
+          ]
         )
       in
       let transparent =
@@ -129,7 +156,7 @@ let generate_desc (name : Names.Id.t) (desc : EConstr.t) : unit =
     end
   in
   let list_ty = app (mkglob' C.list) ty in
-  let rule_desc_ty = app (mkglob' C.Jdg.rule_desc) sg in
+  let rule_desc_ty = apps (mkglob' C.Jdg.rule_desc) [| sg ; ty |] in
   let jdg s = apps (mkglob' s) [| sg ; ty ; cs |] in
   (* The constructor types of a relation [r]: the reduced [var_rule_type] and
     [rule_desc_type], with the meta-variables named as in the description. *)
@@ -161,7 +188,7 @@ let generate_desc (name : Names.Id.t) (desc : EConstr.t) : unit =
   (* [R_wf : wf_desc d], using tactic [JdgDesc.wf_desc_tac]. *)
   let wf =
     lemma (sname ^ "_wf")
-      (ret @@ apps (mkglob' C.Jdg.wf_desc) [| sg ; desc |])
+      (ret @@ apps (mkglob' C.Jdg.wf_desc) [| sg ; ty ; desc |])
       (run_ltac "JdgDesc" "wf_desc_tac" [])
   in
   (* [R_rules : rules_type d R], the [Forall] built from the constructors. *)
@@ -229,8 +256,34 @@ let generate_desc (name : Names.Id.t) (desc : EConstr.t) : unit =
         |]
       ))
   in
-  (* [R_subst : preserve_subst_jdg R], stated with [csubstitute] unfolded. *)
+  (* [R_subst : obligations → preserve_subst_jdg R], with an obligation
+    proven by the tactic [JdgDesc.subst_tac].
+  *)
   let _subst =
+    let rec nat i =
+      if i = 0 then mkglob' C.zero else app (mkglob' C.succ) (nat (i - 1))
+    in
+    let obls =
+      List.concat (List.mapi (fun r rd ->
+        List.map (fun i -> (r, rd, i)) rd.r_preds) rules
+      )
+    in
+    let nat_ty = mkglob' C.nat in
+    let pos_ty = apps (mkglob' C.prod) [| nat_ty ; nat_ty |] in
+    let ps =
+      List.fold_right (fun (r, _, i) l ->
+        apps (mkglob' C.cons) [|
+          pos_ty ;
+          apps (mkglob' C.pair) [| nat_ty ; nat_ty ; nat r ; nat i |] ;
+          l
+        |]
+      ) obls (app (mkglob' C.nil) pos_ty)
+    in
+    let ok =
+      lemma (sname ^ "_obls_wf")
+        (ret @@ apps (mkglob' C.Jdg.obls_ok) [| sg ; ty ; desc ; ps |])
+        (run_ltac "JdgDesc" "wf_desc_tac" [])
+    in
     let stmt =
       let* cs_const = head_const cs in
       let transp = List.map (fun g -> const_of_ref (Lazy.force g)) [
@@ -240,16 +293,59 @@ let generate_desc (name : Names.Id.t) (desc : EConstr.t) : unit =
       let transp = match cs_const with Some c -> c :: transp | None -> transp in
       reduce_only transp (app (jdg C.Jdg.preserve_subst_jdg) r)
     in
-    lemma (sname ^ "_subst") stmt
-      (Tactics.exact_check (
-        apps (jdg C.Jdg.gen_preserve_subst) [|
-          desc ;
-          cl ;
-          r ;
-          mkconst sound ;
-          mkconst complete
-        |]
-      ))
+    let proof h =
+      apps (jdg C.Jdg.gen_preserve_subst) [|
+        desc ; cl ; r ; mkconst sound ; mkconst complete ; ps ; mkconst ok ; h
+      |]
+    in
+    if obls = [] then
+      ignore (lemma (sname ^ "_subst") stmt
+        (Tactics.exact_check (proof (mkglob (Rocqlib.lib_ref "core.True.I")))))
+    else begin
+      (* The conjunction of the obligations, each with the binders of its
+        rule *)
+      let rename_obls (t : EConstr.t) : EConstr.t m =
+        let* sigma = get_sigma in
+        let rec go t = function
+          | [] -> ret t
+          | [ (_, rd, _) ] ->
+            rename_binders (List.map (fun x -> Some x) rd.r_binders) t
+          | (_, rd, _) :: obls ->
+            match EConstr.decompose_app sigma t with
+            | h, [| a ; b |] ->
+              let* a =
+                rename_binders (List.map (fun x -> Some x) rd.r_binders) a
+              in
+              let* b = go b obls in
+              ret (apps h [| a ; b |])
+            | _ -> ret t
+        in
+        go t obls
+      in
+      let obls_def =
+        def (sname ^ "_obligations") begin
+          let* desc_const = head_const desc in
+          let transparent =
+            match desc_const with Some c -> c :: transparent | None -> transparent
+          in
+          let* t =
+            reduce_only transparent
+              (apps (jdg C.Jdg.obligations) [| desc ; r ; ps |])
+          in
+          rename_obls t
+        end
+      in
+      Record.declare_existing_class (Names.GlobRef.ConstRef obls_def) ;
+      let subst =
+        lemma (sname ^ "_subst")
+          (let* concl = stmt in prod "H" (mkconst obls_def) (fun _ -> ret concl))
+          (Tactics.exact_check
+            (monad_run (lambda "H" (mkconst obls_def) (fun h ->
+              ret (proof (EConstr.mkVar h))))))
+      in
+      Impargs.declare_manual_implicits false (Names.GlobRef.ConstRef subst)
+        [ CAst.make (Some (Names.Name (Names.Id.of_string "H"), true)) ]
+    end
   in
   ()
 
@@ -261,13 +357,18 @@ let generate (name : Names.Id.t) (desc : Constrexpr.constr_expr) : unit =
 (** *** Judgments written as rules. *)
 (******************************************************************************)
 
+(** A premise as written: a judgment, or [{{ P }}]. *)
+type prem =
+| PJdg of Constrexpr.constr_expr
+| PPred of Constrexpr.constr_expr
+
 (** A rule as written in the command:
   [| name (x1 ... : t1) ... : p1 ; ... ; pn ⟹ c].
 *)
 type prule = {
   pr_name : Names.Id.t ;
   pr_binders : Constrexpr.local_binder_expr list ;
-  pr_prems : Constrexpr.constr_expr list ;
+  pr_prems : prem list ;
   pr_concl : Constrexpr.constr_expr
 }
 
@@ -308,21 +409,49 @@ let desc_expr (name : Names.Id.t) (rules : prule list) :
     List.fold_right cons l (const C.nil)
   in
   let pair a b = mkAppC (const C.pair, [ a ; b ]) in
+  let assum xs ty =
+    Constrexpr.CLocalAssum (xs, None, Constrexpr.Default Glob_term.Explicit, ty)
+  in
   (* The premises, as [@cons hprem p l]: with the type explicit.
     A judgment [p] is checked against [hprem] and coerced;
     [cons p l] alone would infer the type from [p] first.
   *)
-  let prems l =
-    let qid g = Nametab.shortest_qualid_of_global Names.Id.Set.empty g in
-    let cons x l =
-      CAst.make (Constrexpr.CAppExpl (
-        (qid (Lazy.force C.cons), None), [ const C.Jdg.hprem ; x ; l ]))
+  let qid g = Nametab.shortest_qualid_of_global Names.Id.Set.empty g in
+  let app_expl g args =
+    CAst.make (Constrexpr.CAppExpl ((qid (Lazy.force g), None), args))
+  in
+  let sort = sign.Signature.sort_name in
+  let hctor i =
+    let c = Names.GlobRef.ConstructRef (ops.ops_si.ctor, i + 1) in
+    mkAppC (const C.Jdg.hctor, [ gref c ])
+  in
+  let defs =
+    (sign.Signature.sort_name, const C.Jdg.hterm) ::
+    (name, const C.Jdg.hjdg) ::
+    List.mapi (fun i c -> (c, hctor i))
+      (Array.to_list sign.Signature.ctor_names)
+  in
+  let hoas e =
+    List.fold_right
+      (fun (x, v) body -> mkLetInC (CAst.make (Names.Name x), v, None, body))
+      defs e
+  in
+  let hole = CAst.make (Constrexpr.CHole None) in
+  let pred xs e =
+    let gamma = CAst.make (Names.Name (Names.Id.of_string "Γ")) in
+    let bs = assum [ gamma ] (mkAppC (const C.list, [ mkIdentC sort ])) :: [] in
+    let bs = if xs = [] then bs else assum xs (mkIdentC sort) :: bs in
+    mkAppC (const C.Jdg.hpred, [ nat (List.length xs) ; mkCLambdaN bs e ])
+  in
+  let prems xs l =
+    let prem p =
+      match p with
+      | PJdg e -> hoas e
+      | PPred e -> pred xs e
     in
+    let cons p l = app_expl C.cons [ const C.Jdg.hprem ; prem p ; l ] in
     List.fold_right cons l (const C.nil)
   in
-  (* A binder [(x : term)] or [x] (no type) is a meta-variable, any other type
-    is a parameter; the sort may not occur in it. *)
-  let sort = sign.Signature.sort_name in
   (* Force annotation-free binders to be the sort *)
   let typed b =
     match b with
@@ -375,27 +504,41 @@ let desc_expr (name : Names.Id.t) (rules : prule list) :
       | Constrexpr.CLocalPattern { CAst.loc ; _ } ->
         Log.error ?loc "Rule binders must be assumptions (x : A)."
   in
+  (* The meta-variables among the binders *)
+  let metas bs =
+    bs |> List.concat_map @@ fun b ->
+      match b with
+      | Constrexpr.CLocalAssum (xs, _, _, ty) when arity ty <> None -> xs
+      | _ -> []
+  in
+  (* The binders of the λ: a meta-variable of arity [n] is an [n]-ary
+    function on [hterm] *)
+  let rec hterm_n n =
+    if n = 0 then const C.Jdg.hterm
+    else mkCProdN [ assum [ CAst.make Names.Anonymous ] (const C.Jdg.hterm) ]
+      (hterm_n (n - 1))
+  in
+  let hbinder b =
+    match b with
+    | Constrexpr.CLocalAssum (xs, r, k, ty) when arity ty <> None ->
+      Constrexpr.CLocalAssum (xs, r, k, hterm_n (Option.get (arity ty)))
+    | b -> b
+  in
   let rule r =
     let bs = List.map typed r.pr_binders in
     mkAppC (const C.Jdg.hrule, [
       string (Names.Id.to_string r.pr_name) ;
       list (params bs) ;
-      mkCLambdaN bs (pair (prems r.pr_prems) r.pr_concl)
+      mkCLambdaN (List.map hbinder bs) (
+        pair (prems (metas bs) r.pr_prems) (hoas r.pr_concl)
+      )
     ])
   in
-  let hctor i =
-    let c = Names.GlobRef.ConstructRef (ops.ops_si.ctor, i + 1) in
-    mkAppC (const C.Jdg.hctor, [ gref c ])
-  in
-  let defs =
-    (sign.Signature.sort_name, const C.Jdg.hterm) ::
-    (name, const C.Jdg.hjdg) ::
-    List.mapi (fun i c -> (c, hctor i))
-      (Array.to_list sign.Signature.ctor_names)
-  in
-  List.fold_right
-    (fun (x, v) body -> mkLetInC (CAst.make (Names.Name x), v, None, body))
-    defs (list (List.map rule rules))
+  mkCastC (
+    list (List.map rule rules),
+    Some Constr.DEFAULTcast,
+    app_expl C.Jdg.jdg_desc [ hole ; mkIdentC sort ]
+  )
 
 (** [Sulfur Judgment R {{ rules }}]: the description is declared as [R_desc]
   (with the local definitions substituted), then handled as above.

@@ -131,6 +131,13 @@ Register JdgDesc.hjdg as sulfur.jdg.hjdg.
 Register JdgDesc.hext as sulfur.jdg.hext.
 Register JdgDesc.hjp as sulfur.jdg.hjp.
 Register JdgDesc.hprem as sulfur.jdg.hprem.
+Register JdgDesc.hpred as sulfur.jdg.hpred.
+Register JdgDesc.pd_jdg as sulfur.jdg.pd_jdg.
+Register JdgDesc.pd_pred as sulfur.jdg.pd_pred.
+Register JdgDesc.cup_subst as sulfur.jdg.cup_subst.
+Register JdgDesc.pred_obl as sulfur.jdg.pred_obl.
+Register JdgDesc.obligations as sulfur.jdg.obligations.
+Register JdgDesc.obls_ok as sulfur.jdg.obls_ok.
 Register JdgDesc.hrule as sulfur.jdg.hrule.
 Register JdgDesc.rule_desc_type as sulfur.jdg.rule_desc_type.
 Register JdgDesc.var_rule_type as sulfur.jdg.var_rule_type.
