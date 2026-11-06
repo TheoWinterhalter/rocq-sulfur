@@ -1,7 +1,7 @@
 From Stdlib Require Import Utf8 List.
 From Equations Require Import Equations.
 
-From SulfurExamples Require Import GAST ContextDecl.
+From SulfurGhostExample Require Import GAST ContextDecl.
 
 Set Default Goal Selector "!".
 Set Equations Transparent.

@@ -1,7 +1,7 @@
 (** Notations for substitutions and renamings *)
 
 From Stdlib Require Import Utf8 List.
-From SulfurExamples Require Import GAST.
+From SulfurGhostExample Require Import GAST.
 From Stdlib Require Import Setoid Morphisms Relation_Definitions.
 Import ListNotations.
 

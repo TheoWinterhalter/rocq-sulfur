@@ -1,7 +1,7 @@
 From Stdlib Require Import Utf8 List.
 From Equations Require Import Equations.
 
-From SulfurExamples Require Import Util GAST ContextDecl Scoping.
+From SulfurGhostExample Require Import Util GAST ContextDecl Scoping.
 
 Import ListNotations.
 

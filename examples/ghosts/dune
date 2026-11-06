@@ -1,0 +1,4 @@
+(rocq.theory
+ (name SulfurGhostExample)
+ (package rocq-sulfur)
+ (theories Sulfur))

@@ -5,7 +5,7 @@
 **)
 
 From Stdlib Require Import Utf8 List.
-From SulfurExamples Require Import GAST SubstNotations ContextDecl CastRemoval.
+From SulfurGhostExample Require Import GAST SubstNotations ContextDecl CastRemoval.
 
 Import ListNotations.
 
