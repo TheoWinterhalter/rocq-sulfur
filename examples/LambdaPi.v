@@ -60,10 +60,9 @@ Sulfur Judgment typing : tm → tm → Prop
 Proof.
   red.
   intros A A' t Γ Δ σ hs hA.
-  eapply conv_subst.
-  - cbn. eassumption.
-  - clear - hs. induction hs.
-    + constructor.
-    + constructor. 1: auto.
-      cbn. (* Would need conv_refl but that's ok *)
+  eapply conv_subst. 1: eassumption.
+  clear - hs. induction hs.
+  - constructor.
+  - constructor. 1: auto.
+    cbn. (* Would need conv_refl but that's ok *)
 Admitted.

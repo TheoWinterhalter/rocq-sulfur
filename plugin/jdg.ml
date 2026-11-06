@@ -302,7 +302,7 @@ let generate_desc (name : Names.Id.t) (desc : EConstr.t) : unit =
         C.CS.csubstitute
       ] in
       let transp = match cs_const with Some c -> c :: transp | None -> transp in
-      reduce_only transp (app (jdg C.Jdg.preserve_subst_jdg) r)
+      reduce_only (transp @ transparent) (app (jdg C.Jdg.preserve_subst_jdg) r)
     in
     let proof h =
       apps (jdg C.Jdg.gen_preserve_subst) [|

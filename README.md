@@ -81,10 +81,10 @@ conv_var : ∀ (Γ : list unit) (n : nat) (d : unit),
 This also generates a substitution lemma for free:
 ```rocq
 conv_subst :
-  ∀ (Γ Δ : list tm) (σ : nat → tm) (t A : tm),
-    conv Γ t A →
+  ∀ (Γ Δ : list unit) (σ : nat → tm) (x x0 : tm),
+    conv Γ x x0 →
     cstyping conv Δ σ Γ →
-    conv Δ (substitute σ t) (substitute σ A)
+    conv Δ (substitute σ x) (substitute σ x0)
 ```
 
 New judgments can refer to older judgments (they don't even have to be generated
