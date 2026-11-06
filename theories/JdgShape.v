@@ -210,3 +210,96 @@ Proof.
   - reflexivity.
   - eapply tuple1_map_ext_all. all: eassumption.
 Qed.
+
+(** Curried functions over tuples *)
+
+Section Curried.
+
+  Context {X : Type}.
+
+  Fixpoint cfun1 (a : type) (sh : shape) (R : Type) : Type :=
+    match sh with
+    | [] => El a X → R
+    | b :: sh => El a X → cfun1 b sh R
+    end.
+
+  Definition cfun (sh : shape) (R : Type) : Type :=
+    match sh with
+    | [] => R
+    | a :: sh => cfun1 a sh R
+    end.
+
+  Fixpoint capply1 {R} a sh : cfun1 a sh R → tuple1 a sh X → R :=
+    match sh with
+    | [] => λ f x, f x
+    | b :: sh => λ f '(x, xs), capply1 b sh (f x) xs
+    end.
+
+  Definition capply {R} sh : cfun sh R → tuple sh X → R :=
+    match sh with
+    | [] => λ r _, r
+    | a :: sh => capply1 a sh
+    end.
+
+  Fixpoint curry1 {R} a sh : (tuple1 a sh X → R) → cfun1 a sh R :=
+    match sh with
+    | [] => λ f x, f x
+    | b :: sh => λ f x, curry1 b sh (λ xs, f (x, xs))
+    end.
+
+  Definition curry {R} sh : (tuple sh X → R) → cfun sh R :=
+    match sh with
+    | [] => λ f, f tt
+    | a :: sh => curry1 a sh
+    end.
+
+  Lemma capply1_curry1 {R} a sh (f : tuple1 a sh X → R) x :
+    capply1 a sh (curry1 a sh f) x = f x.
+  Proof.
+    induction sh as [| b sh ih] in a, f, x |- *.
+    - reflexivity.
+    - cbn in *. destruct x as [x xs]. apply ih.
+  Qed.
+
+  Lemma capply_curry {R} sh (f : tuple sh X → R) x :
+    capply sh (curry sh f) x = f x.
+  Proof.
+    destruct sh.
+    - destruct x. reflexivity.
+    - cbn. apply capply1_curry1.
+  Qed.
+
+  (** [∀ x1 ... xn, K (x1, ..., xn)] *)
+  Fixpoint under_tuple1 a sh : (tuple1 a sh X → Prop) → Prop :=
+    match sh with
+    | [] => λ K, ∀ x, K x
+    | b :: sh => λ K, ∀ x, under_tuple1 b sh (λ xs, K (x, xs))
+    end.
+
+  Definition under_tuple sh : (tuple sh X → Prop) → Prop :=
+    match sh with
+    | [] => λ K, K tt
+    | a :: sh => under_tuple1 a sh
+    end.
+
+  Lemma under_tuple1_iff a sh K :
+    under_tuple1 a sh K ↔ ∀ x, K x.
+  Proof.
+    induction sh as [| b sh ih] in a, K |- *. all: cbn.
+    - reflexivity.
+    - split.
+      + intros h [x xs]. specialize (h x). rewrite ih in h. apply h.
+      + intros h x. apply ih. auto.
+  Qed.
+
+  Lemma under_tuple_iff sh K :
+    under_tuple sh K ↔ ∀ x, K x.
+  Proof.
+    destruct sh. all: cbn.
+    - split.
+      + intros h []. exact h.
+      + auto.
+    - apply under_tuple1_iff.
+  Qed.
+
+End Curried.
