@@ -16,16 +16,23 @@ Sulfur Syntax {{
 
 Existing Instance sign.
 
-Sulfur Judgment conv {{
+Sulfur Judgment conv : tm → tm → Prop
+  with Γ : unit, Variable x A : conv x x
+{{
+| refl u :
+    ⟹ conv u u
+
 | beta A (b : tm → tm) u :
     ⟹ conv (tapp (tlam A b) u) (b u)
 | congr_lam A A' (b b' : tm → tm) :
     conv A A' ;
-    ⟨ x : A ⊢ conv (b x) (b' x) ⟩
+    ⟨ x : tt ⊢ conv (b x) (b' x) ⟩
     ⟹ conv (tlam A b) (tlam A' b')
 }}.
 
-Sulfur Judgment typing {{
+Sulfur Judgment typing : tm → tm → Prop
+  with Γ : tm, Variable x A : typing x A
+{{
 | type_Ty (i : nat) :
     ⟹ typing (tTy i) (tTy (S i))
 
@@ -47,7 +54,7 @@ Sulfur Judgment typing {{
 
 | type_conv A A' t :
     typing t A ;
-    {{ conv Γ A A' }}
+    {{ conv (map (λ _, tt) Γ) A A' }}
     ⟹ typing t A'
 }}.
 
@@ -57,4 +64,8 @@ Proof.
   red.
   intros A A' t Γ Δ σ hs hA.
   eapply conv_subst. 1: eassumption.
-Admitted.
+  clear - hs. induction hs.
+  - constructor.
+  - cbn. constructor. 1: auto.
+    cbn. constructor.
+Qed.

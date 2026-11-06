@@ -49,33 +49,66 @@ existing types such as `nat` above.
 ### Judgments
 
 One can generate judgments from Sulfur as well.
-The syntax is work-in-progress. Currently one can do the following.
+Currently, one can do the following.
 
 ```rocq
-Sulfur Judgment conv {{
+Sulfur Judgment conv : tm → tm → Prop
+  with Γ : unit, Variable x A : conv x x
+{{
 | beta A (b : tm → tm) u :
     ⟹ conv (tapp (tlam A b) u) (b u)
 | congr_lam A A' (b b' : tm → tm) :
     conv A A' ;
-    ⟨ x : A ⊢ conv (b x) (b' x) ⟩
+    ⟨ x : tt ⊢ conv (b x) (b' x) ⟩
     ⟹ conv (tlam A b) (tlam A' b')
 }}.
 ```
 
 This defines a new inductive type `conv` which quantifies explicitly over a
-notion of contexts:
+notion of contexts (here said to be holding `unit` values):
 ```rocq
-conv : list tm → tm → tm → Prop
+conv : list unit → tm → tm → Prop
+```
+
+The `Variable` bit tells Sulfur how to generate the variable rule (as well
+as the substitution judgment):
+```rocq
+conv_var : ∀ (Γ : list unit) (n : nat) (d : unit),
+  cinctx (λ x : unit, x) Γ n d →
+  conv Γ (var n) (var n)
 ```
 
 This also generates a substitution lemma for free:
 ```rocq
 conv_subst :
-  ∀ (Γ Δ : list tm) (σ : nat → tm) (t A : tm),
-    conv Γ t A →
+  ∀ (Γ Δ : list unit) (σ : nat → tm) (x x0 : tm),
+    conv Γ x x0 →
     cstyping conv Δ σ Γ →
-    conv Δ (substitute σ t) (substitute σ A)
+    conv Δ (substitute σ x) (substitute σ x0)
 ```
+
+New judgments can refer to older judgments (they don't even have to be generated
+by Sulfur).
+
+```rocq
+Sulfur Judgment typing : tm → tm → Prop
+  with Γ : tm, Variable x A : typing x A
+{{
+(* other rules ommited *)
+
+| type_conv A A' t :
+    typing t A ;
+    {{ conv (map (λ _, tt) Γ) A A' }}
+    ⟹ typing t A'
+}}.
+```
+
+This will generate obligations that can be discharged with:
+```rocq
+Instance: typing_obligations.
+```
+
+This instance will be picked up by `typing_subst`.
 
 ## Install
 

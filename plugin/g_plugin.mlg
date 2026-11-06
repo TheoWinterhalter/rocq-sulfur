@@ -47,9 +47,14 @@ VERNAC ARGUMENT EXTEND jdg_rule
   { Jdg.{ pr_name = n ; pr_binders = bs ; pr_prems = ps ; pr_concl = c } }
 END
 
+VERNAC ARGUMENT EXTEND jdg_header
+| [ ident(name) ":" lconstr(ty) "with" ident(g) ":" constr(d) ","
+      "Variable" ident(x) ident_list(ds) ":" ident(r) ident_list(args) ] ->
+  { Jdg.{ ph_name = name ; ph_type = ty ; ph_ctx = g ; ph_decl = d ;
+          ph_var = x ; ph_decls = ds ; ph_jdg = r ; ph_args = args } }
+END
+
 VERNAC COMMAND EXTEND SulfurJudgment CLASSIFIED AS SIDEFF
-| [ "Sulfur" "Judgment" ident(name) "{{" jdg_rule_list(rs) "}}" ] ->
-  { Jdg.generate_rules name rs }
-| [ "Sulfur" "Judgment" ident(name) constr(d) ] ->
-  { Jdg.generate name d }
+| [ "Sulfur" "Judgment" jdg_header(h) "{{" jdg_rule_list(rs) "}}" ] ->
+  { Jdg.generate_rules h rs }
 END
