@@ -14,25 +14,6 @@ From Sulfur Require Import Prelude Sig Renamings.
 From Sulfur Require Import ParamSyntax JudgmentSyntaxScoped ConcreteSyntax.
 From Utils Require Import Functor.
 
-(** n-ary (non-dependent) functions
-
-  A pattern we reuse several times in this file.
-  [nary n A B] is [A → … → A → B] with [n] times [A].
-
-*)
-Fixpoint nary n A B :=
-  match n with
-  | 0 => B
-  | S n => A → nary n A B
-  end.
-
-(** n-ary application *)
-Fixpoint napply {A B} (f : nat → A) n i : nary n A B → B :=
-  match n with
-  | 0 => λ b, b
-  | S n => λ g, napply f n (S i) (g (f i))
-  end.
-
 (** Judgment description over a signature *)
 
 Section Desc.
