@@ -1,5 +1,5 @@
 From Stdlib Require Import Utf8 List.
-From SulfurExamples Require Import GAST BasicAST.
+From SulfurExamples Require Import GAST.
 
 Set Primitive Projections.
 
