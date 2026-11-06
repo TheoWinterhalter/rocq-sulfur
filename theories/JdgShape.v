@@ -303,3 +303,48 @@ Section Curried.
   Qed.
 
 End Curried.
+
+(** Operations on tuples *)
+
+Definition tcons (a : type) (sh : shape) {X} :
+  El a X → tuple sh X → tuple (a :: sh) X :=
+  match sh with
+  | [] => λ x _, x
+  | b :: sh => λ x xs, (x, xs)
+  end.
+
+Definition thead (a : type) (sh : shape) {X} : tuple (a :: sh) X → El a X :=
+  match sh with
+  | [] => λ x, x
+  | b :: sh => fst
+  end.
+
+Definition ttail (a : type) (sh : shape) {X} :
+  tuple (a :: sh) X → tuple sh X :=
+  match sh with
+  | [] => λ _, tt
+  | b :: sh => snd
+  end.
+
+Lemma tuple_map_tcons a sh X Y (f : X → Y) (x : El a X) (xs : tuple sh X) :
+  tuple_map (a :: sh) f (tcons a sh x xs) =
+  tcons a sh (Elmap a f x) (tuple_map sh f xs).
+Proof.
+  destruct sh. all: reflexivity.
+Qed.
+
+Lemma thead_tuple_map a sh X Y (f : X → Y) (d : tuple (a :: sh) X) :
+  thead a sh (tuple_map (a :: sh) f d) = Elmap a f (thead a sh d).
+Proof.
+  destruct sh.
+  - reflexivity.
+  - cbn in *. destruct d. reflexivity.
+Qed.
+
+Lemma ttail_tuple_map a sh X Y (f : X → Y) (d : tuple (a :: sh) X) :
+  ttail a sh (tuple_map (a :: sh) f d) = tuple_map sh f (ttail a sh d).
+Proof.
+  destruct sh.
+  - reflexivity.
+  - destruct d. reflexivity.
+Qed.
