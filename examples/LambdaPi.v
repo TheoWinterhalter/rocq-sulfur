@@ -19,6 +19,9 @@ Existing Instance sign.
 Sulfur Judgment conv : tm → tm → Prop
   with Γ : unit, Variable x A : conv x x
 {{
+| refl u :
+    ⟹ conv u u
+
 | beta A (b : tm → tm) u :
     ⟹ conv (tapp (tlam A b) u) (b u)
 | congr_lam A A' (b b' : tm → tm) :
@@ -63,6 +66,6 @@ Proof.
   eapply conv_subst. 1: eassumption.
   clear - hs. induction hs.
   - constructor.
-  - constructor. 1: auto.
-    cbn. (* Would need conv_refl but that's ok *)
-Admitted.
+  - cbn. constructor. 1: auto.
+    cbn. constructor.
+Qed.
