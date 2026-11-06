@@ -250,8 +250,11 @@ val head_const : EConstr.t -> Names.Constant.t option m
 val reduce_except : Names.Constant.t list -> EConstr.t -> EConstr.t m
 
 (** [reduce_only transparent t] fully normalizes [t], unfolding only the
-    constants in [transparent]. *)
-val reduce_only : Names.Constant.t list -> EConstr.t -> EConstr.t m
+    constants in [transparent]. Those in [refold] are unfolded afterwards, by
+    [cbn], so that a fixpoint stuck on a variable keeps its name ([map f l]
+    rather than [(fix map ...) l]). *)
+val reduce_only : ?refold:Names.Constant.t list ->
+    Names.Constant.t list -> EConstr.t -> EConstr.t m
 
 (** [constants_closure roots] is the set of constants reachable from the terms
     [roots] through the bodies of transparent constants: what a reduction of a

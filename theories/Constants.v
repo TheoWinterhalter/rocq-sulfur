@@ -23,6 +23,7 @@ Register list as sulfur.list.type.
 Register nil as sulfur.list.nil.
 Register cons as sulfur.list.cons.
 Register Datatypes.app as sulfur.list.app.
+Register List.map as sulfur.list.map.
 
 Register string as sulfur.string.type.
 

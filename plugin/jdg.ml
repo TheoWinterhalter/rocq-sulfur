@@ -103,6 +103,8 @@ let decode_cs_ops (cs : EConstr.t) : EConstr.t list m =
 let generate_desc (name : Names.Id.t) (desc : EConstr.t) : unit =
   let sname = Names.Id.to_string name in
   let mk s = Names.Id.of_string_soft (sname ^ s) in
+  (* [map] over a variable context, in a predicate, keeps its name *)
+  let reduce_only = reduce_only ~refold:[ const_of_ref (Lazy.force C.map) ] in
   (* The signature of the description, the term type, the instance and its
      laws. *)
   let sg, ty, sh, cs, cl, rules, transparent, arity, ctx_ty =

@@ -494,14 +494,20 @@ let reduce_except (opaque : Names.Constant.t list) : EConstr.t -> EConstr.t m =
       ) Names.Cpred.full opaque
   }
 
-let reduce_only (transparent : Names.Constant.t list) : EConstr.t -> EConstr.t m =
-  norm_with {
-    TransparentState.empty with
-    tr_cst =
-      List.fold_left (fun p c ->
-        Names.Cpred.add c p
-      ) Names.Cpred.empty transparent
-    }
+let only (cs : Names.Constant.t list) : TransparentState.t = {
+  TransparentState.empty with
+  tr_cst = List.fold_left (fun p c -> Names.Cpred.add c p) Names.Cpred.empty cs
+}
+
+let reduce_only ?(refold = [])
+  (transparent : Names.Constant.t list) (t : EConstr.t) : EConstr.t m =
+  let* t =
+    norm_with (only (List.filter (fun c -> not (List.mem c refold)) transparent)) t
+  in
+  if refold = [] then ret t
+  else fun env sigma ->
+    let flags = RedFlags.red_add_transparent RedFlags.all (only refold) in
+    (sigma, Cbn.norm_cbn flags env sigma t)
 
 let constants_closure (roots : EConstr.t list) : Names.Constant.t list m =
   let* env = get_env in
