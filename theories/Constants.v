@@ -2,7 +2,7 @@
     Constants are accessed in the plugin from [plugin/constants.ml]. *)
 
 From Sulfur Require Import Prelude Sig Renamings.
-From Sulfur Require ParamSyntax ConcreteSyntax JdgDesc.
+From Sulfur Require ParamSyntax ConcreteSyntax JdgDesc JdgShape.
 
 (*********************************************************************************)
 (** *** Basic constants. *)
@@ -138,6 +138,15 @@ Register JdgDesc.cup_subst as sulfur.jdg.cup_subst.
 Register JdgDesc.pred_obl as sulfur.jdg.pred_obl.
 Register JdgDesc.obligations as sulfur.jdg.obligations.
 Register JdgDesc.obls_ok as sulfur.jdg.obls_ok.
+Register JdgDesc.shapes as sulfur.jdg.shapes.
+Register JdgDesc.jdg_type as sulfur.jdg.jdg_type.
+Register JdgShape.t_term as sulfur.jdg.t_term.
+Register JdgShape.t_base as sulfur.jdg.t_base.
+Register JdgShape.sel_nil as sulfur.jdg.sel_nil.
+Register JdgShape.sel_var as sulfur.jdg.sel_var.
+Register JdgShape.sel_pos as sulfur.jdg.sel_pos.
+Register JdgShape.pos0 as sulfur.jdg.pos0.
+Register JdgShape.posS as sulfur.jdg.posS.
 Register JdgDesc.hrule as sulfur.jdg.hrule.
 Register JdgDesc.rule_desc_type as sulfur.jdg.rule_desc_type.
 Register JdgDesc.var_rule_type as sulfur.jdg.var_rule_type.

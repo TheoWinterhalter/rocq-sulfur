@@ -172,7 +172,7 @@ Fixpoint tuple1_allb (a : type) (sh : shape) {X} (p : X → bool) :
   | b :: sh => λ '(x, xs), onEl p x && tuple1_allb b sh p xs
   end.
 
-Definition tuple_allb (sh : shape) {X} (p : X → bool) : tuple sh X → bool :=
+Definition tuple_allb {sh : shape} {X} (p : X → bool) : tuple sh X → bool :=
   match sh with
   | [] => λ _, true
   | a :: sh => tuple1_allb a sh p
@@ -203,7 +203,7 @@ Qed.
 
 Lemma tuple_map_ext_all sh X Y (p : X → bool) (f g : X → Y) (x : tuple sh X) :
   (∀ x, p x = true → f x = g x) →
-  tuple_allb sh p x = true →
+  tuple_allb p x = true →
   tuple_map sh f x = tuple_map sh g x.
 Proof.
   intros h e. destruct sh. all: cbn.
@@ -235,7 +235,7 @@ Section Curried.
     | b :: sh => λ f '(x, xs), capply1 b sh (f x) xs
     end.
 
-  Definition capply {R} sh : cfun sh R → tuple sh X → R :=
+  Definition capply {R sh} : cfun sh R → tuple sh X → R :=
     match sh with
     | [] => λ r _, r
     | a :: sh => capply1 a sh
@@ -247,7 +247,7 @@ Section Curried.
     | b :: sh => λ f x, curry1 b sh (λ xs, f (x, xs))
     end.
 
-  Definition curry {R} sh : (tuple sh X → R) → cfun sh R :=
+  Definition curry {R sh} : (tuple sh X → R) → cfun sh R :=
     match sh with
     | [] => λ f, f tt
     | a :: sh => curry1 a sh
@@ -262,7 +262,7 @@ Section Curried.
   Qed.
 
   Lemma capply_curry {R} sh (f : tuple sh X → R) x :
-    capply sh (curry sh f) x = f x.
+    capply (curry f) x = f x.
   Proof.
     destruct sh.
     - destruct x. reflexivity.
@@ -276,7 +276,7 @@ Section Curried.
     | b :: sh => λ K, ∀ x, under_tuple1 b sh (λ xs, K (x, xs))
     end.
 
-  Definition under_tuple sh : (tuple sh X → Prop) → Prop :=
+  Definition under_tuple {sh} : (tuple sh X → Prop) → Prop :=
     match sh with
     | [] => λ K, K tt
     | a :: sh => under_tuple1 a sh
@@ -293,7 +293,7 @@ Section Curried.
   Qed.
 
   Lemma under_tuple_iff sh K :
-    under_tuple sh K ↔ ∀ x, K x.
+    under_tuple (sh := sh) K ↔ ∀ x, K x.
   Proof.
     destruct sh. all: cbn.
     - split.
@@ -366,4 +366,37 @@ Proof.
   induction p as [a sh | a b sh p ih] in d |- *.
   - cbn. apply thead_tuple_map.
   - cbn [tget]. rewrite ttail_tuple_map. apply ih.
+Qed.
+
+(** [sel decl jdg] gives a natural map [tuple decl X → X → tuple jdg X]
+
+  It does so by selecting elements from the tuple [decl] and [X] for each
+  element of [jdg].
+
+*)
+
+Inductive sel (decl : shape) : shape → Type :=
+| sel_nil : sel decl []
+| sel_var {jdg} : sel decl jdg → sel decl (t_term :: jdg)
+| sel_pos {a jdg} : pos decl a → sel decl jdg → sel decl (a :: jdg).
+
+Fixpoint make {decl jdg} (s : sel decl jdg) {X} (d : tuple decl X) (x : X) :
+  tuple jdg X :=
+  match s with
+  | sel_nil _ => tt
+  | @sel_var _ l s => tcons t_term l x (make s d x)
+  | @sel_pos _ a l p s => tcons a l (tget p d) (make s d x)
+  end.
+
+Arguments sel_nil {decl}.
+Arguments sel_var {decl jdg}.
+Arguments sel_pos {decl a jdg}.
+
+Lemma make_nat decl jdg (s : sel decl jdg) X Y (f : X → Y) d x :
+  tuple_map jdg f (make s d x) = make s (tuple_map decl f d) (f x).
+Proof.
+  induction s as [| jdg s ih | a jdg p s ih]. all: cbn [make].
+  - reflexivity.
+  - rewrite tuple_map_tcons, ih. reflexivity.
+  - rewrite tuple_map_tcons, ih, tget_tuple_map. reflexivity.
 Qed.
