@@ -28,25 +28,3 @@ Notation "Γ ,, d" :=
 
 Notation "Γ ,,, Δ" :=
   (@app decl Δ Γ) (at level 25, Δ at next level, left associativity).
-
-(** Flex declartions for CC
-
-  Variable handling is going to become much more complicated because erasure
-  removes some variables, while parametricity adds some in a non-uniform way
-  so computing offsets and weakenings will be painful arithmetic.
-  We propose to use flexible contexts that instead of one declaration per
-  position can have zero or one.
-
-  We could also consider having a final translation to get rid of those but
-  we argue that it is not necessary.
-
- **)
-
-(*Notation cdecl := (cmode * cterm)%type.
-
-Notation ccontext := (list (option cdecl)).
-
-Notation cscope := (list (option cmode)).
-
-Definition csc (Γ : ccontext) : cscope :=
-  map (option_map fst) Γ.*)
