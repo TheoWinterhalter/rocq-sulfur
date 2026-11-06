@@ -3,7 +3,7 @@
 (using rocq 0.11)
 
 (name rocq-sulfur)
-(version 0.1)
+(version 0.2)
 
 (generate_opam_files true)
 
@@ -22,11 +22,16 @@
  (description
   "Sulfur generates, from a signature, the syntax of a language with binders\
   \ntogether with renaming, substitution, and a tactic (ssimpl) that normalises\
-  \nterms and substitutions.")
+  \nterms and substitutions.\
+  \nIt also supports the generation of judgments together with their\
+  \nsubstitution lemma.")
  (license MIT)
  (tags
   ("keyword:binders"
    "keyword:substitution"
+   "keyword:type-theory"
+   "keyword:programming-languages"
+   "keyword:automation"
    "category:Miscellaneous/Rocq Extensions"
    "logpath:Sulfur"
    "date:2026-10-19"))
