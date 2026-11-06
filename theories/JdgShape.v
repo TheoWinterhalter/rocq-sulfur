@@ -348,3 +348,22 @@ Proof.
   - reflexivity.
   - destruct d. reflexivity.
 Qed.
+
+(** Positions in a shape, recording the type *)
+Inductive pos : shape → type → Type :=
+| pos0 {a sh} : pos (a :: sh) a
+| posS {a b sh} : pos sh b → pos (a :: sh) b.
+
+Fixpoint tget {sh a} (p : pos sh a) {X} : tuple sh X → El a X :=
+  match p in pos sh a return tuple sh X → El a X with
+  | @pos0 a sh => thead a sh
+  | @posS a b sh p => λ d, tget p (ttail a sh d)
+  end.
+
+Lemma tget_tuple_map sh a (p : pos sh a) X Y (f : X → Y) (d : tuple sh X) :
+  tget p (tuple_map sh f d) = Elmap a f (tget p d).
+Proof.
+  induction p as [a sh | a b sh p ih] in d |- *.
+  - cbn. apply thead_tuple_map.
+  - cbn [tget]. rewrite ttail_tuple_map. apply ih.
+Qed.
