@@ -65,7 +65,13 @@ VERNAC ARGUMENT EXTEND jdg_header
           ph_var = x ; ph_decls = ds ; ph_jdg = r ; ph_args = args } }
 END
 
+(** A judgment and its rules, [header := rules]. *)
+VERNAC ARGUMENT EXTEND jdg_block
+| [ jdg_header(h) ":=" jdg_rule_list(rs) ] -> { (h, rs) }
+END
+
+(** Several judgments, separated by [with]. *)
 VERNAC COMMAND EXTEND SulfurJudgment CLASSIFIED AS SIDEFF
-| [ "Sulfur" "Judgment" jdg_header(h) "{{" jdg_rule_list(rs) "}}" ] ->
-  { Jdg.generate_rules h rs }
+| [ "Sulfur" "Judgment" ne_jdg_block_list_sep(bs, "with") ] ->
+  { Jdg.generate_rules bs }
 END

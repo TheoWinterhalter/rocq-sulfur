@@ -580,7 +580,13 @@ let shapes_expr (h : header) : Constrexpr.constr_expr =
   instance [R_shapes], the description as [R_desc] (with the local
   definitions substituted), then handled as above.
 *)
-let generate_rules (h : header) (rules : prule list) : unit =
+let generate_rules (blocks : (header * prule list) list) : unit =
+  (* Temporary: ignore all but the first one *)
+  let h, rules =
+    match blocks with
+    | u :: _ -> u
+    | _ -> assert false
+  in
   let name = h.ph_name in
   let shapes =
     def (Names.Id.to_string name ^ "_shapes") (pretype (shapes_expr h))

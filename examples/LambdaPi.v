@@ -15,7 +15,7 @@ Existing Instance sign.
 
 Sulfur Judgment conv : tm → tm → Prop
   with Γ : unit, Variable x A : conv x x
-{{
+:=
 | refl u :
     ⟹ conv u u
 
@@ -24,12 +24,11 @@ Sulfur Judgment conv : tm → tm → Prop
 | congr_lam A A' (b b' : tm → tm) :
     conv A A' ;
     ⟨ x : tt ⊢ conv (b x) (b' x) ⟩
-    ⟹ conv (tlam A b) (tlam A' b')
-}}.
+    ⟹ conv (tlam A b) (tlam A' b').
 
 Sulfur Judgment typing : tm → tm → Prop
   with Γ : tm, Variable x A : typing x A
-{{
+:=
 | type_Ty (i : nat) :
     ⟹ typing (tTy i) (tTy (S i))
 
@@ -52,8 +51,7 @@ Sulfur Judgment typing : tm → tm → Prop
 | type_conv A A' t :
     typing t A ;
     {{ conv (map (λ _, tt) Γ) A A' }}
-    ⟹ typing t A'
-}}.
+    ⟹ typing t A'.
 
 (* Needed for the substitution lemma, currently false *)
 #[local] Instance: typing_obligations.
