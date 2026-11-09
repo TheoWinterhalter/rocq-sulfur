@@ -41,9 +41,21 @@ VERNAC ARGUMENT EXTEND jdg_prem
 | [ lconstr(e) ] -> { Jdg.PJdg e }
 END
 
+(** An inference rule itself. *)
+VERNAC ARGUMENT EXTEND jdg_line
+| [ "─" jdg_line ] -> { () }
+| [ "─" ] -> { () }
+END
+
+(** [⟹], or a line. *)
+VERNAC ARGUMENT EXTEND jdg_bar
+| [ "⟹" ] -> { () }
+| [ jdg_line ] -> { () }
+END
+
 (** [| name (A B : term) : R t A ; R u B ⟹ R (c t u) C]. *)
 VERNAC ARGUMENT EXTEND jdg_rule
-| [ "|" ident(n) binders(bs) ":" jdg_prem_list_sep(ps, ";") "⟹" lconstr(c) ] ->
+| [ "|" ident(n) binders(bs) ":" jdg_prem_list_sep(ps, ";") jdg_bar lconstr(c) ] ->
   { Jdg.{ pr_name = n ; pr_binders = bs ; pr_prems = ps ; pr_concl = c } }
 END
 
