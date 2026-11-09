@@ -1,5 +1,5 @@
 From Stdlib Require Import Utf8.
-From Sulfur Require Export All.
+From Sulfur Require Export All JdgDesc.
 
 Definition level := nat.
 
@@ -46,6 +46,8 @@ Time Sulfur Syntax
   | bot : term
   | bot_elim : mode -> term -> term -> term
 }}.
+
+Existing Instance sign.
 
 (* FIXME (should be automatic) *)
 Ltac2 Set sunfold_list as old :=

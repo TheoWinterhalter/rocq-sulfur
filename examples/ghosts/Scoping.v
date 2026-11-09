@@ -4,179 +4,154 @@
 
 **)
 
-From Stdlib Require Import Utf8 List.
+From Stdlib Require Import Utf8 List String.
 From SulfurGhostExample Require Import GAST SubstNotations ContextDecl CastRemoval.
 
 Import ListNotations.
 
 Set Default Goal Selector "!".
 
-Inductive scoping (Γ : scope) : term → mode → Prop :=
+Sulfur Judgment scoping : term → mode → Prop
+  with Γ : mode, Variable x m : scoping x m
+{{
+| scope_sort (m : mode) (i : level) :
+    ⟹ scoping (Sort m i) mKind
 
-| scope_var :
-    ∀ x m,
-      nth_error Γ x = Some m →
-      scoping Γ (Var x) m
+| scope_pi (i j : level) (mx m : mode) A (B : term → term) :
+    scoping A mKind ;
+    ⟨ x : mx ⊢ scoping (B x) mKind ⟩
+    ⟹ scoping (Pi i j m mx A B) mKind
 
-| scpoe_sort :
-    ∀ m i,
-      scoping Γ (Sort m i) mKind
+| scope_lam (mx m : mode) A (t : term → term) :
+    scoping A mKind ;
+    ⟨ x : mx ⊢ scoping (t x) m ⟩
+    ⟹ scoping (lam mx A t) m
 
-| scope_pi :
-    ∀ i j mx m A B,
-      scoping Γ A mKind →
-      scoping (mx :: Γ) B mKind →
-      scoping Γ (Pi i j m mx A B) mKind
+| scope_app (mx m : mode) t u :
+    scoping t m ;
+    scoping u mx
+    ⟹ scoping (app t u) m
 
-| scope_lam :
-    ∀ mx m A t,
-      scoping Γ A mKind →
-      scoping (mx :: Γ) t m →
-      scoping Γ (lam mx A t) m
+| scope_erased A :
+    scoping A mKind
+    ⟹ scoping (Erased A) mKind
 
-| scope_app :
-    ∀ mx m t u,
-      scoping Γ t m →
-      scoping Γ u mx →
-      scoping Γ (app t u) m
+| scope_hide t :
+    scoping t mType
+    ⟹ scoping (hide t) mGhost
 
-| scope_erased :
-    ∀ A,
-      scoping Γ A mKind →
-      scoping Γ (Erased A) mKind
+| scope_reveal (m : mode) t P p :
+    {{ In m [ mProp ; mGhost ] }} ;
+    scoping t mGhost ;
+    scoping P mKind ;
+    scoping p m
+    ⟹ scoping (reveal t P p) m
 
-| scope_hide :
-    ∀ t,
-      scoping Γ t mType →
-      scoping Γ (hide t) mGhost
+| scope_Reveal t p :
+    scoping t mGhost ;
+    scoping p mKind
+    ⟹ scoping (Reveal t p) mKind
 
-| scope_reveal :
-    ∀ m t P p,
-      In m [ mProp ; mGhost ] →
-      scoping Γ t mGhost →
-      scoping Γ P mKind →
-      scoping Γ p m →
-      scoping Γ (reveal t P p) m
+| scope_toRev t p u :
+    scoping t mType ;
+    scoping p mKind ;
+    scoping u mProp
+    ⟹ scoping (toRev t p u) mProp
 
-| scope_Reveal :
-    ∀ t p,
-      scoping Γ t mGhost →
-      scoping Γ p mKind →
-      scoping Γ (Reveal t p) mKind
+| scope_fromRev t p u :
+    scoping t mType ;
+    scoping p mKind ;
+    scoping u mProp
+    ⟹ scoping (fromRev t p u) mProp
 
-| scope_toRev :
-    ∀ t p u,
-      scoping Γ t mType →
-      scoping Γ p mKind →
-      scoping Γ u mProp →
-      scoping Γ (toRev t p u) mProp
+| scope_gheq A u v :
+    scoping A mKind ;
+    scoping u mGhost ;
+    scoping v mGhost
+    ⟹ scoping (gheq A u v) mKind
 
-| scope_fromRev :
-    ∀ t p u,
-      scoping Γ t mType →
-      scoping Γ p mKind →
-      scoping Γ u mProp →
-      scoping Γ (fromRev t p u) mProp
+| scope_ghrefl A u :
+    scoping A mKind ;
+    scoping u mGhost
+    ⟹ scoping (ghrefl A u) mProp
 
-| scope_gheq :
-    ∀ A u v,
-      scoping Γ A mKind →
-      scoping Γ u mGhost →
-      scoping Γ v mGhost →
-      scoping Γ (gheq A u v) mKind
-
-| scope_ghrefl :
-    ∀ A u,
-      scoping Γ A mKind →
-      scoping Γ u mGhost →
-      scoping Γ (ghrefl A u) mProp
-
-| scope_ghcast :
-    ∀ m A u v e P t,
-      m ≠ mKind →
-      scoping Γ A mKind →
-      scoping Γ u mGhost →
-      scoping Γ v mGhost →
-      scoping Γ e mProp →
-      scoping Γ P mKind →
-      scoping Γ t m →
-      scoping Γ (ghcast A u v e P t) m
+| scope_ghcast (m : mode) A u v e P t :
+    {{ m ≠ mKind }} ;
+    scoping A mKind ;
+    scoping u mGhost ;
+    scoping v mGhost ;
+    scoping e mProp ;
+    scoping P mKind ;
+    scoping t m
+    ⟹ scoping (ghcast A u v e P t) m
 
 | scope_bool :
-    scoping Γ tbool mKind
+    ⟹ scoping tbool mKind
 
 | scope_true :
-    scoping Γ ttrue mType
+    ⟹ scoping ttrue mType
 
 | scope_false :
-    scoping Γ tfalse mType
+    ⟹ scoping tfalse mType
 
-| scope_if :
-    ∀ m b P t f,
-      scoping Γ b mType →
-      scoping Γ P mKind →
-      scoping Γ t m →
-      scoping Γ f m →
-      scoping Γ (tif m b P t f) m
+| scope_if (m : mode) b P t f :
+    scoping b mType ;
+    scoping P mKind ;
+    scoping t m ;
+    scoping f m
+    ⟹ scoping (tif m b P t f) m
 
 | scope_nat :
-    scoping Γ tnat mKind
+    ⟹ scoping tnat mKind
 
 | scope_zero :
-    scoping Γ tzero mType
+    ⟹ scoping tzero mType
 
-| scope_succ :
-    ∀ n,
-      scoping Γ n mType →
-      scoping Γ (tsucc n) mType
+| scope_succ n :
+    scoping n mType
+    ⟹ scoping (tsucc n) mType
 
-| scope_nat_elim :
-    ∀ m n P z s,
-      m ≠ mKind →
-      scoping Γ n mType →
-      scoping Γ P mKind →
-      scoping Γ z m →
-      scoping Γ s m →
-      scoping Γ (tnat_elim m n P z s) m
+| scope_nat_elim (m : mode) n P z s :
+    {{ m ≠ mKind }} ;
+    scoping n mType ;
+    scoping P mKind ;
+    scoping z m ;
+    scoping s m
+    ⟹ scoping (tnat_elim m n P z s) m
 
-| scope_vec :
-    ∀ A n,
-      scoping Γ A mKind →
-      scoping Γ n mGhost →
-      scoping Γ (tvec A n) mKind
+| scope_vec A n :
+    scoping A mKind ;
+    scoping n mGhost
+    ⟹ scoping (tvec A n) mKind
 
-| scope_vnil :
-    ∀ A,
-      scoping Γ A mKind →
-      scoping Γ (tvnil A) mType
+| scope_vnil A :
+    scoping A mKind
+    ⟹ scoping (tvnil A) mType
 
-| scope_vcons :
-    ∀ a n v,
-      scoping Γ a mType →
-      scoping Γ n mGhost →
-      scoping Γ v mType →
-      scoping Γ (tvcons a n v) mType
+| scope_vcons a n v :
+    scoping a mType ;
+    scoping n mGhost ;
+    scoping v mType
+    ⟹ scoping (tvcons a n v) mType
 
-| scope_vec_elim :
-    ∀ m A n v P z s,
-      m ≠ mKind →
-      scoping Γ A mKind →
-      scoping Γ n mGhost →
-      scoping Γ v mType →
-      scoping Γ P mKind →
-      scoping Γ z m →
-      scoping Γ s m →
-      scoping Γ (tvec_elim m A n v P z s) m
+| scope_vec_elim (m : mode) A n v P z s :
+    {{ m ≠ mKind }} ;
+    scoping A mKind ;
+    scoping n mGhost ;
+    scoping v mType ;
+    scoping P mKind ;
+    scoping z m ;
+    scoping s m
+    ⟹ scoping (tvec_elim m A n v P z s) m
 
 | scope_bot :
-    scoping Γ bot mKind
+    ⟹ scoping bot mKind
 
-| scope_bot_elim :
-    ∀ m A p,
-      scoping Γ A mKind →
-      scoping Γ p mProp →
-      scoping Γ (bot_elim m A p) m
-.
+| scope_bot_elim (m : mode) A p :
+    scoping A mKind ;
+    scoping p mProp
+    ⟹ scoping (bot_elim m A p) m
+}}.
 
 Abbreviation cscoping Γ := (scoping (sc Γ)).
 
