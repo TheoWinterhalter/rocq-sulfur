@@ -175,6 +175,16 @@ let apps_ev (f : EConstr.t) (n : int) (args : EConstr.t array) : EConstr.t m =
   let* evars = mk_evars n [] in
   ret @@ apps f @@ Array.concat [ Array.of_list evars; args ]
 
+let lib (name : string) : EConstr.t = mkglob (Rocqlib.lib_ref name)
+
+let rec mknat (i : int) : EConstr.t =
+  if i = 0 then lib "num.nat.O" else app (lib "num.nat.S") (mknat (i - 1))
+
+let mklist (ty : EConstr.t) (xs : EConstr.t list) : EConstr.t =
+  List.fold_right (fun x l ->
+    apps (lib "core.list.cons") [| ty ; x ; l |]
+  ) xs (app (lib "core.list.nil") ty)
+
 let arrow t1 t2 = EConstr.mkArrowR t1 (EConstr.Vars.lift 1 t2)
 let rec arrows ts t = match ts with [] -> t | t1 :: ts -> arrow t1 (arrows ts t)
 

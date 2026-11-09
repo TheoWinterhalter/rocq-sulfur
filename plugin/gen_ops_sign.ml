@@ -41,13 +41,6 @@ struct
     let types = List.init P.sign.n_ctors @@ fun _ ind -> ret @@ EConstr.mkVar ind in
     declare_ind (Names.Id.of_string_soft "ctor") EConstr.mkSet names types
 
-  (** Helper function to make a Rocq list with elements [xs]. Each element must be of type
-      [ty]. *)
-  let rec mklist (ty : EConstr.t) (xs : EConstr.t list) : EConstr.t =
-    match xs with
-    | [] -> app (mkglob' C.nil) ty
-    | x :: xs -> apps (mkglob' C.cons) [| ty; x; mklist ty xs |]
-
   (** Build the function [ctor_type : ctor -> list (@arg_ty base)]. *)
   let build_ctor_type (ctor : Names.Ind.t) (base : Names.Ind.t) : EConstr.t m =
     let rec on_arg_ty (ty : arg_ty) : EConstr.t =
@@ -82,22 +75,14 @@ let derive_enum (name : string) (ind : Names.Ind.t) nctors :
     List.init nctors (fun i -> mkctor (ind, i + 1))
   in
   let nat = mkglob' C.nat in
-  let rec nat_lit i =
-    if i = 0 then mkglob' C.zero
-    else app (mkglob' C.succ) (nat_lit (i - 1))
-  in
   let index_of =
     def (name ^ "_index_of") @@
     lambda "x" t @@
     fun x -> case (EConstr.mkVar x) ~return:(fun _ _ -> ret nat) @@
-    fun i _ -> ret (nat_lit i)
+    fun i _ -> ret (mknat i)
   in
   let index_of = mkconst index_of in
-  let enum =
-    List.fold_right (fun c l ->
-      apps (mkglob' C.cons) [| t ; c ; l |]
-    ) ctors (app (mkglob' C.nil) t)
-  in
+  let enum = mklist t ctors in
   let inv =
     lemma (name ^ "_enum_all_in")
       (ret @@ apps (mkglob' Constants.enum_all_in) [| t ; enum ; index_of |])

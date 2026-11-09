@@ -120,6 +120,12 @@ val apps : EConstr.t -> EConstr.t array -> EConstr.t
     arguments [args]. *)
 val apps_ev : EConstr.t -> int -> EConstr.t array -> EConstr.t m
 
+(** [mknat i] is the natural number [i], as a term. *)
+val mknat : int -> EConstr.t
+
+(** [mklist ty xs] is the list of the terms [xs], of type [ty]. *)
+val mklist : EConstr.t -> EConstr.t list -> EConstr.t
+
 (** [arrow t1 t2] constructs the non-dependent product [t1 -> t2]. It takes care of
     lifting [t2]. *)
 val arrow : EConstr.types -> EConstr.types -> EConstr.types
