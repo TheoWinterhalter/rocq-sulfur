@@ -7,24 +7,23 @@ DECLARE PLUGIN "rocq-sulfur.plugin"
   open Procq.Constr
 }
 
-(** Signature declaration body *)
-VERNAC ARGUMENT EXTEND decl_body
-| [ identref(name) "(" identref(v) ")" ":" lconstr(ty) ] ->
-  { CAst.make ~loc { name ; var_ctor = Some v ; ty } }
-| [ identref(name) ":" lconstr(ty) ] ->
-  { CAst.make ~loc { name ; var_ctor = None ; ty } }
+(** Sort declaration *)
+VERNAC ARGUMENT EXTEND sort_decl
+| [ identref(sort) "(" identref(v) ")" ":" "Type" ] ->
+  { { sort ; var_ctor = Some v } }
+| [ identref(sort) ":" "Type" ] -> { { sort ; var_ctor = None } }
+| [ identref(sort) "(" identref(v) ")" ] -> { { sort ; var_ctor = Some v } }
+| [ identref(sort) ] -> { { sort ; var_ctor = None } }
 END
 
-(** A single sort/constructor declaration. *)
+(** A constructor declaration, [| app : term -> term -> term]. *)
 VERNAC ARGUMENT EXTEND decl
-| [ "|" decl_body(d) ] -> { d }
+| [ "|" identref(name) ":" lconstr(ty) ] -> { CAst.make ~loc { name ; ty } }
 END
 
-(** A signature, a list of declarations where the first may omit its pipe. *)
+(** A signature, first a sort and then a list of declarations. *)
 VERNAC ARGUMENT EXTEND signature
-| [ "{{" decl_body(d) decl_list(decls) "}}" ] ->
-  { CAst.make ~loc { decls = d :: decls } }
-| [ "{{" decl_list(decls) "}}" ] -> { CAst.make ~loc { decls } }
+| [ sort_decl(sort) ":=" decl_list(ctors) ] -> { { sort ; ctors } }
 END
 
 VERNAC COMMAND EXTEND SulfurSyntax CLASSIFIED AS SIDEFF

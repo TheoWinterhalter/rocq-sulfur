@@ -8,29 +8,31 @@ module C = Constants
 (** *** Pre-signature. *)
 (**************************************************************************************)
 
-(** A pre-signature is the parse tree of a user-written signature: declarations
-  [name : ty], the first one being the sort [term (Var) : Type]. Types are Rocq
-  terms, elaborated by [check_psignature] with the sort as a local variable,
-  once the global environment is available. *)
+(** A pre-signature is the parse tree of a user-written signature:
+  the sort [term(Var)] (optionally annotated with [: Type]),
+  then the constructors [name : ty].
+  Types are Rocq terms, elaborated by [check_psignature] with the sort as a
+  local variable, once the global environment is available. *)
 
-(** Declaration.
+(** The sort, [term (Var)]; the variable constructor is [var] by default. *)
+type sort_decl = {
+  sort : Names.lident ;
+  var_ctor : Names.lident option
+}
 
-  Either a sort declaration eg, [term (Var) : Type], or a constructor
-  [app : term -> term -> term].
-
-*)
+(** A constructor declaration, [app : term -> term -> term]. *)
 type decl_r = {
   name : Names.lident ;
-  var_ctor : Names.lident option ;
   ty : Constrexpr.constr_expr
 }
 
 and decl = decl_r CAst.t
 
 (** Pre-signature. *)
-type psignature_r = { decls : decl list }
-
-and psignature = psignature_r CAst.t
+type psignature = {
+  sort : sort_decl ;
+  ctors : decl list
+}
 
 (**************************************************************************************)
 (** *** Signature. *)
@@ -80,10 +82,9 @@ let ctor_ty_constr (sign : signature) (tys : arg_ty list) (ind : EConstr.t) : EC
 type checked_sort = { sname : Names.Id.t; var_ctor : Names.Id.t }
 type checked_ctor = { cname : Names.Id.t; arg_tys : arg_ty list }
 
-(** State we maintain while validating a pre-signature. *)
 type state = {
-  (* The (unique) sort, or [None] if we haven't encountered it yet. *)
-  sort : checked_sort option ;
+  (* The (unique) sort. *)
+  sort : checked_sort ;
   (* The list of declared constructors, most recent first. *)
   ctors : checked_ctor list ;
   (* The list of base types, most recent first. *)
@@ -94,9 +95,7 @@ type state = {
 let check_fresh (st : state) (name : Names.lident) : unit =
   let b1 = List.exists (fun c -> Names.Id.equal name.v c.cname) st.ctors in
   let b2 =
-    match st.sort with
-    | None -> false
-    | Some s -> Names.Id.equal name.v s.sname || Names.Id.equal name.v s.var_ctor
+    Names.Id.equal name.v st.sort.sname || Names.Id.equal name.v st.sort.var_ctor
   in
   (* TODO: check in the global env as well. *)
   if b1 || b2
@@ -124,67 +123,55 @@ let rec check_arg (sort : Names.Id.t) (invalid : unit -> state * arg_ty)
     ret ({ st with base_types = d :: st.base_types }, AT_base idx)
   else ret (invalid ())
 
-(** Check a declaration. *)
-let check_decl (st : state) (d : decl) : state m =
+(** Check a constructor declaration: elaborate its type with the sort as a
+  local variable. *)
+let check_ctor (st : state) (d : decl) : state m =
   check_fresh st d.v.name ;
-  match st.sort, d.v.ty.CAst.v with
-  (* The first declaration is the sort. *)
-  | None, Constrexpr.CSort _ ->
-      let var_ctor =
-        match d.v.var_ctor with
-        | None -> Names.Id.of_string_soft "var"
-        | Some var -> var.v
-      in
-      ret { st with sort = Some { sname = d.v.name.v ; var_ctor } }
-  | None, _ -> Log.error ?loc:d.loc "The sort must be declared first."
-  | Some _, Constrexpr.CSort _ ->
-      Log.error ?loc:d.loc "Only one sort can be declared."
-  (* Constructor declaration: elaborate its type with the sort as a local
-    variable. *)
-  | Some sort, _ ->
-      let* univ = fresh_type in
-      let name = Names.Name sort.sname in
-      let annot = Context.make_annot name EConstr.ERelevance.relevant in
-      with_local_decl (Context.Rel.Declaration.LocalAssum (annot, univ)) @@ fun sort ->
-      let* ty = pretype_type d.v.ty in
-      let* env = get_env in
-      let* sigma = get_sigma in
-      let invalid () =
-        Log.error ?loc:d.loc
-          "Invalid constructor type %s: it must be [a1 -> .. -> an -> %s] where \
-           each argument is the sort, a binder [%s -> .. -> a] or a base type \
-           that does not depend on the other arguments."
-          (Pp.string_of_ppcmds (Printer.pr_econstr_env env sigma ty))
-          (Names.Id.to_string sort) (Names.Id.to_string sort)
-      in
-      let binders, body = EConstr.decompose_prod sigma ty in
-      if not (EConstr.isVarId sigma sort body) then ignore (invalid ()) ;
-      let* st, tys =
-        List.monad_fold_left
-          (fun (st, tys) (_, dom) ->
-            let* st, ty = check_arg sort invalid st dom in
-            ret (st, ty :: tys))
-          (st, []) (List.rev binders)
-      in
-      let ctor = { cname = d.v.name.v ; arg_tys = List.rev tys } in
-      ret { st with ctors = ctor :: st.ctors }
+  let sort = st.sort in
+  let* univ = fresh_type in
+  let name = Names.Name sort.sname in
+  let annot = Context.make_annot name EConstr.ERelevance.relevant in
+  with_local_decl (Context.Rel.Declaration.LocalAssum (annot, univ)) @@ fun sort ->
+  let* ty = pretype_type d.v.ty in
+  let* env = get_env in
+  let* sigma = get_sigma in
+  let invalid () =
+    Log.error ?loc:d.loc
+      "Invalid constructor type %s: it must be [a1 -> .. -> an -> %s] where \
+       each argument is the sort, a binder [%s -> .. -> a] or a base type \
+       that does not depend on the other arguments."
+      (Pp.string_of_ppcmds (Printer.pr_econstr_env env sigma ty))
+      (Names.Id.to_string sort) (Names.Id.to_string sort)
+  in
+  let binders, body = EConstr.decompose_prod sigma ty in
+  if not (EConstr.isVarId sigma sort body) then ignore (invalid ()) ;
+  let* st, tys =
+    List.monad_fold_left
+      (fun (st, tys) (_, dom) ->
+        let* st, ty = check_arg sort invalid st dom in
+        ret (st, ty :: tys))
+      (st, []) (List.rev binders)
+  in
+  let ctor = { cname = d.v.name.v ; arg_tys = List.rev tys } in
+  ret { st with ctors = ctor :: st.ctors }
 
 (** Check a pre-signature. Raises an error (using Rocq's error reporting
   mechanism) if the pre-signature is not valid. *)
 let check_psignature (s : psignature) : signature m =
-  let st = { sort = None ; ctors = [] ; base_types = [] } in
-  let* st = List.monad_fold_left check_decl st s.v.decls in
+  let var_ctor =
+    match s.sort.var_ctor with
+    | None -> Names.Id.of_string_soft "var"
+    | Some var -> var.v
+  in
+  let sort = { sname = s.sort.sort.v ; var_ctor } in
+  let st = { sort ; ctors = [] ; base_types = [] } in
+  let* st = List.monad_fold_left check_ctor st s.ctors in
   (* The lists were built most recent first. *)
   let ctors = List.rev st.ctors in
   let base_types = List.rev st.base_types in
-  let sort =
-    match st.sort with
-    | Some s -> s
-    | None -> Log.error ?loc:s.loc "At least one sort must be declared."
-  in
   ret {
-    sort_name = sort.sname ;
-    var_ctor_name = sort.var_ctor ;
+    sort_name = st.sort.sname ;
+    var_ctor_name = st.sort.var_ctor ;
     n_ctors = List.length ctors ;
     base_types = Array.of_list base_types ;
     ctor_names = ctors |> List.map (fun c -> c.cname) |> Array.of_list ;

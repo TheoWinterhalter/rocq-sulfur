@@ -5,14 +5,11 @@ From Sulfur Require Import Prelude Sig Renamings All.
 From Sulfur Require Import ParamSyntax JudgmentSyntaxScoped.
 From Sulfur Require Import ConcreteSyntax JdgDesc.
 
-Sulfur Syntax {{
-  tm : Type
-
-  | tTy : nat → tm
-  | tPi : tm → (tm → tm) → tm
-  | tlam : tm → (tm → tm) → tm
-  | tapp : tm → tm → tm
-}}.
+Sulfur Syntax tm :=
+| tTy : nat → tm
+| tPi : tm → (tm → tm) → tm
+| tlam : tm → (tm → tm) → tm
+| tapp : tm → tm → tm.
 
 Existing Instance sign.
 

@@ -25,19 +25,17 @@ generic theorems.
 
 ### Syntax
 
-One can generate a syntax from a Rocq file using the following commands.
+One can generate a syntax from a Rocq file using the following command which
+mimics an inductive type declaration.
 
 ```rocq
 From Sulfur Require Import All.
 
-Sulfur Syntax {{
-  tm : Type
-
-  | tTy : nat → tm
-  | tPi : tm → (tm → tm) → tm
-  | tlam : tm → (tm → tm) → tm
-  | tapp : tm → tm → tm
-}}.
+Sulfur Syntax tm :=
+| tTy : nat → tm
+| tPi : tm → (tm → tm) → tm
+| tlam : tm → (tm → tm) → tm
+| tapp : tm → tm → tm.
 ```
 
 Here we generate a syntax for the λΠ-calculus using higher-order abstract
@@ -136,29 +134,6 @@ opam user-setup install
 Build and install with:
 ```
 dune build && dune install
-```
-
-## Signatures
-
-Here is the grammar of signatures. Non-terminals are surrounded with square brackets,
-and [ident] stands for valid Rocq identifiers.
-
-```
-[signature] ::= {{ [decl] ( | [decl] )* }}  (* The first declaration is the sort. *)
-
-[decl] ::= [ident] : Type                (* Declare the sort. *)
-         | [ident] ( [ident] ) : Type    (* Declare the sort, specifying the name of
-                                            the variable constructor between parentheses
-                                            ([var] by default). *)
-         | [ident] : [constr]            (* Declare a constructor with the given type,
-                                            [constr] being any Rocq type of the form
-                                            [arg] -> ... -> [arg] -> [sort]. *)
-
-[arg] ::= [sort]                         (* A term. *)
-        | [sort] -> ... -> [sort] -> [arg] (* Bind that many variables in an argument. *)
-        | [constr]                       (* Any other Rocq type: a base type. Universe
-                                            polymorphic types are instantiated with new
-                                            monomorphic (global) universes. *)
 ```
 
 ## Simplification
