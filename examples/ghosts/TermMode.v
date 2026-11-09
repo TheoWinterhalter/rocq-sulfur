@@ -1,7 +1,7 @@
 From Stdlib Require Import Utf8 List.
 From Equations Require Import Equations.
 
-From SulfurExamples Require Import Util GAST BasicAST ContextDecl Scoping.
+From SulfurGhostExample Require Import Util GAST ContextDecl Scoping.
 
 Import ListNotations.
 
@@ -61,6 +61,34 @@ Abbreviation mdc Γ t := (md (sc Γ) t).
 
 (** Relation with scoping **)
 
+Lemma cinctx_nth_error {D} (f : D → D) Γ n d :
+  cinctx f Γ n d ↔
+  ∃ d', nth_error Γ n = Some d' ∧ d = Nat.iter (S n) f d'.
+Proof.
+  split.
+  - induction 1 as [d Γ | d d1 Γ n h (d2 & e & ->)].
+    + exists d. auto.
+    + exists d2. auto.
+  - intros (d' & e & ->).
+    induction Γ as [| d1 Γ ih] in n, e |- *. 1: destruct n ; discriminate.
+    destruct n as [| n]. all: cbn in e.
+    + injection e as ->. apply cin_head.
+    + change (Nat.iter (S (S n)) f d') with (f (Nat.iter (S n) f d')).
+      apply cin_tail. auto.
+Qed.
+
+Lemma cinctx_id {D} (Γ : list D) n d :
+  cinctx (λ x, x) Γ n d ↔ nth_error Γ n = Some d.
+Proof.
+  rewrite cinctx_nth_error. split.
+  - intros (d0 & e & ->). rewrite e. f_equal.
+    clear. induction n as [| n ih]. 1: reflexivity.
+    cbn. assumption.
+  - intro e. exists d. split. 1: assumption.
+    clear. induction n as [| n ih]. 1: reflexivity.
+    cbn. assumption.
+Qed.
+
 Lemma scoping_md :
   ∀ Γ t m,
     scoping Γ t m →
@@ -68,7 +96,7 @@ Lemma scoping_md :
 Proof.
   intros Γ t m h.
   induction h. all: try reflexivity. all: try solve [ auto ].
-  - simpl. eapply nth_error_nth. assumption.
+  - simpl. eapply nth_error_nth. apply cinctx_id. assumption.
   - simpl. rewrite IHh3. cbn in *. intuition eauto.
     + rewrite <- H0. reflexivity.
     + rewrite <- H. reflexivity.

@@ -576,7 +576,8 @@ let desc_expr (h : header) (shapes : Names.Constant.t) (rules : prule list) :
     shaped C.Jdg.hrule [
       string (Names.Id.to_string r.pr_name) ;
       list (params bs) ;
-      mkCLambdaN (List.map hbinder bs)
+      (* no lambda for a rule without binders *)
+      (if bs = [] then Fun.id else mkCLambdaN (List.map hbinder bs))
         (pair (prems (metas bs) r.pr_prems) (hoas r.pr_concl))
     ]
   in
