@@ -13,7 +13,6 @@
 - [ ] Improve `⟨ x : A ⊢ t ⟩` notation to be n-ary.
 - [ ] Have a special notation for `x : tt`.
 - [ ] Maybe replace `x : A` with `x ↦ A` or something.
-- [ ] Do not force the context name to be `Γ` in `{{ _ }}`.
 - [ ] Be more friendly towards non-Unicode users.
 
 ## Extension ideas
