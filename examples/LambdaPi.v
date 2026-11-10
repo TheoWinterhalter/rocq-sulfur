@@ -1,4 +1,4 @@
-(** λΠ-calculus (sorta) *)
+(** λΠ-calculus *)
 
 From Stdlib Require Import Utf8 String.
 From Sulfur Require Import Prelude Sig Renamings All.
