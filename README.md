@@ -51,15 +51,15 @@ Currently, one can do the following.
 
 ```rocq
 Sulfur Judgment conv : tm → tm → Prop
-  with Γ : unit, Variable x A : conv x x
-{{
+  with Γ : unit, Variable x A : conv x x :=
 | beta A (b : tm → tm) u :
-    ⟹ conv (tapp (tlam A b) u) (b u)
+    ────────────────────────────────────
+    conv (tapp (tlam A b) u) (b u)
 | congr_lam A A' (b b' : tm → tm) :
     conv A A' ;
     ⟨ x : tt ⊢ conv (b x) (b' x) ⟩
-    ⟹ conv (tlam A b) (tlam A' b')
-}}.
+    ────────────────────────────────────
+    conv (tlam A b) (tlam A' b').
 ```
 
 This defines a new inductive type `conv` which quantifies explicitly over a
@@ -90,15 +90,14 @@ by Sulfur).
 
 ```rocq
 Sulfur Judgment typing : tm → tm → Prop
-  with Γ : tm, Variable x A : typing x A
-{{
+  with Γ : tm, Variable x A : typing x A :=
 (* other rules ommited *)
 
 | type_conv A A' t :
     typing t A ;
     {{ conv (map (λ _, tt) Γ) A A' }}
-    ⟹ typing t A'
-}}.
+    ────────────────────────────────────
+    typing t A'.
 ```
 
 This will generate obligations that can be discharged with:
@@ -107,6 +106,10 @@ Instance: typing_obligations.
 ```
 
 This instance will be picked up by `typing_subst`.
+
+> [!TIP]
+> There is also support for mutual judgments.
+> See the `Mutual.v` example.
 
 ## Install
 

@@ -7,13 +7,16 @@ DECLARE PLUGIN "rocq-sulfur.plugin"
   open Procq.Constr
 }
 
+(** The optional [: Type] of a sort declaration *)
+VERNAC ARGUMENT EXTEND sort_type
+| [ ":" "Type" ] -> { () }
+END
+
 (** Sort declaration *)
 VERNAC ARGUMENT EXTEND sort_decl
-| [ identref(sort) "(" identref(v) ")" ":" "Type" ] ->
+| [ identref(sort) "(" identref(v) ")" sort_type_opt ] ->
   { { sort ; var_ctor = Some v } }
-| [ identref(sort) ":" "Type" ] -> { { sort ; var_ctor = None } }
-| [ identref(sort) "(" identref(v) ")" ] -> { { sort ; var_ctor = Some v } }
-| [ identref(sort) ] -> { { sort ; var_ctor = None } }
+| [ identref(sort) sort_type_opt ] -> { { sort ; var_ctor = None } }
 END
 
 (** A constructor declaration, [| app : term -> term -> term]. *)
@@ -65,7 +68,13 @@ VERNAC ARGUMENT EXTEND jdg_header
           ph_var = x ; ph_decls = ds ; ph_jdg = r ; ph_args = args } }
 END
 
+(** A judgment and its rules, [header := rules]. *)
+VERNAC ARGUMENT EXTEND jdg_block
+| [ jdg_header(h) ":=" jdg_rule_list(rs) ] -> { (h, rs) }
+END
+
+(** Several judgments, separated by [with]. *)
 VERNAC COMMAND EXTEND SulfurJudgment CLASSIFIED AS SIDEFF
-| [ "Sulfur" "Judgment" jdg_header(h) "{{" jdg_rule_list(rs) "}}" ] ->
-  { Jdg.generate_rules h rs }
+| [ "Sulfur" "Judgment" ne_jdg_block_list_sep(bs, "with") ] ->
+  { Jdg.generate_rules bs }
 END
