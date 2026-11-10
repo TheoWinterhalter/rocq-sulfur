@@ -1,7 +1,7 @@
 (** This file defines fixed length vectors [vec T n], encoded using
     an indexed inductive type (as opposed to a list with a proof for the length). *)
 
-From Stdlib Require Import Relations Morphisms.
+From Stdlib Require Import Utf8 Relations Morphisms.
 From Equations Require Import Equations.
 From Utils Require Import Fin.
 
@@ -197,7 +197,8 @@ induction i ; depelim xs ; depelim xs'.
   + now apply vec_eq_vcons_inv in Hxs.
 Qed.
 
-(*#[export] Instance vec_map2_proper {T1 T2 U n}
+(*
+#[export] Instance vec_map2_proper {T1 T2 U n}
   (RT1 : relation T1) (RT2 : relation T2) (RU : relation U) :
   Proper ((RT1 ==> RT2 ==> RU) ==> vec_eq RT1 ==> vec_eq RT2 ==> vec_eq RU)
     (@vec_map2 T1 T2 U n).
@@ -210,4 +211,18 @@ induction i ; depelim xs ; depelim xs' ; depelim ys ; depelim ys' ; simp vec_nth
 - apply Hf.
   + now apply vec_eq_vcons_inv in Hxs.
   + now apply vec_eq_vcons_inv in Hys.
-Qed.*)
+Qed.
+*)
+
+(*********************************************************************************)
+(** *** Heterogeneous vectors. *)
+(*********************************************************************************)
+
+Equations hvec {A} (F : A → Type) {n} (xs : vec A n) : Type :=
+  hvec F vnil := unit ;
+  hvec F (vcons x xs) := F x * hvec F xs.
+
+Equations hvec_nth {A} F {n} (xs : vec A n) (hs : hvec F xs) (i : fin n) :
+  F (vec_nth xs i) :=
+  hvec_nth F (vcons x xs) hs finO := fst hs ;
+  hvec_nth F (vcons x xs) hs (finS i) := hvec_nth F xs (snd hs) i.

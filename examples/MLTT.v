@@ -16,19 +16,43 @@ Existing Instance sign.
 Sulfur Judgment conv : tm → tm → tm → Prop
   with Γ : tm, Variable x A : conv x x A
 :=
-| refl u A :
-    (* typing u A *)
-    ─────────────────────────────────────
-    conv u u A
-
 | beta A (B b : tm → tm) u :
-    ─────────────────────────────────────
+    ────────────────────────────────────
     conv (tapp (tlam A b) u) (b u) (B u)
-| congr_lam (n : nat) A A' (B b b' : tm → tm) :
+
+| cong_Pi (i j : nat) A A' (B B' : tm → tm) :
+    conv A A' (tTy i) ;
+    ⟨ x : A ⊢ conv (B x) (B' x) (tTy j) ⟩
+    ──────────────────────────────────────────
+    conv (tPi A B) (tPi A' B') (tTy (max i j))
+
+| cong_lam (n : nat) A A' (B b b' : tm → tm) :
     conv A A' (tTy n) ;
     ⟨ x : A ⊢ conv (b x) (b' x) (B x) ⟩
     ─────────────────────────────────────
     conv (tlam A b) (tlam A' b') (tPi A B)
+
+| cong_app A (B : tm → tm) f f' u u' :
+    conv f f' (tPi A B) ;
+    conv u u' A
+    ─────────────────────────────────────
+    conv (tapp f u) (tapp f' u') (B u)
+
+| conv_refl u A :
+    typing u A
+    ─────────────────────────────────────
+    conv u u A
+
+| conv_sym u v A :
+    conv u v A
+    ─────────────────────────────────────
+    conv v u A
+
+| conv_trans u v w A :
+    conv u v A ;
+    conv v w A
+    ─────────────────────────────────────
+    conv u w A
 
 with typing : tm → tm → Prop
   with Γ : tm, Variable x A : typing x A
@@ -56,8 +80,13 @@ with typing : tm → tm → Prop
     ─────────────────────────────────────
     typing (tapp f u) (B u)
 
-| type_conv A A' t :
+| type_conv (i : nat) A A' t :
     typing t A ;
-    {{ conv (map (λ _, tt) Γ) A A' }}
+    conv A A' (tTy i)
     ─────────────────────────────────────
     typing t A'.
+
+Instance: conv_obligations.
+Proof.
+  red.
+Admitted.
