@@ -123,9 +123,7 @@ Register ConcreteSyntax.ConcreteSyntax as sulfur.cs.type.
 Register JdgDesc.rp_term as sulfur.jdg.rp_term.
 Register JdgDesc.rp_param as sulfur.jdg.rp_param.
 Register JdgDesc.rule_desc as sulfur.jdg.rule_desc.
-Register JdgDesc.Build_rule_desc as sulfur.jdg.build_rule_desc.
 Register JdgDesc.jdg_desc as sulfur.jdg.jdg_desc.
-Register JdgDesc.happly as sulfur.jdg.happly.
 Register JdgDesc.hterm as sulfur.jdg.hterm.
 Register JdgDesc.hctor as sulfur.jdg.hctor.
 Register JdgDesc.hjdg as sulfur.jdg.hjdg.
@@ -133,8 +131,6 @@ Register JdgDesc.hext as sulfur.jdg.hext.
 Register JdgDesc.hjp as sulfur.jdg.hjp.
 Register JdgDesc.hprem as sulfur.jdg.hprem.
 Register JdgDesc.hpred as sulfur.jdg.hpred.
-Register JdgDesc.pd_jdg as sulfur.jdg.pd_jdg.
-Register JdgDesc.pd_pred as sulfur.jdg.pd_pred.
 Register JdgDesc.cup_subst as sulfur.jdg.cup_subst.
 Register JdgDesc.pred_obl as sulfur.jdg.pred_obl.
 Register JdgDesc.obligations as sulfur.jdg.obligations.
