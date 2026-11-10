@@ -109,7 +109,7 @@ This instance will be picked up by `typing_subst`.
 
 > [!TIP]
 > There is also support for mutual judgments.
-> See the `Mutual.v` example.
+> See the `MLTT.v` example.
 
 ## Install
 
