@@ -932,14 +932,14 @@ Section ConcreteFacts.
   (** Statements about a concrete judgment *)
 
   (* [σ] is a well-typed substitution from [Δ] to [Γ] for judgment [i] *)
-  Inductive cstyping {i} (Ri : jdg_type T i) : ctx T → (nat → T) → ctx T → Prop :=
-  | cstyping_nil Δ σ : cstyping Ri Δ σ []
+  Inductive cstyping i (Ri : jdg_type T i) : ctx T → (nat → T) → ctx T → Prop :=
+  | cstyping_nil Δ σ : cstyping i Ri Δ σ []
   | cstyping_cons Δ σ Γ d :
-      cstyping Ri Δ (λ k, σ (S k)) Γ →
+      cstyping i Ri Δ (λ k, σ (S k)) Γ →
       capply (Ri Δ) (
         make (sh_var i) (dmap (csubstitute (λ k, σ (S k))) d) (σ 0)
       ) →
-      cstyping Ri Δ σ (d :: Γ).
+      cstyping i Ri Δ σ (d :: Γ).
 
   Section Statements.
 
@@ -973,7 +973,7 @@ Section ConcreteFacts.
       ∀ Γ Δ σ,
         under_tuple (λ j,
           capply (R i Γ) j →
-          cstyping (R i) Δ σ Γ →
+          cstyping i (R i) Δ σ Γ →
           capply (R i Δ) (jmap (csubstitute σ) j)
         ).
 
@@ -1021,7 +1021,7 @@ Section ConcreteFacts.
       let nt := rd_nterms rd in
       under rd.(rd_params) [] (λ vs x,
         ∀ Γ Δ σ,
-          cstyping (R i) Δ σ Γ →
+          cstyping i (R i) Δ σ Γ →
           stable_at ar nt Γ Δ σ vs (rd.(rd_premises) x) k
       ).
 
@@ -1434,7 +1434,7 @@ Section ConcreteFacts.
     Qed.
 
     Lemma cstyping_styping i Δ σ Γ :
-      cstyping (R i) Δ σ Γ →
+      cstyping i (R i) Δ σ Γ →
       styping (jsig := to_jdg_sig desc) i (ctx_rf Δ) (λ k, creify (σ k)) (ctx_rf Γ).
     Proof.
       induction 1 as [Δ σ | Δ σ Γ d h ih hd].
@@ -1448,7 +1448,7 @@ Section ConcreteFacts.
 
     Lemma styping_cstyping i Δ σ Γ :
       styping (jsig := to_jdg_sig desc) i Δ σ Γ →
-      cstyping (R i) (cmap ceval Δ) (λ i, ceval (σ i)) (cmap ceval Γ).
+      cstyping i (R i) (cmap ceval Δ) (λ i, ceval (σ i)) (cmap ceval Γ).
     Proof.
       induction 1 as [i Δ σ | i Δ σ Γ d h ih hd].
       - constructor.
