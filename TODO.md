@@ -19,3 +19,4 @@
 ## Extension ideas
 
 - We could implement a `Sulfur SOGAT` command to define syntax and typing at once.
+- We could have a way to extend a signature (syntax or judgment) since the theory side has no issue about this.
