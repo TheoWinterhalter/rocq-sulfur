@@ -16,6 +16,7 @@
 - [ ] Be more friendly towards non-Unicode users.
 - [ ] Renaming and weakening lemmas.
 - [ ] Optimise obligations.
+- [ ] Support notations for judgments being defined (seems hard).
 
 ## Extension ideas
 
