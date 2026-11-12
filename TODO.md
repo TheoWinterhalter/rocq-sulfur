@@ -17,6 +17,7 @@
 - [ ] Renaming and weakening lemmas.
 - [ ] Optimise obligations.
 - [ ] Support notations for judgments being defined (seems hard).
+- [ ] Support for defined expressions over syntax in judgments (such as `glength` in `examples/ghosts/Typing.v`).
 
 ## Extension ideas
 

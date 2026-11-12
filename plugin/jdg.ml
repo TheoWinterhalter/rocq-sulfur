@@ -496,6 +496,14 @@ let saved_ops () =
   | Some x -> x
   | None -> Log.error "Sulfur Judgment: no syntax was generated beforehand."
 
+(** The components of a declaration [Γ : d]: the factors of a product, none for
+  [unit]. The context is a list of the library's tuples, [decl_type d]. *)
+let decl_components (d : Constrexpr.constr_expr) : Constrexpr.constr_expr list =
+  if Cexpr.is_ident (Names.Id.of_string "unit") d then [] else Cexpr.products d
+
+let decl_type (d : Constrexpr.constr_expr) : Constrexpr.constr_expr =
+  Cexpr.prod (decl_components d)
+
 (** The description written by the user, as the Gallina expression
 
     [ ([ hrule k "name" ps (λ binders, ([p1 ; ... ; pn], c)) ; ... ],
@@ -612,7 +620,12 @@ let desc_expr (blocks : (header * prule list) list)
     and typed as in the header *)
   let pred xs e =
     let gamma = CAst.make (Names.Name h.ph_ctx) in
-    let bs = [ Cexpr.assum [ gamma ] (mkAppC (Cexpr.gref' C.list, [ h.ph_decl ])) ] in
+    let bs =
+      [
+        Cexpr.assum [ gamma ]
+          (mkAppC (Cexpr.gref' C.list, [ decl_type h.ph_decl ]))
+      ]
+    in
     let bs = if xs = [] then bs else Cexpr.assum xs (mkIdentC sort) :: bs in
     shaped C.Jdg.hpred [ Cexpr.nat (List.length xs) ; mkCLambdaN bs e ]
   in
@@ -653,8 +666,9 @@ let desc_expr (blocks : (header * prule list) list)
 
 (** The shapes of the headers, as the Gallina expression
   [shapes [d] [jshape_of [a1 ; ... ; am] (sel of the variable rule) ; ...]]:
-  the sort is [t_term], any other type [t_base], and [unit] declarations
-  are the empty shape. The judgments of a block declare the same thing. *)
+  the sort is [t_term], any other type [t_base], a product of those is taken
+  ([unit] for the empty product).
+  The judgments of a block declare the same thing. *)
 let shapes_expr (hs : header list) : Constrexpr.constr_expr =
   let open Constrexpr_ops in
   let sign, _ = saved_ops () in
@@ -664,10 +678,7 @@ let shapes_expr (hs : header list) : Constrexpr.constr_expr =
     else mkAppC (Cexpr.gref' C.Jdg.t_base, [ ty ])
   in
   let h0 = List.hd hs in
-  let dsh =
-    if Cexpr.is_ident (Names.Id.of_string "unit") h0.ph_decl then Cexpr.list []
-    else Cexpr.list [ shape_of h0.ph_decl ]
-  in
+  let dsh = Cexpr.list (List.map shape_of (decl_components h0.ph_decl)) in
   let jshape (h : header) =
     if not (Constrexpr_ops.constr_expr_eq h.ph_decl h0.ph_decl) then
       Log.error ?loc:h.ph_decl.CAst.loc
