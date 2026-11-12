@@ -14,6 +14,8 @@
 - [ ] Have a special notation for `x : tt`.
 - [ ] Maybe replace `x : A` with `x ↦ A` or something.
 - [ ] Be more friendly towards non-Unicode users.
+- [ ] Renaming and weakening lemmas.
+- [ ] Optimise obligations.
 
 ## Extension ideas
 
