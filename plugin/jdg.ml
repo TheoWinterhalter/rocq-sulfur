@@ -65,11 +65,11 @@ let binder_names (bs : Constrexpr.local_binder_expr list) : string list =
       ) xs
     | _ -> []
 
-(** The judgment of a premise [R t u] or [⟨ x : A ⊢ R t u ⟩], by its head,
+(** The judgment of a premise [R t u] or [⟨ x ↦ A ⊢ R t u ⟩], by its head,
   among the judgments [names] of the block *)
 let rec prem_jdg (names : Names.Id.t list) (e : Constrexpr.constr_expr) : int =
   match e.CAst.v with
-  | Constrexpr.CNotation (_, (_, "⟨ _ : _ ⊢ _ ⟩"), ([ _ ; p ], _, _, _)) ->
+  | Constrexpr.CNotation (_, (_, "⟨ _ ↦ _ ⊢ _ ⟩"), ([ _ ; p ], _, _, _)) ->
     prem_jdg names p
   | _ ->
     let head = match e.CAst.v with Constrexpr.CApp (f, _) -> f | _ -> e in

@@ -20,13 +20,13 @@ Sulfur Judgment scoping : term → mode → Prop
 
 | scope_pi (i j : level) (mx m : mode) A (B : term → term) :
     scoping A mKind ;
-    ⟨ x : mx ⊢ scoping (B x) mKind ⟩
+    ⟨ x ↦ mx ⊢ scoping (B x) mKind ⟩
     ─────────────────────────────────────
     scoping (Pi i j m mx A B) mKind
 
 | scope_lam (mx m : mode) A (t : term → term) :
     scoping A mKind ;
-    ⟨ x : mx ⊢ scoping (t x) m ⟩
+    ⟨ x ↦ mx ⊢ scoping (t x) m ⟩
     ─────────────────────────────────────
     scoping (lam mx A t) m
 

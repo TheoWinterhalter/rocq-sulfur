@@ -23,13 +23,13 @@ Sulfur Judgment conv : tm → tm → tm → Prop
 
 | cong_Pi (i j : nat) A A' (B B' : tm → tm) :
     conv A A' (tTy i) ;
-    ⟨ x : A ⊢ conv (B x) (B' x) (tTy j) ⟩
+    ⟨ x ↦ A ⊢ conv (B x) (B' x) (tTy j) ⟩
     ──────────────────────────────────────────
     conv (tPi A B) (tPi A' B') (tTy (max i j))
 
 | cong_lam (n : nat) A A' (B b b' : tm → tm) :
     conv A A' (tTy n) ;
-    ⟨ x : A ⊢ conv (b x) (b' x) (B x) ⟩
+    ⟨ x ↦ A ⊢ conv (b x) (b' x) (B x) ⟩
     ─────────────────────────────────────
     conv (tlam A b) (tlam A' b') (tPi A B)
 
@@ -65,14 +65,14 @@ with typing : tm → tm → Prop
 
 | type_Pi (i j : nat) A (B : tm → tm) :
     typing A (tTy i) ;
-    ⟨ x : A ⊢ typing (B x) (tTy j) ⟩
+    ⟨ x ↦ A ⊢ typing (B x) (tTy j) ⟩
     ─────────────────────────────────────
     typing (tPi A B) (tTy (max i j))
 
 | type_lam (i j : nat) A (B t : tm → tm) :
     typing A (tTy i) ;
-    ⟨ x : A ⊢ typing (B x) (tTy j) ⟩ ;
-    ⟨ x : A ⊢ typing (t x) (B x) ⟩
+    ⟨ x ↦ A ⊢ typing (B x) (tTy j) ⟩ ;
+    ⟨ x ↦ A ⊢ typing (t x) (B x) ⟩
     ─────────────────────────────────────
     typing (tlam A t) (tPi A B)
 

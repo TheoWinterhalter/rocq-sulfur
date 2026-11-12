@@ -24,7 +24,7 @@ Sulfur Judgment conv : tm → tm → Prop
     ⟹ conv (tapp (tlam A b) u) (b u)
 | congr_lam A A' (b b' : tm → tm) :
     conv A A' ;
-    ⟨ x : tt ⊢ conv (b x) (b' x) ⟩
+    ⟨ x ↦ tt ⊢ conv (b x) (b' x) ⟩
     ⟹ conv (tlam A b) (tlam A' b').
 
 Sulfur Judgment typing : tm → tm → Prop
@@ -36,13 +36,13 @@ Sulfur Judgment typing : tm → tm → Prop
 
 | type_Pi (i j : nat) A (B : tm → tm) :
     typing A (tTy i) ;
-    ⟨ x : A ⊢ typing (B x) (tTy j) ⟩
+    ⟨ x ↦ A ⊢ typing (B x) (tTy j) ⟩
     ⟹ typing (tPi A B) (tTy (max i j))
 
 | type_lam (i j : nat) A (B t : tm → tm) :
     typing A (tTy i) ;
-    ⟨ x : A ⊢ typing (B x) (tTy j) ⟩ ;
-    ⟨ x : A ⊢ typing (t x) (B x) ⟩
+    ⟨ x ↦ A ⊢ typing (B x) (tTy j) ⟩ ;
+    ⟨ x ↦ A ⊢ typing (t x) (B x) ⟩
     ⟹ typing (tlam A t) (tPi A B)
 
 | type_app A (B : tm → tm) f u :
