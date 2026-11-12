@@ -12,7 +12,8 @@ Import ListNotations.
 Set Default Goal Selector "!".
 
 Sulfur Judgment scoping : term → mode → Prop
-  with Γ : mode, Variable x m : scoping x m :=
+  with context Γ of mode
+  and variable x m ↦ scoping x m :=
 | scope_sort (m : mode) (i : level) :
     ─────────────────────────────────────
     scoping (Sort m i) mKind

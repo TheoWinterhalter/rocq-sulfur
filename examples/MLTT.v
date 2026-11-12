@@ -14,7 +14,8 @@ Sulfur Syntax tm :=
 Existing Instance sign.
 
 Sulfur Judgment conv : tm → tm → tm → Prop
-  with Γ : tm, Variable x A : conv x x A
+  with context Γ of tm
+  and variable x A ↦ conv x x A
 :=
 | beta A (B b : tm → tm) u :
     ────────────────────────────────────
@@ -55,7 +56,8 @@ Sulfur Judgment conv : tm → tm → tm → Prop
     conv u w A
 
 with typing : tm → tm → Prop
-  with Γ : tm, Variable x A : typing x A
+  with context Γ of tm
+  and variable x A ↦ typing x A
 :=
 | type_Ty (i : nat) :
     ─────────────────────────────────────
