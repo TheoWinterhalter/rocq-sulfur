@@ -387,7 +387,7 @@ Coercion hjp : hjdg_ty >-> hprem.
 
 Notation "⟨ x : A ⊢ P ⟩" :=
   (hext A (λ x, P))
-  (at level 0, x name, A at level 200, P at level 200).
+  (at level 0, x name, A at level 69, P at level 200).
 
 (** Instantiate mexpr to concrete syntax *)
 
