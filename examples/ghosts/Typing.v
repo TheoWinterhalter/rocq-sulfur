@@ -38,222 +38,201 @@ Reserved Notation "Γ ⊢ t : A"
 Reserved Notation "Γ ⊢ u ≡ v"
   (at level 80, u, v at next level, format "Γ  ⊢  u  ≡  v").
 
-Inductive conversion (Γ : context) : term → term → Prop :=
-
+Sulfur Judgment conversion : term → term → Prop
+  with context Γ of (mode * term) and variable x m A ↦ conversion x x :=
 (** Computation rules **)
 
-| conv_beta :
-    ∀ m mx A t u,
-      cscoping Γ A mKind →
-      scoping (mx :: sc Γ) t m →
-      cscoping Γ u mx →
-      Γ ⊢ app (lam mx A t) u ≡ t <[ u .. ]
+| conv_beta (m mx : mode) A (t : term → term) u :
+    {{ cscoping Γ A mKind }} ;
+    {{ scoping (mx :: sc Γ) t m }} ;
+    {{ cscoping Γ u mx }}
+    ⟹ conversion (app (lam mx A t) u) (t u)
 
-| reveal_hide :
-    ∀ mp t P p,
-      cscoping Γ t mType →
-      cscoping Γ P mKind →
-      cscoping Γ p mp →
-      In mp [ mProp ; mGhost ] →
-      Γ ⊢ reveal (hide t) P p ≡ app p t
+| reveal_hide (mp : mode) t P p :
+    {{ cscoping Γ t mType }} ;
+    {{ cscoping Γ P mKind }} ;
+    {{ cscoping Γ p mp }} ;
+    {{ In mp [ mProp ; mGhost ] }}
+    ⟹ conversion (reveal (hide t) P p) (app p t)
 
-| conv_if_true :
-    ∀ m P t f,
-      cscoping Γ t m →
-      Γ ⊢ tif m ttrue P t f ≡ t
+| conv_if_true (m : mode) P t f :
+    {{ cscoping Γ t m }}
+    ⟹ conversion (tif m ttrue P t f) t
 
-| conv_if_false :
-    ∀ m P t f,
-      cscoping Γ f m →
-      Γ ⊢ tif m tfalse P t f ≡ f
+| conv_if_false (m : mode) P t f :
+    {{ cscoping Γ f m }}
+    ⟹ conversion (tif m tfalse P t f) f
 
-| conv_nat_elim_zero :
-    ∀ m P z s,
-      m ≠ mKind →
-      cscoping Γ P mKind →
-      cscoping Γ z m →
-      cscoping Γ s m →
-      Γ ⊢ tnat_elim m tzero P z s ≡ z
+| conv_nat_elim_zero (m : mode) P z s :
+    {{ m ≠ mKind }} ;
+    {{ cscoping Γ P mKind }} ;
+    {{ cscoping Γ z m }} ;
+    {{ cscoping Γ s m }}
+    ⟹ conversion (tnat_elim m tzero P z s) z
 
-| conv_nat_elim_succ :
-    ∀ m P z s n,
-      m ≠ mKind →
-      cscoping Γ n mType →
-      cscoping Γ P mKind →
-      cscoping Γ z m →
-      cscoping Γ s m →
-      Γ ⊢ tnat_elim m (tsucc n) P z s ≡ app (app s n) (tnat_elim m n P z s)
+| conv_nat_elim_succ (m : mode) P z s n :
+    {{ m ≠ mKind }} ;
+    {{ cscoping Γ n mType }} ;
+    {{ cscoping Γ P mKind }} ;
+    {{ cscoping Γ z m }} ;
+    {{ cscoping Γ s m }}
+    ⟹ conversion (tnat_elim m (tsucc n) P z s)
+      (app (app s n) (tnat_elim m n P z s))
 
-| conv_vec_elim_nil :
-    ∀ m A P z s,
-      m ≠ mKind →
-      cscoping Γ A mKind →
-      cscoping Γ P mKind →
-      cscoping Γ z m →
-      cscoping Γ s m →
-      Γ ⊢ tvec_elim m A (hide tzero) (tvnil A) P z s ≡ z
+| conv_vec_elim_nil (m : mode) A P z s :
+    {{ m ≠ mKind }} ;
+    {{ cscoping Γ A mKind }} ;
+    {{ cscoping Γ P mKind }} ;
+    {{ cscoping Γ z m }} ;
+    {{ cscoping Γ s m }}
+    ⟹ conversion (tvec_elim m A (hide tzero) (tvnil A) P z s) z
 
-| conv_vec_elim_cons :
-    ∀ m A a n n' v P z s,
-      m ≠ mKind →
-      cscoping Γ A mKind →
-      cscoping Γ a mType →
-      cscoping Γ n mGhost →
-      cscoping Γ n' mGhost →
-      cscoping Γ v mType →
-      cscoping Γ P mKind →
-      cscoping Γ z m →
-      cscoping Γ s m →
-      Γ ⊢ tvec_elim m A n' (tvcons a n v) P z s ≡
-      app (app (app (app s a) (glength A n v)) v) (tvec_elim m A n v P z s)
+| conv_vec_elim_cons (m : mode) A a n n' v P z s :
+    {{ m ≠ mKind }} ;
+    {{ cscoping Γ A mKind }} ;
+    {{ cscoping Γ a mType }} ;
+    {{ cscoping Γ n mGhost }} ;
+    {{ cscoping Γ n' mGhost }} ;
+    {{ cscoping Γ v mType }} ;
+    {{ cscoping Γ P mKind }} ;
+    {{ cscoping Γ z m }} ;
+    {{ cscoping Γ s m }}
+    ⟹ conversion (tvec_elim m A n' (tvcons a n v) P z s)
+      (app
+        (app
+          (app (app s a)
+            (* glength A n v *)
+            (tvec_elim mGhost A n v
+              (lam mGhost (Erased tnat) (λ n0,
+                lam mType (tvec A n0) (λ _, Erased tnat)))
+              (hide tzero)
+              (lam mType A (λ _,
+                lam mGhost (Erased tnat) (λ n0,
+                  lam mType (tvec A n0) (λ _,
+                    lam mGhost (Erased tnat) (λ l,
+                      (* gS l *)
+                      reveal l (lam mGhost (Erased tnat) (λ _, Erased tnat))
+                        (lam mType tnat (λ x, hide (tsucc x))))))))))
+          v)
+        (tvec_elim m A n v P z s))
 
 (** Congruence rules **)
 
 (** A rule to quotient away all levels of Prop, making it impredicative **)
-| cong_Prop :
-    ∀ i j,
-      Γ ⊢ Sort mProp i ≡ Sort mProp j
+| cong_Prop (i j : level) :
+    ⟹ conversion (Sort mProp i) (Sort mProp j)
 
-| cong_Pi :
-    ∀ i i' j j' m mx A A' B B',
-      Γ ⊢ A ≡ A' →
-      Γ ,, (mx, A) ⊢ B ≡ B' →
-      ueq mx i i' →
-      ueq m j j' →
-      Γ ⊢ Pi i j m mx A B ≡ Pi i' j' m mx A' B'
+| cong_Pi (i i' j j' : level) (m mx : mode) A A' (B B' : term → term) :
+    conversion A A' ;
+    ⟨ x ↦ (mx, A) ⊢ conversion (B x) (B' x) ⟩ ;
+    {{ ueq mx i i' }} ;
+    {{ ueq m j j' }}
+    ⟹ conversion (Pi i j m mx A B) (Pi i' j' m mx A' B')
 
-| cong_lam :
-    ∀ mx A A' t t',
-      Γ ⊢ A ≡ A' →
-      Γ ,, (mx, A) ⊢ t ≡ t' →
-      Γ ⊢ lam mx A t ≡ lam mx A' t'
+| cong_lam (mx : mode) A A' (t t' : term → term) :
+    conversion A A' ;
+    ⟨ x ↦ (mx, A) ⊢ conversion (t x) (t' x) ⟩
+    ⟹ conversion (lam mx A t) (lam mx A' t')
 
-| cong_app :
-    ∀ u u' v v',
-      Γ ⊢ u ≡ u' →
-      Γ ⊢ v ≡ v' →
-      Γ ⊢ app u v ≡ app u' v'
+| cong_app u u' v v' :
+    conversion u u' ;
+    conversion v v'
+    ⟹ conversion (app u v) (app u' v')
 
-| cong_Erased :
-    ∀ A A',
-      Γ ⊢ A ≡ A' →
-      Γ ⊢ Erased A ≡ Erased A'
+| cong_Erased A A' :
+    conversion A A'
+    ⟹ conversion (Erased A) (Erased A')
 
-| cong_hide :
-    ∀ u u',
-      Γ ⊢ u ≡ u' →
-      Γ ⊢ hide u ≡ hide u'
+| cong_hide u u' :
+    conversion u u'
+    ⟹ conversion (hide u) (hide u')
 
-| cong_reveal :
-    ∀ t t' P P' p p',
-      Γ ⊢ t ≡ t' →
-      Γ ⊢ P ≡ P' →
-      Γ ⊢ p ≡ p' →
-      Γ ⊢ reveal t P p ≡ reveal t' P' p'
+| cong_reveal t t' P P' p p' :
+    conversion t t' ;
+    conversion P P' ;
+    conversion p p'
+    ⟹ conversion (reveal t P p) (reveal t' P' p')
 
-| cong_Reveal :
-    ∀ t t' p p',
-      Γ ⊢ t ≡ t' →
-      Γ ⊢ p ≡ p' →
-      Γ ⊢ Reveal t p ≡ Reveal t' p'
+| cong_Reveal t t' p p' :
+    conversion t t' ;
+    conversion p p'
+    ⟹ conversion (Reveal t p) (Reveal t' p')
 
-| cong_gheq :
-    ∀ A A' u u' v v',
-      Γ ⊢ A ≡ A' →
-      Γ ⊢ u ≡ u' →
-      Γ ⊢ v ≡ v' →
-      Γ ⊢ gheq A u v ≡ gheq A' u' v'
+| cong_gheq A A' u u' v v' :
+    conversion A A' ;
+    conversion u u' ;
+    conversion v v'
+    ⟹ conversion (gheq A u v) (gheq A' u' v')
 
-(* No need for it thanks to proof irrelevance *)
-(* | cong_ghrefl :
-    ∀ A A' u u',
-      Γ ⊢ A ≡ A' →
-      Γ ⊢ u ≡ u' →
-      Γ ⊢ ghrefl A u ≡ ghrefl A' u' *)
+| cong_if (m : mode) b P t f b' P' t' f' :
+    conversion b b' ;
+    conversion P P' ;
+    conversion t t' ;
+    conversion f f'
+    ⟹ conversion (tif m b P t f) (tif m b' P' t' f')
 
-| cong_if :
-    ∀ m b P t f b' P' t' f',
-      Γ ⊢ b ≡ b' →
-      Γ ⊢ P ≡ P' →
-      Γ ⊢ t ≡ t' →
-      Γ ⊢ f ≡ f' →
-      Γ ⊢ tif m b P t f ≡ tif m b' P' t' f'
+| cong_succ n n' :
+    conversion n n'
+    ⟹ conversion (tsucc n) (tsucc n')
 
-| cong_succ :
-    ∀ n n',
-      Γ ⊢ n ≡ n' →
-      Γ ⊢ tsucc n ≡ tsucc n'
+| cong_nat_elim (m : mode) n P z s n' P' z' s' :
+    conversion n n' ;
+    conversion P P' ;
+    conversion z z' ;
+    conversion s s'
+    ⟹ conversion (tnat_elim m n P z s) (tnat_elim m n' P' z' s')
 
-| cong_nat_elim :
-    ∀ m n P z s n' P' z' s',
-      Γ ⊢ n ≡ n' →
-      Γ ⊢ P ≡ P' →
-      Γ ⊢ z ≡ z' →
-      Γ ⊢ s ≡ s' →
-      Γ ⊢ tnat_elim m n P z s ≡ tnat_elim m n' P' z' s'
+| cong_vec A A' n n' :
+    conversion A A' ;
+    conversion n n'
+    ⟹ conversion (tvec A n) (tvec A' n')
 
-| cong_vec :
-    ∀ A A' n n',
-      Γ ⊢ A ≡ A' →
-      Γ ⊢ n ≡ n' →
-      Γ ⊢ tvec A n ≡ tvec A' n'
+| cong_vnil A A' :
+    conversion A A'
+    ⟹ conversion (tvnil A) (tvnil A')
 
-| cong_vnil :
-    ∀ A A',
-      Γ ⊢ A ≡ A' →
-      Γ ⊢ tvnil A ≡ tvnil A'
+| cong_vcons a n v a' n' v' :
+    conversion a a' ;
+    conversion n n' ;
+    conversion v v'
+    ⟹ conversion (tvcons a n v) (tvcons a' n' v')
 
-| cong_vcons :
-    ∀ a n v a' n' v',
-      Γ ⊢ a ≡ a' →
-      Γ ⊢ n ≡ n' →
-      Γ ⊢ v ≡ v' →
-      Γ ⊢ tvcons a n v ≡ tvcons a' n' v'
+| cong_vec_elim (m : mode) A n v P z s A' n' v' P' z' s' :
+    conversion A A' ;
+    conversion n n' ;
+    conversion v v' ;
+    conversion P P' ;
+    conversion z z' ;
+    conversion s s'
+    ⟹ conversion (tvec_elim m A n v P z s) (tvec_elim m A' n' v' P' z' s')
 
-| cong_vec_elim :
-    ∀ m A n v P z s A' n' v' P' z' s',
-      Γ ⊢ A ≡ A' →
-      Γ ⊢ n ≡ n' →
-      Γ ⊢ v ≡ v' →
-      Γ ⊢ P ≡ P' →
-      Γ ⊢ z ≡ z' →
-      Γ ⊢ s ≡ s' →
-      Γ ⊢ tvec_elim m A n v P z s ≡ tvec_elim m A' n' v' P' z' s'
-
-(* Maybe not needed? *)
-| cong_bot_elim :
-    ∀ m A A' p p',
-      Γ ⊢ A ≡ A' →
-      (* Needed because syntactically we don't know p and p' are irrelevant *)
-      Γ ⊢ p ≡ p' →
-      Γ ⊢ bot_elim m A p ≡ bot_elim m A' p'
+| cong_bot_elim (m : mode) A A' p p' :
+    conversion A A' ;
+    conversion p p'
+    ⟹ conversion (bot_elim m A p) (bot_elim m A' p')
 
 (** Structural rules **)
 
-| conv_refl :
-    ∀ u,
-      Γ ⊢ u ≡ u
+| conv_refl u :
+    ⟹ conversion u u
 
-| conv_sym :
-    ∀ u v,
-      Γ ⊢ u ≡ v →
-      Γ ⊢ v ≡ u
+| conv_sym u v :
+    conversion u v
+    ⟹ conversion v u
 
-| conv_trans :
-    ∀ u v w,
-      Γ ⊢ u ≡ v →
-      Γ ⊢ v ≡ w →
-      Γ ⊢ u ≡ w
+| conv_trans u v w :
+    conversion u v ;
+    conversion v w
+    ⟹ conversion u w
 
 (** Proof irrelevance **)
 
-| conv_irr :
-    ∀ p q,
-      cscoping Γ p mProp →
-      cscoping Γ q mProp →
-      Γ ⊢ p ≡ q
+| conv_irr p q :
+    {{ cscoping Γ p mProp }} ;
+    {{ cscoping Γ q mProp }}
+    ⟹ conversion p q.
 
-where "Γ ⊢ u ≡ v" := (conversion Γ u v).
+Notation "Γ ⊢ u ≡ v" := (conversion Γ u v).
 
 Inductive typing (Γ : context) : term → term → Prop :=
 

@@ -61,22 +61,6 @@ Abbreviation mdc Γ t := (md (sc Γ) t).
 
 (** Relation with scoping **)
 
-Lemma cinctx_nth_error {D} (f : D → D) Γ n d :
-  cinctx f Γ n d ↔
-  ∃ d', nth_error Γ n = Some d' ∧ d = Nat.iter (S n) f d'.
-Proof.
-  split.
-  - induction 1 as [d Γ | d d1 Γ n h (d2 & e & ->)].
-    + exists d. auto.
-    + exists d2. auto.
-  - intros (d' & e & ->).
-    induction Γ as [| d1 Γ ih] in n, e |- *. 1: destruct n ; discriminate.
-    destruct n as [| n]. all: cbn in e.
-    + injection e as ->. apply cin_head.
-    + change (Nat.iter (S (S n)) f d') with (f (Nat.iter (S n) f d')).
-      apply cin_tail. auto.
-Qed.
-
 Lemma cinctx_id {D} (Γ : list D) n d :
   cinctx (λ x, x) Γ n d ↔ nth_error Γ n = Some d.
 Proof.

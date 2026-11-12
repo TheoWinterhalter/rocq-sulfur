@@ -51,13 +51,14 @@ Currently, one can do the following.
 
 ```rocq
 Sulfur Judgment conv : tm → tm → Prop
-  with Γ : unit, Variable x A : conv x x :=
+  with context Γ of unit
+  and variable x A ↦ conv x x :=
 | beta A (b : tm → tm) u :
     ────────────────────────────────────
     conv (tapp (tlam A b) u) (b u)
 | congr_lam A A' (b b' : tm → tm) :
     conv A A' ;
-    ⟨ x : tt ⊢ conv (b x) (b' x) ⟩
+    ⟨ x ↦ tt ⊢ conv (b x) (b' x) ⟩
     ────────────────────────────────────
     conv (tlam A b) (tlam A' b').
 ```
@@ -68,7 +69,7 @@ notion of contexts (here said to be holding `unit` values):
 conv : list unit → tm → tm → Prop
 ```
 
-The `Variable` bit tells Sulfur how to generate the variable rule (as well
+The `variable` bit tells Sulfur how to generate the variable rule (as well
 as the substitution judgment):
 ```rocq
 conv_var : ∀ (Γ : list unit) (n : nat) (d : unit),
@@ -90,7 +91,7 @@ by Sulfur).
 
 ```rocq
 Sulfur Judgment typing : tm → tm → Prop
-  with Γ : tm, Variable x A : typing x A :=
+  with context Γ of tm and variable x A ↦ typing x A :=
 (* other rules ommited *)
 
 | type_conv A A' t :
@@ -99,6 +100,9 @@ Sulfur Judgment typing : tm → tm → Prop
     ────────────────────────────────────
     typing t A'.
 ```
+
+Other judgments are referred to using `{{ _ }}` in which the context is bound
+with the name given after `context`, which is `Γ` in our examples.
 
 This will generate obligations that can be discharged with:
 ```rocq

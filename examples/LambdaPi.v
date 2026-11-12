@@ -14,7 +14,8 @@ Sulfur Syntax tm :=
 Existing Instance sign.
 
 Sulfur Judgment conv : tm → tm → Prop
-  with Γ : unit, Variable x A : conv x x
+  with context Γ of unit
+  and variable x A ↦ conv x x
 :=
 | refl u :
     ⟹ conv u u
@@ -23,24 +24,25 @@ Sulfur Judgment conv : tm → tm → Prop
     ⟹ conv (tapp (tlam A b) u) (b u)
 | congr_lam A A' (b b' : tm → tm) :
     conv A A' ;
-    ⟨ x : tt ⊢ conv (b x) (b' x) ⟩
+    ⟨ x ↦ tt ⊢ conv (b x) (b' x) ⟩
     ⟹ conv (tlam A b) (tlam A' b').
 
 Sulfur Judgment typing : tm → tm → Prop
-  with Γ : tm, Variable x A : typing x A
+  with context Γ of tm
+  and variable x A ↦ typing x A
 :=
 | type_Ty (i : nat) :
     ⟹ typing (tTy i) (tTy (S i))
 
 | type_Pi (i j : nat) A (B : tm → tm) :
     typing A (tTy i) ;
-    ⟨ x : A ⊢ typing (B x) (tTy j) ⟩
+    ⟨ x ↦ A ⊢ typing (B x) (tTy j) ⟩
     ⟹ typing (tPi A B) (tTy (max i j))
 
 | type_lam (i j : nat) A (B t : tm → tm) :
     typing A (tTy i) ;
-    ⟨ x : A ⊢ typing (B x) (tTy j) ⟩ ;
-    ⟨ x : A ⊢ typing (t x) (B x) ⟩
+    ⟨ x ↦ A ⊢ typing (B x) (tTy j) ⟩ ;
+    ⟨ x ↦ A ⊢ typing (t x) (B x) ⟩
     ⟹ typing (tlam A t) (tPi A B)
 
 | type_app A (B : tm → tm) f u :

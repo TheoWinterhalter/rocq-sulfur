@@ -3,7 +3,7 @@
 
 From Stdlib Require Import Utf8 Relations Morphisms.
 From Equations Require Import Equations.
-From Utils Require Import Fin.
+From SulfurUtils Require Import Fin.
 
 (** Enable reducing constants defined using [Equations]. *)
 Set Equations Transparent.

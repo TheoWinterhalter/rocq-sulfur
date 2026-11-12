@@ -14,7 +14,8 @@ Sulfur Syntax term : Type :=
 Existing Instance sign.
 
 Sulfur Judgment typing : term → term → Prop
-  with Γ : term, Variable x A : typing x A :=
+  with context Γ of term
+  and variable x A ↦ typing x A :=
 | type_K (A B : term) :
     ⟹ typing tK (tarr A (tarr B A))
 | type_S (A B C : term) :

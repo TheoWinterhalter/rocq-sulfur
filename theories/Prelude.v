@@ -2,7 +2,7 @@ From Stdlib Require Export Bool Nat List String Morphisms Relations Program.Equa
 From Stdlib Require Import Utf8.
 From Ltac2 Require Export Ltac2.
 From Equations Require Export Equations.
-From Utils Require Export Fin Vector Functor Generalities.
+From SulfurUtils Require Export Fin Vector Functor Generalities.
 Export ListNotations VectorNotations.
 Require Export Stdlib.Logic.ProofIrrelevance.
 

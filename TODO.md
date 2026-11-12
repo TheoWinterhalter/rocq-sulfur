@@ -14,6 +14,10 @@
 - [ ] Have a special notation for `x : tt`.
 - [ ] Maybe replace `x : A` with `x ↦ A` or something.
 - [ ] Be more friendly towards non-Unicode users.
+- [ ] Renaming and weakening lemmas.
+- [ ] Optimise obligations.
+- [ ] Support notations for judgments being defined (seems hard).
+- [ ] Support for defined expressions over syntax in judgments (such as `glength` in `examples/ghosts/Typing.v`).
 
 ## Extension ideas
 

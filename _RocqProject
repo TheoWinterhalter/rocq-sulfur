@@ -1,5 +1,5 @@
 -Q _build/install/default/lib/coq/user-contrib/Sulfur Sulfur
--Q _build/install/default/lib/coq/user-contrib/Utils Utils
+-Q _build/install/default/lib/coq/user-contrib/SulfurUtils SulfurUtils
 -Q _build/install/default/lib/coq/user-contrib/SulfurExamples SulfurExamples
 -Q _build/install/default/lib/coq/user-contrib/SulfurGhostExample SulfurGhostExample
 -I _build/install/default/lib/

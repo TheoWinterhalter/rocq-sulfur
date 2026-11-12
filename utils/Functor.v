@@ -1,4 +1,4 @@
-From Utils Require Import Generalities.
+From SulfurUtils Require Import Generalities.
 From Stdlib Require Import List. Import ListNotations.
 
 (* This files defines utils about functors *)
