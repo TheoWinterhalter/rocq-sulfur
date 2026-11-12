@@ -91,7 +91,7 @@ by Sulfur).
 
 ```rocq
 Sulfur Judgment typing : tm → tm → Prop
-  with context Γ of tm and variable x A : typing x A :=
+  with context Γ of tm and variable x A ↦ typing x A :=
 (* other rules ommited *)
 
 | type_conv A A' t :
