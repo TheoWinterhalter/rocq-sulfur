@@ -13,7 +13,7 @@ From Stdlib Require Import Utf8 String.
 From Sulfur Require Import Prelude Sig Renamings.
 From Sulfur Require Import ParamSyntax JudgmentSyntaxScoped ConcreteSyntax.
 From Sulfur Require Import JdgShape.
-From Utils Require Import Functor.
+From SulfurUtils Require Import Functor.
 
 (** Judgments and declarations are built on shapes *)
 

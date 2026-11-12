@@ -3,7 +3,7 @@
 
 From Equations Require Import Equations.
 From Stdlib Require Import Utf8 Bool List.
-From Utils Require Import Generalities.
+From SulfurUtils Require Import Generalities.
 
 (** Enable reducing constants defined using [Equations]. *)
 Set Equations Transparent.

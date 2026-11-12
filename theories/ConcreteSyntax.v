@@ -3,7 +3,7 @@
 From Stdlib Require Import Utf8 String.
 From Sulfur Require Import Prelude Sig Renamings.
 From Sulfur Require Import ParamSyntax JudgmentSyntaxScoped.
-From Utils Require Import Functor.
+From SulfurUtils Require Import Functor.
 
 Set Default Goal Selector "!".
 

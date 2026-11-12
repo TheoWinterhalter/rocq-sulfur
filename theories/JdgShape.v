@@ -8,7 +8,7 @@
 *)
 
 From Stdlib Require Import Utf8 List Bool.
-From Utils Require Import Functor Generalities.
+From SulfurUtils Require Import Functor Generalities.
 Import ListNotations.
 
 Set Default Goal Selector "!".
