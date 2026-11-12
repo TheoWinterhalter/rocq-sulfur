@@ -39,7 +39,7 @@ Reserved Notation "Γ ⊢ u ≡ v"
   (at level 80, u, v at next level, format "Γ  ⊢  u  ≡  v").
 
 Sulfur Judgment conversion : term → term → Prop
-  with context Γ of (mode * term) and variable x m A ↦ conversion x x :=
+  with context Γ of (mode * term) and variable x m _ ↦ conversion x x :=
 (** Computation rules **)
 
 | conv_beta (m mx : mode) A (t : term → term) u :
