@@ -58,7 +58,7 @@ Sulfur Judgment conv : tm → tm → Prop
     conv (tapp (tlam A b) u) (b u)
 | congr_lam A A' (b b' : tm → tm) :
     conv A A' ;
-    ⟨ x : tt ⊢ conv (b x) (b' x) ⟩
+    ⟨ x ↦ tt ⊢ conv (b x) (b' x) ⟩
     ────────────────────────────────────
     conv (tlam A b) (tlam A' b').
 ```
