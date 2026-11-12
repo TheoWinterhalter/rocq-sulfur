@@ -15,7 +15,7 @@ Existing Instance sign.
 
 Sulfur Judgment conv : tm → tm → Prop
   with context Γ of unit
-  and variable x A ↦ conv x x
+  and variable x _ ↦ conv x x
 :=
 | refl u :
     ⟹ conv u u
