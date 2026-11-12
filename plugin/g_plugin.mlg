@@ -63,7 +63,7 @@ END
 
 VERNAC ARGUMENT EXTEND jdg_header
 | [ ident(name) ":" lconstr(ty) "with" "context" ident(g) "of" constr(d)
-    "and" "variable" ident(x) ident_list(ds) "↦" ident(r) ident_list(args) ] ->
+    "and" "variable" ident(x) name_list(ds) "↦" ident(r) ident_list(args) ] ->
   { Jdg.{ ph_name = name ; ph_type = ty ; ph_ctx = g ; ph_decl = d ;
           ph_var = x ; ph_decls = ds ; ph_jdg = r ; ph_args = args } }
 END

@@ -52,7 +52,7 @@ Currently, one can do the following.
 ```rocq
 Sulfur Judgment conv : tm → tm → Prop
   with context Γ of unit
-  and variable x A ↦ conv x x :=
+  and variable x _ ↦ conv x x :=
 | beta A (b : tm → tm) u :
     ────────────────────────────────────
     conv (tapp (tlam A b) u) (b u)

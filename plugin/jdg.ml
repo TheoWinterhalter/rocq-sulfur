@@ -23,7 +23,7 @@ type header = {
   ph_ctx : Names.Id.t ;
   ph_decl : Constrexpr.constr_expr ;
   ph_var : Names.Id.t ;
-  ph_decls : Names.Id.t list ;
+  ph_decls : Names.lname list ;
   ph_jdg : Names.Id.t ;
   ph_args : Names.Id.t list
 }
@@ -696,7 +696,10 @@ let shapes_expr (hs : header list) : Constrexpr.constr_expr =
     let sel a s =
       let rec index k = function
         | [] -> None
-        | d :: ds -> if Names.Id.equal a d then Some k else index (k + 1) ds
+        | d :: ds ->
+          if Names.Name.equal (Names.Name a) d.CAst.v
+          then Some k
+          else index (k + 1) ds
       in
       if Names.Id.equal a h.ph_var then mkAppC (Cexpr.gref' C.Jdg.sel_var, [ s ])
       else
