@@ -7,6 +7,7 @@
 - [ ] Mutual sorts
 - [ ] Scoped syntax
 - [ ] Phantom names
+- [ ] Declare existing instance for the signature.
 
 ## Sulfur Judgment
 
