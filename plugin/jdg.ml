@@ -669,7 +669,6 @@ let desc_expr (blocks : (header * prule list) list)
   (shapes : Names.Constant.t) : Constrexpr.constr_expr =
   let open Constrexpr_ops in
   let hs = List.map fst blocks in
-  let h = List.hd hs in
   let sign, ops = saved_ops () in
   let sort = sign.Signature.sort_name in
   let shc = Cexpr.gref (Names.GlobRef.ConstRef shapes) in
@@ -696,8 +695,8 @@ let desc_expr (blocks : (header * prule list) list)
       defs e
   in
   (* [{{ P }}] with meta-variables [xs] (see above); the context is named
-    and typed as in the header *)
-  let pred xs e =
+    and typed as in the header [h] *)
+  let pred h xs e =
     let gamma = CAst.make (Names.Name h.ph_ctx) in
     let bs =
       [
@@ -712,19 +711,19 @@ let desc_expr (blocks : (header * prule list) list)
     A judgment [p] is checked against [hprem] and coerced;
     [cons p l] alone would infer the type from [p] first.
   *)
-  let prems xs l =
+  let prems h xs l =
     let prem p =
       match p with
       | PJdg e -> hoas e
-      | PPred e -> pred xs e
+      | PPred e -> pred h xs e
     in
     let cons p l =
       Cexpr.app_expl C.cons [ shaped C.Jdg.hprem [] ; prem p ; l ]
     in
     List.fold_right cons l (Cexpr.gref' C.nil)
   in
-  (* A rule of the [k]th judgment *)
-  let rule k r =
+  (* A rule of the [k]th judgment, with header [h] *)
+  let rule k h r =
     let bs = List.map (typed sort) r.pr_binders in
     shaped C.Jdg.hrule [
       idx_expr k ;
@@ -732,11 +731,11 @@ let desc_expr (blocks : (header * prule list) list)
       Cexpr.list (params sort bs) ;
       (* [hfun [] R] is [R]: no lambda for a rule without binders *)
       (if bs = [] then Fun.id else mkCLambdaN (List.map (hbinder sort) bs))
-        (Cexpr.pair (prems (metas sort bs) r.pr_prems) (hoas r.pr_concl))
+        (Cexpr.pair (prems h (metas sort bs) r.pr_prems) (hoas r.pr_concl))
     ]
   in
   (* The rules of each block as a list, the blocks as a tuple *)
-  let block k (_, rs) = Cexpr.list (List.map (rule k) rs) in
+  let block k (h, rs) = Cexpr.list (List.map (rule k h) rs) in
   mkCastC (
     List.fold_right Cexpr.pair (List.mapi block blocks) (Cexpr.gref' C.tt),
     Some Constr.DEFAULTcast,

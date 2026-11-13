@@ -1,6 +1,6 @@
 (** MLTT with typed conversion (mutual judgments) *)
 
-From Stdlib Require Import Utf8 String.
+From Stdlib Require Import Utf8.
 From Sulfur Require Import Prelude Sig Renamings All.
 From Sulfur Require Import ParamSyntax JudgmentSyntaxScoped.
 From Sulfur Require Import ConcreteSyntax JdgDesc.
