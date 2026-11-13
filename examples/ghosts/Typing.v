@@ -230,6 +230,24 @@ Notation "Γ ⊢ u ≡ v" :=
   (conversion Γ u v)
   (at level 80, u, v at next level, format "Γ  ⊢  u  ≡  v").
 
+Lemma cstyping_conversion_scoping Δ Γ σ :
+  cstyping Fin.finO conversion Δ σ Γ →
+  cstyping (sh := scoping_shapes) Fin.finO scoping (sc Δ) σ (sc Γ).
+Proof.
+  intros h. cbn in *.
+  induction h as [| Δ σ Γ d hd h0 ih]. 1: constructor.
+  cbn in *. constructor.
+  - auto.
+  - cbn. unfold id.
+    (* It seems we want something stronger *)
+Admitted.
+
+Instance: conversion_obligations.
+Proof.
+  red.
+  intuition (try (eapply scoping_subst ; eauto using cstyping_conversion_scoping)).
+Admitted.
+
 Sulfur Judgment typing : term → term → Prop
   with context Γ of (mode * term)
   and variable x m A ↦ typing x A :=
@@ -465,6 +483,25 @@ Sulfur Judgment typing : term → term → Prop
 Notation "Γ ⊢ t : A" :=
   (typing Γ t A)
   (at level 80, t, A at next level, format "Γ  ⊢  t  :  A").
+
+Lemma cstyping_typing_scoping Δ Γ σ :
+  cstyping Fin.finO typing Δ σ Γ →
+  cstyping (sh := scoping_shapes) Fin.finO scoping (sc Δ) σ (sc Γ).
+Proof.
+  intros h. cbn in *.
+  induction h as [| Δ σ Γ d hd ih h0]. 1: constructor.
+  cbn in *. constructor.
+  - auto.
+  - cbn. unfold id.
+    destruct d as [m t]. cbn in *.
+    (* Might be ok *)
+Admitted.
+
+Instance: typing_obligations.
+Proof.
+  (* red. intuition eauto.
+  - eapply scoping_subst. 1: eauto. *)
+Admitted.
 
 (** Context formation **)
 

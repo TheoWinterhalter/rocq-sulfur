@@ -188,3 +188,8 @@ Hint Constructors scoping : gtt_scope.
 
 Ltac gscope :=
   unshelve typeclasses eauto with gtt_scope shelvedb ; shelve_unifiable.
+
+Instance: scoping_obligations.
+Proof.
+  red. intuition auto.
+Qed.
