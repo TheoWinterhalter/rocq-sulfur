@@ -4,8 +4,9 @@
 
 **)
 
-From Stdlib Require Import Utf8 List String.
-From SulfurGhostExample Require Import GAST SubstNotations ContextDecl CastRemoval.
+From Stdlib Require Import Utf8 List.
+From SulfurGhostExample
+Require Import GAST SubstNotations ContextDecl CastRemoval.
 
 Import ListNotations.
 
@@ -187,3 +188,8 @@ Hint Constructors scoping : gtt_scope.
 
 Ltac gscope :=
   unshelve typeclasses eauto with gtt_scope shelvedb ; shelve_unifiable.
+
+Instance: scoping_obligations.
+Proof.
+  red. intuition auto.
+Qed.

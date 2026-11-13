@@ -10,6 +10,7 @@
 
 ## Sulfur Judgment
 
+- [ ] Make sure the examples work properly. See `Admitted` in `examples/ghosts/Typing.v`.
 - [ ] Improve `⟨ x : A ⊢ t ⟩` notation to be n-ary.
 - [ ] Have a special notation for `x : tt`.
 - [ ] Maybe replace `x : A` with `x ↦ A` or something.
