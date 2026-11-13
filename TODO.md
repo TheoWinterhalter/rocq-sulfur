@@ -19,6 +19,7 @@
 - [ ] Optimise obligations.
 - [ ] Support notations for judgments being defined (seems hard).
 - [ ] Support for defined expressions over syntax in judgments (such as `glength` in `examples/ghosts/Typing.v`).
+- [ ] Fix "Warning: hjp does not respect the uniform inheritance condition."
 
 ## Extension ideas
 
