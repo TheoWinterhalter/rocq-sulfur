@@ -9,13 +9,6 @@ open Prelude
 open Signature
 module C = Constants
 
-(** Declare a constant as a typeclass instance. *)
-let declare_instance (c : Names.Constant.t) : unit =
-  let env = Global.env () in
-  let sigma = Evd.from_env env in
-  Classes.declare_instance ~warn:true env sigma None Hints.Export
-    (Names.GlobRef.ConstRef c)
-
 (** Build [forall e : expr Kt, reify (eval Kt e) = e]. *)
 let build_reify_eval (osign : ops_sign) (re : ops_reify_eval) : EConstr.t m =
   prod "e" (term1 osign) @@ fun e ->

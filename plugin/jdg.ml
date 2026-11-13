@@ -809,8 +809,7 @@ let generate_rules (blocks : (header * prule list) list) : unit =
   let hs = List.map fst blocks in
   let name = Names.Id.to_string (List.hd hs).ph_name in
   let shapes = def (name ^ "_shapes") (pretype (shapes_expr hs)) in
-  Classes.declare_instance (Global.env ()) (Evd.from_env (Global.env ()))
-    None Hints.Export (Names.GlobRef.ConstRef shapes) ;
+  declare_instance shapes ;
   let desc =
     def (name ^ "_desc") begin
       let* d = pretype (desc_expr blocks shapes) in

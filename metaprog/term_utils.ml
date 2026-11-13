@@ -475,6 +475,13 @@ let declare_ind (name : Names.Id.t) (arity : EConstr.t) (ctor_names : Names.Id.t
   let mname = monad_run @@ declare_mut_ind [name] [arity] [ctor_names] [List.map make_dep_on_one ctor_types] in
   ret (mname, 0)
 
+(** Declare a constant as a typeclass instance. *)
+let declare_instance (c : Names.Constant.t) : unit =
+  let env = Global.env () in
+  let sigma = Evd.from_env env in
+  let rf = Names.GlobRef.ConstRef c in
+  Classes.declare_instance ~warn:true env sigma None Hints.Export rf
+
 (**************************************************************************************)
 (** *** Reduction, binders, typeclasses. *)
 (**************************************************************************************)
