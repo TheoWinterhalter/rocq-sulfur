@@ -4,8 +4,9 @@
 
 **)
 
-From Stdlib Require Import Utf8 List String.
-From SulfurGhostExample Require Import GAST SubstNotations ContextDecl CastRemoval.
+From Stdlib Require Import Utf8 List.
+From SulfurGhostExample
+Require Import GAST SubstNotations ContextDecl CastRemoval.
 
 Import ListNotations.
 
