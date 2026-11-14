@@ -8,36 +8,8 @@
 *)
 
 open Prelude
+open Jdg_parse
 module C = Constants
-
-(** Parsed data *)
-
-(** The header of a judgment, see [g_plugin.mlg]. *)
-type header = {
-  ph_name : Names.Id.t ;
-  ph_type : Constrexpr.constr_expr ;
-  ph_ctx : Names.Id.t ;
-  ph_decl : Constrexpr.constr_expr ;
-  ph_var : Names.Id.t ;
-  ph_decls : Names.lname list ;
-  ph_jdg : Names.Id.t ;
-  ph_args : Names.Id.t list
-}
-
-(** A premise as written: a judgment, or [{{ P }}]. *)
-type prem =
-| PJdg of Constrexpr.constr_expr
-| PPred of Constrexpr.constr_expr
-
-(** A rule as written in the command:
-  [| name (x1 ... : t1) ... : p1 ; ... ; pn ⟹ c].
-*)
-type prule = {
-  pr_name : Names.Id.t ;
-  pr_binders : Constrexpr.local_binder_expr list ;
-  pr_prems : prem list ;
-  pr_concl : Constrexpr.constr_expr
-}
 
 (** A rule for the generation:
   its term in the description, its name, its judgment, the names of its binders
@@ -214,11 +186,11 @@ let reduce (transparent : Names.Constant.t list) (t : EConstr.t) : EConstr.t m =
   reduce_only ~refold:[ const_of_ref (Lazy.force C.map) ] transparent t
 
 (** The description [desc] of the judgments of [blocks], read *)
-let read_desc (blocks : (header * prule list) list) (desc : EConstr.t) : desc =
-  let d_names = List.map (fun (h, _) -> h.ph_name) blocks in
+let read_desc (blocks : pblock list) (desc : EConstr.t) : desc =
+  let d_names = List.map (fun b -> b.pb_header.ph_name) blocks in
   (* The rules as written, with the index of their judgment *)
   let prs =
-    List.mapi (fun k (_, rs) -> List.map (fun r -> (k, r)) rs) blocks
+    List.mapi (fun k b -> List.map (fun r -> (k, r)) b.pb_rules) blocks
     |> List.concat
   in
   monad_run begin
@@ -544,7 +516,7 @@ let subst_lemmas (d : desc) (f : family) ~sound ~complete : unit =
 
 (** The judgments of [blocks], described by [desc]: the inductives, then the
   lemmas. *)
-let generate_desc (blocks : (header * prule list) list) (desc : EConstr.t) :
+let generate_desc (blocks : pblock list) (desc : EConstr.t) :
   unit =
   let d = read_desc blocks desc in
   let f = declare_inductives d in
@@ -665,10 +637,10 @@ let metas (sort : Names.Id.t) (bs : Constrexpr.local_binder_expr list) :
   constant that depends on it, so that the types of the predicates reduce during
   elaboration; the bracket and the coercion of judgments find it by unification.
 *)
-let desc_expr (blocks : (header * prule list) list)
+let desc_expr (blocks : pblock list)
   (shapes : Names.Constant.t) : Constrexpr.constr_expr =
   let open Constrexpr_ops in
-  let hs = List.map fst blocks in
+  let hs = List.map (fun b -> b.pb_header) blocks in
   let sign, ops = saved_ops () in
   let sort = sign.Signature.sort_name in
   let shc = Cexpr.gref (Names.GlobRef.ConstRef shapes) in
@@ -735,7 +707,7 @@ let desc_expr (blocks : (header * prule list) list)
     ]
   in
   (* The rules of each block as a list, the blocks as a tuple *)
-  let block k (h, rs) = Cexpr.list (List.map (rule k h) rs) in
+  let block k b = Cexpr.list (List.map (rule k b.pb_header) b.pb_rules) in
   mkCastC (
     List.fold_right Cexpr.pair (List.mapi block blocks) (Cexpr.gref' C.tt),
     Some Constr.DEFAULTcast,
@@ -751,7 +723,7 @@ let shape_of (sort : Names.Id.t) (ty : Constrexpr.constr_expr) :
 
 (** The judgment of a variable, from the header: each argument is the variable
   or one of the declarations [d1 ... dn], picked by position; [_] names none. *)
-let selection (h : header) : Constrexpr.constr_expr =
+let selection (h : pheader) : Constrexpr.constr_expr =
   let open Constrexpr_ops in
   let rec pos k =
     if k = 0 then Cexpr.gref' C.Jdg.pos0
@@ -782,7 +754,7 @@ let selection (h : header) : Constrexpr.constr_expr =
   [shapes [d] [jshape_of [a1 ; ... ; am] (sel of the variable rule) ; ...]]:
   a declaration is a product of shapes ([unit] for none). The judgments of a
   block declare the same thing. *)
-let shapes_expr (hs : header list) : Constrexpr.constr_expr =
+let shapes_expr (hs : pheader list) : Constrexpr.constr_expr =
   let open Constrexpr_ops in
   let sign, _ = saved_ops () in
   let sort = sign.Signature.sort_name in
@@ -790,7 +762,7 @@ let shapes_expr (hs : header list) : Constrexpr.constr_expr =
   let dsh =
     Cexpr.list (List.map (shape_of sort) (decl_components h0.ph_decl))
   in
-  let jshape (h : header) =
+  let jshape (h : pheader) =
     if not (constr_expr_eq h.ph_decl h0.ph_decl) then
       Log.error ?loc:h.ph_decl.CAst.loc
         "Sulfur Judgment: the judgments of a block declare the same thing." ;
@@ -805,8 +777,8 @@ let shapes_expr (hs : header list) : Constrexpr.constr_expr =
   instance [R_shapes], the description as [R_desc] (with the local
   definitions substituted), then handled as above.
 *)
-let generate_rules (blocks : (header * prule list) list) : unit =
-  let hs = List.map fst blocks in
+let generate_rules (blocks : pblock list) : unit =
+  let hs = List.map (fun b -> b.pb_header) blocks in
   let name = Names.Id.to_string (List.hd hs).ph_name in
   let shapes = def (name ^ "_shapes") (pretype (shapes_expr hs)) in
   declare_instance shapes ;

@@ -5,6 +5,7 @@ DECLARE PLUGIN "rocq-sulfur.plugin"
   open Stdarg
   open Procq.Prim
   open Procq.Constr
+  open Jdg_parse
 }
 
 (** The optional [: Type] of a sort declaration *)
@@ -39,8 +40,8 @@ END
 (** A premise: a judgment, or [{{ P }}] with [P] a proposition over the
   context [Γ] and the meta-variables as concrete terms. *)
 VERNAC ARGUMENT EXTEND jdg_prem
-| [ "{{" lconstr(e) "}}" ] -> { Jdg.PPred e }
-| [ lconstr(e) ] -> { Jdg.PJdg e }
+| [ "{{" lconstr(e) "}}" ] -> { PPred e }
+| [ lconstr(e) ] -> { PJdg e }
 END
 
 (** An inference rule itself. *)
@@ -49,28 +50,27 @@ VERNAC ARGUMENT EXTEND jdg_line
 | [ "─" ] -> { () }
 END
 
-(** [⟹], or a line. *)
 VERNAC ARGUMENT EXTEND jdg_bar
 | [ "⟹" ] -> { () }
 | [ jdg_line ] -> { () }
 END
 
-(** [| name (A B : term) : R t A ; R u B ⟹ R (c t u) C]. *)
 VERNAC ARGUMENT EXTEND jdg_rule
 | [ "|" ident(n) binders(bs) ":" jdg_prem_list_sep(ps, ";") jdg_bar lconstr(c) ] ->
-  { Jdg.{ pr_name = n ; pr_binders = bs ; pr_prems = ps ; pr_concl = c } }
+  { { pr_name = n ; pr_binders = bs ; pr_prems = ps ; pr_concl = c } }
 END
 
 VERNAC ARGUMENT EXTEND jdg_header
 | [ ident(name) ":" lconstr(ty) "with" "context" ident(g) "of" constr(d)
     "and" "variable" ident(x) name_list(ds) "↦" ident(r) ident_list(args) ] ->
-  { Jdg.{ ph_name = name ; ph_type = ty ; ph_ctx = g ; ph_decl = d ;
+  { { ph_name = name ; ph_type = ty ; ph_ctx = g ; ph_decl = d ;
           ph_var = x ; ph_decls = ds ; ph_jdg = r ; ph_args = args } }
 END
 
 (** A judgment and its rules, [header := rules]. *)
 VERNAC ARGUMENT EXTEND jdg_block
-| [ jdg_header(h) ":=" jdg_rule_list(rs) ] -> { (h, rs) }
+| [ jdg_header(h) ":=" jdg_rule_list(rs) ] ->
+  { { pb_header = h ; pb_rules = rs } }
 END
 
 (** Several judgments, separated by [with]. *)
