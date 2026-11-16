@@ -12,8 +12,6 @@ Sulfur Syntax tm :=
 | tapp : tm → tm → tm
 | tax : tm → tm.
 
-Existing Instance sign.
-
 Sulfur Judgment j1 : tm → tm → Prop
   with context Γ of tm
   and variable x A ↦ j1 x A

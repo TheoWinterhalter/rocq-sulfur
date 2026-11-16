@@ -11,8 +11,6 @@ Sulfur Syntax tm :=
 | tlam : tm → (tm → tm) → tm
 | tapp : tm → tm → tm.
 
-Existing Instance sign.
-
 Sulfur Judgment conv : tm → tm → Prop
   with context Γ of unit
   and variable x _ ↦ conv x x

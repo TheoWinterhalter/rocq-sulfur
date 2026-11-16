@@ -43,8 +43,6 @@ Time Sulfur Syntax term(Var) :=
 | bot : term
 | bot_elim : mode -> term -> term -> term.
 
-Existing Instance sign.
-
 (* FIXME (should be automatic) *)
 Ltac2 Set sunfold_list as old :=
   fun () => List.append (constants up_ren, up_subst) (old ()).

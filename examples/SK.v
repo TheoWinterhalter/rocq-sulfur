@@ -11,8 +11,6 @@ Sulfur Syntax term : Type :=
 | tarr : term → term → term
 | tapp : term → term → term.
 
-Existing Instance sign.
-
 Sulfur Judgment typing : term → term → Prop
   with context Γ of term
   and variable x A ↦ typing x A :=
