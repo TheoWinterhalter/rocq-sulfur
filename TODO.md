@@ -1,5 +1,9 @@
 # TODOs
 
+## General
+
+- [ ] Make generated constants more robust by placing them inside modules?
+
 ## Sulfur Syntax
 
 - [ ] Support user-provided preprocessors for syntax (typically evaluation strategy, tactic)
