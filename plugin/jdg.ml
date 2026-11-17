@@ -782,8 +782,7 @@ let block_decl (hs : pheader list) : Constrexpr.constr_expr =
 
 (** The shapes of the headers, as the Gallina expression
   [shapes [d] [jshape_of [a1 ; ... ; am] (sel of the variable rule) ; ...]]:
-  a declaration is a product of shapes ([unit] for none). The judgments of a
-  block declare the same thing. *)
+  a declaration is a product of shapes ([unit] for none). *)
 let shapes_expr decl (hs : pheader list) : Constrexpr.constr_expr =
   let open Constrexpr_ops in
   let sign, _ = saved_ops () in
