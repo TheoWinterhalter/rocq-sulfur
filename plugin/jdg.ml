@@ -534,10 +534,13 @@ let saved_ops () =
   | Some x -> x
   | None -> Log.error "Sulfur Judgment: no syntax was generated beforehand."
 
+let rec ce_iter n f x =
+  if n <= 0 then x
+  else Constrexpr_ops.mkAppC (f, [ ce_iter (n - 1) f x ])
+
 (** The index [k] of a judgment, as an expression *)
-let rec idx_expr (k : int) : Constrexpr.constr_expr =
-  if k = 0 then Cexpr.gref' C.Jdg.finO
-  else Constrexpr_ops.mkAppC (Cexpr.gref' C.Jdg.finS, [ idx_expr (k - 1) ])
+let idx_expr (k : int) : Constrexpr.constr_expr =
+  ce_iter k (Cexpr.gref' C.Jdg.finS) (Cexpr.gref' C.Jdg.finO)
 
 (** The components of a declaration [Γ : d]: the factors of a product, none for
   [unit]. The context is a list of the library's tuples, [decl_type d]. *)
