@@ -1,5 +1,9 @@
 # TODOs
 
+## General
+
+- [ ] Make generated constants more robust by placing them inside modules?
+
 ## Sulfur Syntax
 
 - [ ] Support user-provided preprocessors for syntax (typically evaluation strategy, tactic)
@@ -7,6 +11,7 @@
 - [ ] Mutual sorts
 - [ ] Scoped syntax
 - [ ] Phantom names
+- [X] Declare existing instance for the signature.
 
 ## Sulfur Judgment
 

@@ -241,6 +241,8 @@ val declare_mut_ind :
     (Names.Id.t list -> EConstr.t m) list list ->
     Names.MutInd.t m
 
+val declare_instance : Names.Constant.t -> unit
+
 (**************************************************************************************)
 (** *** Reduction, binders, typeclasses. *)
 (**************************************************************************************)

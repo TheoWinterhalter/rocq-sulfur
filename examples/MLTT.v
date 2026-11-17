@@ -1,6 +1,6 @@
 (** MLTT with typed conversion (mutual judgments) *)
 
-From Stdlib Require Import Utf8 String.
+From Stdlib Require Import Utf8.
 From Sulfur Require Import Prelude Sig Renamings All.
 From Sulfur Require Import ParamSyntax JudgmentSyntaxScoped.
 From Sulfur Require Import ConcreteSyntax JdgDesc.
@@ -10,8 +10,6 @@ Sulfur Syntax tm :=
 | tPi : tm → (tm → tm) → tm
 | tlam : tm → (tm → tm) → tm
 | tapp : tm → tm → tm.
-
-Existing Instance sign.
 
 Sulfur Judgment conv : tm → tm → tm → Prop
   with context Γ of tm
@@ -56,7 +54,7 @@ Sulfur Judgment conv : tm → tm → tm → Prop
     conv u w A
 
 with typing : tm → tm → Prop
-  with context Γ of tm
+  with context Γ
   and variable x A ↦ typing x A
 :=
 | type_Ty (i : nat) :

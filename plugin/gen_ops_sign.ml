@@ -120,5 +120,7 @@ let generate (sign : signature) (ops_conc : ops_concrete) : ops_sign =
           ; mkconst ctor_type
          |]
   in
+  (* Declare the signature instance *)
+  declare_instance sign ;
   (* Assemble everything. *)
   { base; base_enum; eval_base; ctor; ctor_enum; ctor_type; sign }
