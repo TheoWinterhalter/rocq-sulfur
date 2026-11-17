@@ -223,7 +223,7 @@ let transparent_constants (d : desc) : Names.Constant.t list m =
       ]
     )
   in
-  ret (List.filter (fun c -> not (List.mem c opaque)) transparent)
+  ret (CList.subtract Names.Constant.CanOrd.equal transparent opaque)
 
 (** The inductives, mutual, each with its variable rule as first constructor.
   Their types come from the shapes, their constructor types are the reduced
