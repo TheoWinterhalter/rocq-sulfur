@@ -721,7 +721,7 @@ let shape_of (sort : Names.Id.t) (ty : Constrexpr.constr_expr) :
 
 (** The judgment of a variable, from the header: each argument is the variable
   or one of the declarations [d1 ... dn], picked by position; [_] names none. *)
-let selection (h : pheader) : Constrexpr.constr_expr =
+let selection (h : pheader) ncomp : Constrexpr.constr_expr =
   let open Constrexpr_ops in
   let rec pos k =
     if k = 0 then Cexpr.gref' C.Jdg.pos0
@@ -746,7 +746,6 @@ let selection (h : pheader) : Constrexpr.constr_expr =
   if not (Names.Id.equal h.ph_jdg h.ph_name) then
     Log.error "Sulfur Judgment: the variable rule must conclude %s."
       (Names.Id.to_string h.ph_name) ;
-  let ncomp = List.length (decl_components h.ph_decl) in
   if List.length h.ph_decls <> ncomp then
     Log.error ?loc:h.ph_decl.CAst.loc
       "Sulfur Judgment: context %s of judgment %s declares %d component(s), \
@@ -764,8 +763,10 @@ let shapes_expr (hs : pheader list) : Constrexpr.constr_expr =
   let sign, _ = saved_ops () in
   let sort = sign.Signature.sort_name in
   let h0 = List.hd hs in
+  let dcomp = decl_components h0.ph_decl in
+  let ncomp = List.length dcomp in
   let dsh =
-    Cexpr.list (List.map (shape_of sort) (decl_components h0.ph_decl))
+    Cexpr.list (List.map (shape_of sort) dcomp)
   in
   let jshape (h : pheader) =
     if not (constr_expr_eq h.ph_decl h0.ph_decl) then
@@ -774,7 +775,8 @@ let shapes_expr (hs : pheader list) : Constrexpr.constr_expr =
     let jsh =
       Cexpr.list (List.map (shape_of sort) (fst (Cexpr.arrows h.ph_type)))
     in
-    mkAppC (Cexpr.gref' C.Jdg.jshape_of, [ Cexpr.hole ; jsh ; selection h ])
+    mkAppC
+      (Cexpr.gref' C.Jdg.jshape_of, [ Cexpr.hole ; jsh ; selection h ncomp ])
   in
   mkAppC (Cexpr.gref' C.Jdg.shapes, [ dsh ; Cexpr.list (List.map jshape hs) ])
 
