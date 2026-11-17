@@ -12,12 +12,11 @@ open Jdg_parse
 module C = Constants
 
 (** A rule for the generation:
-  its term in the description, its name, its judgment, the names of its binders
-  and for each premise its judgment ([None] for a predicate). *)
+  its term in the description, its name, the names of its binders and for each
+  premise its judgment ([None] for a predicate). *)
 type rule = {
   r_term : EConstr.t ;
   r_name : string ;
-  r_jdg : int ;
   r_binders : string list ;
   r_prems : int option list
 }
@@ -54,11 +53,10 @@ let prem_kinds (names : Names.Id.t list) (ps : prem list) : int option list =
     match p with PPred _ -> None | PJdg e -> Some (prem_jdg names e)
   ) ps
 
-(** The rule [r] of the [k]th judgment, with its term [t] *)
-let rule_of (names : Names.Id.t list) (k : int) (t : EConstr.t) (r : prule) = {
+(** The rule [r] with its term [t] *)
+let rule_of (names : Names.Id.t list) (t : EConstr.t) (r : prule) = {
   r_term = t ;
   r_name = Names.Id.to_string r.pr_name ;
-  r_jdg = k ;
   r_binders = binder_names r.pr_binders ;
   r_prems = prem_kinds names r.pr_prems
 }
@@ -121,7 +119,7 @@ let tuple (xs : (EConstr.t * EConstr.t) list) : EConstr.t =
 
 (** A description:
   the names of its judgments, its signature, term type, shapes, instance and
-  laws, and its rules.
+  laws, and its rules (one list for each judgment).
 *)
 type desc = {
   d_term : EConstr.t ;
@@ -131,7 +129,7 @@ type desc = {
   d_sh : EConstr.t ;
   d_cs : EConstr.t ;
   d_cl : EConstr.t ;
-  d_rules : rule list
+  d_rules : rule list list
 }
 
 (** The family of relations generated from a description: the constants its
@@ -147,10 +145,6 @@ type family = {
 (** The indices of the judgments, as integers and as terms *)
 let indices (d : desc) : int list = List.init (List.length d.d_names) Fun.id
 let idx (d : desc) (k : int) : EConstr.t = fin (List.length d.d_names) k
-
-(** The rules of judgment [k], in order *)
-let rules_of (d : desc) (k : int) : rule list =
-  List.filter (fun rd -> rd.r_jdg = k) d.d_rules
 
 let suffix (name : Names.Id.t) (s : string) : Names.Id.t =
   Names.Id.of_string_soft (Names.Id.to_string name ^ s)
@@ -188,19 +182,17 @@ let reduce (transparent : Names.Constant.t list) (t : EConstr.t) : EConstr.t m =
 (** The description [desc] of the judgments of [blocks], read *)
 let read_desc (blocks : pblock list) (desc : EConstr.t) : desc =
   let d_names = List.map (fun b -> b.pb_header.ph_name) blocks in
-  (* The rules as written, with the index of their judgment *)
-  let prs =
-    List.mapi (fun k b -> List.map (fun r -> (k, r)) b.pb_rules) blocks
-    |> List.concat
-  in
   monad_run begin
     let* desc_ty = typecheck desc None in
     let* d_sg, d_ty, d_sh = decode_sig desc_ty in
     let* d_cs = resolve_tc (apps (mkglob' C.CS.typ) [| d_sg ; d_ty |]) in
     let* d_cl = resolve_tc (apps (mkglob' C.CS.laws) [| d_sg ; d_ty ; d_cs |]) in
     let* terms = decode_desc desc in
-    let terms = List.concat terms in
-    let d_rules = List.map2 (fun (k, r) t -> rule_of d_names k t r) prs terms in
+    let d_rules =
+      List.map2 (fun b ts ->
+        List.map2 (rule_of d_names) ts b.pb_rules
+      ) blocks terms
+    in
     ret { d_term = desc ; d_names ; d_sg ; d_ty ; d_sh ; d_cs ; d_cl ; d_rules }
   end
 
@@ -257,30 +249,30 @@ let declare_inductives (d : desc) : family =
     apps (mkglob' C.Jdg.jdg_at)
       [| d.d_sh ; d.d_ty ; tuple (List.combine rs arities) |]
   in
+  let on_family f inds = f (family (List.map EConstr.mkVar inds)) in
   let var_type (r : EConstr.t) (k : int) : EConstr.t m =
     reduce transparent (apps (jdg d C.Jdg.var_rule_type) [| r ; idx d k |])
   in
-  let rule_type (r : EConstr.t) (rd : rule) : EConstr.t m =
+  let rule_type (r : EConstr.t) k (rd : rule) : EConstr.t m =
     let* t =
       prod "Γ" ctx_ty @@ fun g ->
         ret (apps (jdg d C.Jdg.rule_desc_type)
-          [| r ; idx d rd.r_jdg ; rd.r_term ; EConstr.mkVar g |])
+          [| r ; idx d k ; rd.r_term ; EConstr.mkVar g |])
     in
     let* t = reduce transparent t in
     rename_binders (None :: List.map (fun x -> Some x) rd.r_binders) t
   in
   let ctor_names =
-    List.map2 (fun name k ->
+    List.map2 (fun name rs ->
       suffix name "_var" ::
-      List.map (fun rd -> Names.Id.of_string_soft rd.r_name) (rules_of d k)
-    ) d.d_names (indices d)
+      List.map (fun rd -> Names.Id.of_string_soft rd.r_name) rs
+    ) d.d_names d.d_rules
   in
   let ctor_types =
-    List.map (fun k ->
-      let on_family f inds = f (family (List.map EConstr.mkVar inds)) in
+    List.mapi (fun k rs ->
       on_family (fun r -> var_type r k) ::
-      List.map (fun rd -> on_family (fun r -> rule_type r rd)) (rules_of d k)
-    ) (indices d)
+      List.map (fun rd -> on_family (fun r -> rule_type r k rd)) rs
+    ) d.d_rules
   in
   let mind =
     monad_run (declare_mut_ind d.d_names arities ctor_names ctor_types)
@@ -322,7 +314,7 @@ let rules_lemma (d : desc) (f : family) : Names.Constant.t =
           build (i + 1) rest
         |]
     in
-    build 2 (rules_of d k)
+    build 2 (List.nth d.d_rules k)
   in
   let foralls = List.map forall (indices d) in
   lemma (shared d "_rules")
@@ -398,20 +390,26 @@ type obligations = {
 
 let obligations (d : desc) : obligations =
   let o_preds =
-    List.concat_map (fun j ->
+    List.mapi (fun j rs ->
       List.concat (List.mapi (fun r rd ->
         List.concat (List.mapi (fun i p ->
           match p with None -> [ (j, r, rd, i) ] | Some _ -> []) rd.r_prems)
-      ) (rules_of d j))
-    ) (indices d)
+      ) rs)
+    ) d.d_rules
+    |> List.concat
   in
   let o_pairs =
-    List.sort_uniq compare (List.concat_map (fun rd ->
-      List.filter_map (fun p ->
-        match p with
-        | Some i when i <> rd.r_jdg -> Some (rd.r_jdg, i)
-        | _ -> None) rd.r_prems
-    ) d.d_rules)
+    List.mapi (fun j rs ->
+      List.concat_map (fun rd ->
+        List.filter_map (fun p ->
+          match p with
+          | Some i when i <> j -> Some (j,i)
+          | _ -> None
+        ) rd.r_prems
+      ) rs
+    ) d.d_rules
+    |> List.concat
+    |> List.sort_uniq compare
   in
   let obs =
     List.map (fun (j, r, _, i) ->
