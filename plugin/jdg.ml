@@ -343,11 +343,16 @@ let induction_scheme (d : desc) (f : family) : EConstr.t =
     | names ->
       let schemes = List.map (fun name -> suffix name "_mut") names in
       let prop = UnivGen.QualityOrSet.Qual Sorts.Quality.(QConstant QProp) in
-      Indschemes.do_mutual_induction_scheme ~register:false (Global.env ())
-        (List.map2 (fun id k -> (CAst.make id, false, (f.f_mind, k), prop))
-          schemes (indices d)) ;
+      let rschemes =
+        List.mapi (fun k id ->
+          (CAst.make id, false, (f.f_mind, k), prop)
+        ) schemes
+      in
+      let env = Global.env () in
+      Indschemes.do_mutual_induction_scheme ~register:false env rschemes ;
       let combined = suffix (List.hd names) "_mutind" in
-      Indschemes.do_combined_scheme (CAst.make combined) (List.map locate schemes) ;
+      Indschemes.do_combined_scheme
+        (CAst.make combined) (List.map locate schemes) ;
       locate combined
   in
   monad_run begin
@@ -392,8 +397,11 @@ let obligations (d : desc) : obligations =
   let o_preds =
     List.mapi (fun j rs ->
       List.concat (List.mapi (fun r rd ->
-        List.concat (List.mapi (fun i p ->
-          match p with None -> [ (j, r, rd, i) ] | Some _ -> []) rd.r_prems)
+        CList.map_filter_i (fun i p ->
+          match p with
+          | None -> Some (j, r, rd, i)
+          | Some _ -> None
+        ) rd.r_prems
       ) rs)
     ) d.d_rules
     |> List.concat
@@ -493,7 +501,7 @@ let subst_lemmas (d : desc) (f : family) ~sound ~complete : unit =
       mkconst ok ; h ; idx d k
     |]
   in
-  List.iter2 (fun name k ->
+  List.iteri (fun k name ->
     let name = Names.Id.to_string name ^ "_subst" in
     match cls with
     | None ->
@@ -510,7 +518,7 @@ let subst_lemmas (d : desc) (f : family) ~sound ~complete : unit =
       in
       Impargs.declare_manual_implicits false (Names.GlobRef.ConstRef subst)
         [ CAst.make (Some (Names.Name (Names.Id.of_string "H"), true)) ]
-  ) d.d_names (indices d)
+  ) d.d_names
 
 (** The judgments of [blocks], described by [desc]: the inductives, then the
   lemmas. *)
