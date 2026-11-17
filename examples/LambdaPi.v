@@ -13,7 +13,7 @@ Sulfur Syntax tm :=
 
 Sulfur Judgment conv : tm → tm → Prop
   with context Γ of unit
-  and variable x _ ↦ conv x x
+  and variable x ↦ conv x x
 :=
 | refl u :
     ⟹ conv u u

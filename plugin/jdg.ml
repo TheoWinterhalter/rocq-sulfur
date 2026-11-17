@@ -746,6 +746,13 @@ let selection (h : pheader) : Constrexpr.constr_expr =
   if not (Names.Id.equal h.ph_jdg h.ph_name) then
     Log.error "Sulfur Judgment: the variable rule must conclude %s."
       (Names.Id.to_string h.ph_name) ;
+  let ncomp = List.length (decl_components h.ph_decl) in
+  if List.length h.ph_decls <> ncomp then
+    Log.error ?loc:h.ph_decl.CAst.loc
+      "Sulfur Judgment: context %s of judgment %s declares %d component(s), \
+       variable x d1 ... dn must name as many after the variable. \
+       (Note: unit counts as no components.)"
+      (Names.Id.to_string h.ph_ctx) (Names.Id.to_string h.ph_name) ncomp ;
   List.fold_right sel h.ph_args (Cexpr.gref' C.Jdg.sel_nil)
 
 (** The shapes of the headers, as the Gallina expression
