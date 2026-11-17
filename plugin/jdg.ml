@@ -723,25 +723,17 @@ let shape_of (sort : Names.Id.t) (ty : Constrexpr.constr_expr) :
   else Constrexpr_ops.mkAppC (Cexpr.gref' C.Jdg.t_base, [ ty ])
 
 (** The judgment of a variable, from the header: each argument is the variable
-  or one of the declarations [d1 ... dn], picked by position; [_] names none. *)
+  or one of the declarations [d1 ... dn], picked by position. *)
 let selection (h : pheader) ncomp : Constrexpr.constr_expr =
   let open Constrexpr_ops in
-  let rec pos k =
-    if k = 0 then Cexpr.gref' C.Jdg.pos0
-    else mkAppC (Cexpr.gref' C.Jdg.posS, [ pos (k - 1) ])
-  in
+  let pos k = ce_iter k (Cexpr.gref' C.Jdg.posS) (Cexpr.gref' C.Jdg.pos0) in
   let sel a s =
-    let rec index k = function
-      | [] -> None
-      | d :: ds ->
-        if Names.Name.equal (Names.Name a) d.CAst.v then Some k
-        else index (k + 1) ds
-    in
     if Names.Id.equal a h.ph_var then mkAppC (Cexpr.gref' C.Jdg.sel_var, [ s ])
     else
-      match index 0 h.ph_decls with
-      | Some k -> mkAppC (Cexpr.gref' C.Jdg.sel_pos, [ pos k ; s ])
-      | None ->
+      let ds = List.map (fun d -> d.CAst.v) h.ph_decls in
+      match CList.index0 Names.Name.equal (Names.Name a) ds with
+      | k -> mkAppC (Cexpr.gref' C.Jdg.sel_pos, [ pos k ; s ])
+      | exception Not_found ->
         Log.error
           "Sulfur Judgment: %s is neither the variable nor a declaration."
           (Names.Id.to_string a)
