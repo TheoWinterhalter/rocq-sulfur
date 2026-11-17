@@ -10,7 +10,7 @@ type pheader = {
   ph_name : Names.Id.t ;
   ph_type : Constrexpr.constr_expr ;
   ph_ctx : Names.Id.t ;
-  ph_decl : Constrexpr.constr_expr ;
+  ph_decl : Constrexpr.constr_expr option ;
   ph_var : Names.Id.t ;
   ph_decls : Names.lname list ;
   ph_jdg : Names.Id.t ;

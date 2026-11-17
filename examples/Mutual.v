@@ -28,7 +28,7 @@ Sulfur Judgment j1 : tm → tm → Prop
   j1 t A
 
 with j2 : tm → tm → tm → Prop
-  with context Δ of tm
+  with context Δ
   and variable x A ↦ j2 x x A
 :=
 | from1 t A :

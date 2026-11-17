@@ -635,7 +635,7 @@ let metas (sort : Names.Id.t) (bs : Constrexpr.local_binder_expr list) :
   constant that depends on it, so that the types of the predicates reduce during
   elaboration; the bracket and the coercion of judgments find it by unification.
 *)
-let desc_expr (blocks : pblock list)
+let desc_expr decl (blocks : pblock list)
   (shapes : Names.Constant.t) : Constrexpr.constr_expr =
   let open Constrexpr_ops in
   let hs = List.map (fun b -> b.pb_header) blocks in
@@ -671,7 +671,7 @@ let desc_expr (blocks : pblock list)
     let bs =
       [
         Cexpr.assum [ gamma ]
-          (mkAppC (Cexpr.gref' C.list, [ decl_type h.ph_decl ]))
+          (mkAppC (Cexpr.gref' C.list, [ decl_type decl ]))
       ]
     in
     let bs = if xs = [] then bs else Cexpr.assum xs (mkIdentC sort) :: bs in
@@ -746,32 +746,54 @@ let selection (h : pheader) ncomp : Constrexpr.constr_expr =
   if not (Names.Id.equal h.ph_jdg h.ph_name) then
     Log.error "Sulfur Judgment: the variable rule must conclude %s."
       (Names.Id.to_string h.ph_name) ;
-  if List.length h.ph_decls <> ncomp then
-    Log.error ?loc:h.ph_decl.CAst.loc
+  if List.length h.ph_decls <> ncomp then begin
+    let loc = Option.bind h.ph_decl (fun x -> x.CAst.loc) in
+    Log.error ?loc
       "Sulfur Judgment: context %s of judgment %s declares %d component(s), \
        variable x d1 ... dn must name as many after the variable. \
        (Note: unit counts as no components.)"
-      (Names.Id.to_string h.ph_ctx) (Names.Id.to_string h.ph_name) ncomp ;
+      (Names.Id.to_string h.ph_ctx) (Names.Id.to_string h.ph_name) ncomp
+  end ;
   List.fold_right sel h.ph_args (Cexpr.gref' C.Jdg.sel_nil)
+
+(** Context declaration for a block of judgments.
+
+  It comes from the [with context Γ of d] of the first judgment, for which it
+  is mandatory. Subsequent judgments may mention it again, but only with
+  syntactically equal declarations.
+*)
+let block_decl (hs : pheader list) : Constrexpr.constr_expr =
+  let d =
+    match (List.hd hs).ph_decl with
+    | Some d -> d
+    | None ->
+      Log.error "Sulfur Judgment: the first judgment declares the context, \
+                 [with context Γ of d]."
+  in
+  List.iter (fun h ->
+    match h.ph_decl with
+    | Some d' when not (Constrexpr_ops.constr_expr_eq d d') ->
+      Log.error ?loc:d'.CAst.loc
+        "Sulfur Judgment: the judgments of a block must all use the same \
+         context declarations."
+    | _ -> ()
+  ) hs ;
+  d
 
 (** The shapes of the headers, as the Gallina expression
   [shapes [d] [jshape_of [a1 ; ... ; am] (sel of the variable rule) ; ...]]:
   a declaration is a product of shapes ([unit] for none). The judgments of a
   block declare the same thing. *)
-let shapes_expr (hs : pheader list) : Constrexpr.constr_expr =
+let shapes_expr decl (hs : pheader list) : Constrexpr.constr_expr =
   let open Constrexpr_ops in
   let sign, _ = saved_ops () in
   let sort = sign.Signature.sort_name in
-  let h0 = List.hd hs in
-  let dcomp = decl_components h0.ph_decl in
+  let dcomp = decl_components decl in
   let ncomp = List.length dcomp in
   let dsh =
     Cexpr.list (List.map (shape_of sort) dcomp)
   in
   let jshape (h : pheader) =
-    if not (constr_expr_eq h.ph_decl h0.ph_decl) then
-      Log.error ?loc:h.ph_decl.CAst.loc
-        "Sulfur Judgment: the judgments of a block declare the same thing." ;
     let jsh =
       Cexpr.list (List.map (shape_of sort) (fst (Cexpr.arrows h.ph_type)))
     in
@@ -786,12 +808,13 @@ let shapes_expr (hs : pheader list) : Constrexpr.constr_expr =
 *)
 let generate_rules (blocks : pblock list) : unit =
   let hs = List.map (fun b -> b.pb_header) blocks in
+  let decl = block_decl hs in
   let name = Names.Id.to_string (List.hd hs).ph_name in
-  let shapes = def (name ^ "_shapes") (pretype (shapes_expr hs)) in
+  let shapes = def (name ^ "_shapes") (pretype (shapes_expr decl hs)) in
   declare_instance shapes ;
   let desc =
     def (name ^ "_desc") begin
-      let* d = pretype (desc_expr blocks shapes) in
+      let* d = pretype (desc_expr decl blocks shapes) in
       (* Substitute the local definitions *)
       reduce_only [] d
     end

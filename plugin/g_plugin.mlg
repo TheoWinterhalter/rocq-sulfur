@@ -60,8 +60,12 @@ VERNAC ARGUMENT EXTEND jdg_rule
   { { pr_name = n ; pr_binders = bs ; pr_prems = ps ; pr_concl = c } }
 END
 
+VERNAC ARGUMENT EXTEND ctx_decl
+| [ "of" constr(d) ] -> { d }
+END
+
 VERNAC ARGUMENT EXTEND jdg_header
-| [ ident(name) ":" lconstr(ty) "with" "context" ident(g) "of" constr(d)
+| [ ident(name) ":" lconstr(ty) "with" "context" ident(g) ctx_decl_opt(d)
     "and" "variable" ident(x) name_list(ds) "↦" ident(r) ident_list(args) ] ->
   { { ph_name = name ; ph_type = ty ; ph_ctx = g ; ph_decl = d ;
           ph_var = x ; ph_decls = ds ; ph_jdg = r ; ph_args = args } }

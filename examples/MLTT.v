@@ -54,7 +54,7 @@ Sulfur Judgment conv : tm → tm → tm → Prop
     conv u w A
 
 with typing : tm → tm → Prop
-  with context Γ of tm
+  with context Γ
   and variable x A ↦ typing x A
 :=
 | type_Ty (i : nat) :
