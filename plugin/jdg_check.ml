@@ -10,12 +10,21 @@ open Prelude
 open Jdg_parse
 module C = Constants
 
-type jdg = {
-  j_blocks : pblock list ;
-  j_decl : Constrexpr.constr_expr ;
-  j_headers : pheader list ;
-  j_name : Names.Id.t
+(* Single judgment *)
+type sjdg = {
+  sj_name : Names.Id.t
 }
+
+type jdg = {
+  j_blocks : pblock list ; (* TODO REMOVE *)
+  j_decl : Constrexpr.constr_expr ;
+  j_name : Names.Id.t ;
+  j_headers : pheader list ; (* TODO REMOVE *)
+  j_jdgs : sjdg list
+}
+
+let of_pblock (pb : pblock) =
+  { sj_name = pb.pb_header.ph_name }
 
 (** Context declaration for a block of judgments.
 
@@ -45,4 +54,5 @@ let of_pjdg (pj : pjdg) : jdg =
   let j_headers = List.map (fun b -> b.pb_header) pj in
   let j_decl = block_decl j_headers in
   let j_name = (List.hd j_headers).ph_name in
-  { j_blocks = pj ; j_decl ; j_headers ; j_name }
+  let j_jdgs = List.map of_pblock pj in
+  { j_blocks = pj ; j_decl ; j_headers ; j_name ; j_jdgs }
