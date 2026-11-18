@@ -5,12 +5,25 @@
 
   The idea is that most error messages should come from this module.
 
-  TODO: prem_kinds, prem_jdg, …
-
 *)
 
 open Prelude
 open Jdg_parse
+
+type binder =
+| BMeta of Names.lname * int
+| BParam of Names.lname * Constrexpr.constr_expr
+
+type prem =
+| Jdg of int * Constrexpr.constr_expr
+| Pred of Constrexpr.constr_expr
+
+type rule = {
+  r_name : Names.Id.t ;
+  r_binders : binder list ;
+  r_prems : prem list ;
+  r_concl : Constrexpr.constr_expr
+}
 
 type sel =
 | SelVar
@@ -21,7 +34,8 @@ type sjdg = {
   sj_name : Names.Id.t ;
   sj_ctx : Names.Id.t ;
   sj_sel : sel list ;
-  sj_type : Constrexpr.constr_expr
+  sj_type : Constrexpr.constr_expr ;
+  sj_rules : rule list
 }
 
 type jdg = {
@@ -31,6 +45,32 @@ type jdg = {
   j_headers : pheader list ; (* TODO REMOVE *)
   j_jdgs : sjdg list
 }
+
+(** The judgment of a premise [R t u] or [⟨ x ↦ A ⊢ R t u ⟩], by its head,
+  among the judgments [names] of the block *)
+let rec prem_jdg (names : Names.Id.t list) (e : Constrexpr.constr_expr) : int =
+  match e.CAst.v with
+  | Constrexpr.CNotation (_, (_, "⟨ _ ↦ _ ⊢ _ ⟩"), ([ _ ; p ], _, _, _)) ->
+    prem_jdg names p
+  | _ ->
+    let head = match e.CAst.v with Constrexpr.CApp (f, _) -> f | _ -> e in
+    let rec index k = function
+      | [] ->
+        Log.error ?loc:e.CAst.loc
+          "Sulfur Judgment: a premise is a judgment of the block, or {{ P }}."
+      | n :: ns -> if Cexpr.is_ident n head then k else index (k + 1) ns
+    in
+    index 0 names
+
+let prem_kinds (names : Names.Id.t list) (ps : pprem list) : int option list =
+  List.map (fun p ->
+    match p with PPred _ -> None | PJdg e -> Some (prem_jdg names e)
+  ) ps
+
+let of_prule (pr : prule) : rule =
+  let r_binders = [] in (* TODO FIXME *)
+  let r_prems = [] in (* TODO FIXME *)
+  { r_name = pr.pr_name ; r_binders ; r_prems ; r_concl = pr.pr_concl }
 
 (** Which components of a declaration are selected to form the variable
   judgment *)
@@ -93,7 +133,8 @@ let of_pblock ncomp (pb : pblock) =
   let sj_ctx = pb.pb_header.ph_ctx in
   let sj_sel = selection pb.pb_header ncomp in
   let sj_type = pb.pb_header.ph_type in
-  { sj_name ; sj_ctx ; sj_sel ; sj_type }
+  let sj_rules = List.map of_prule pb.pb_rules in
+  { sj_name ; sj_ctx ; sj_sel ; sj_type ; sj_rules }
 
 let of_pjdg (pj : pjdg) : jdg =
   let j_headers = List.map (fun b -> b.pb_header) pj in
