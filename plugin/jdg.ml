@@ -553,11 +553,6 @@ let rec ce_iter n f x =
 let idx_expr (k : int) : Constrexpr.constr_expr =
   ce_iter k (Cexpr.gref' C.Jdg.finS) (Cexpr.gref' C.Jdg.finO)
 
-(** The components of a declaration [Γ : d]: the factors of a product, none for
-  [unit]. The context is a list of the library's tuples, [decl_type d]. *)
-let decl_components (d : Constrexpr.constr_expr) : Constrexpr.constr_expr list =
-  if Cexpr.is_ident (Names.Id.of_string "unit") d then [] else Cexpr.products d
-
 let decl_type (d : Constrexpr.constr_expr) : Constrexpr.constr_expr =
   Cexpr.prod (decl_components d)
 

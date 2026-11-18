@@ -1,19 +1,26 @@
 (** Data obtained from [Jdg_parse] after validation, and the validation phase
 
-  For now, it only extracts the context declarations hidden in the headers,
+  For instance, it extracts the context declarations hidden in the headers,
   putting it at the top-level.
-  It contains redundant information, but computes it only once.
+
+  The idea is that most error messages should come from this module.
+
+  TODO: selection, prem_kinds, prem_jdg, …
 
 *)
 
 open Prelude
 open Jdg_parse
-module C = Constants
+
+type sel =
+| SelVar
+| SelPos of int
 
 (* Single judgment *)
 type sjdg = {
   sj_name : Names.Id.t ;
-  sj_ctx : Names.Id.t
+  sj_ctx : Names.Id.t ;
+  sj_sel : sel list
 }
 
 type jdg = {
@@ -24,10 +31,32 @@ type jdg = {
   j_jdgs : sjdg list
 }
 
-let of_pblock (pb : pblock) =
-  let sj_name = pb.pb_header.ph_name in
-  let sj_ctx = pb.pb_header.ph_ctx in
-  { sj_name ; sj_ctx }
+(** Which components of a declaration are selected to form the variable
+  judgment *)
+let selection (h : pheader) ncomp =
+  let sel a =
+    if Names.Id.equal a h.ph_var then SelVar
+    else
+      let ds = List.map (fun d -> d.CAst.v) h.ph_decls in
+      match CList.index0 Names.Name.equal (Names.Name a) ds with
+      | k -> SelPos k
+      | exception Not_found ->
+        Log.error
+          "Sulfur Judgment: %s is neither the variable nor a declaration."
+          (Names.Id.to_string a)
+  in
+  if not (Names.Id.equal h.ph_jdg h.ph_name) then
+    Log.error "Sulfur Judgment: the variable rule must conclude %s."
+      (Names.Id.to_string h.ph_name) ;
+  if List.length h.ph_decls <> ncomp then begin
+    let loc = Option.bind h.ph_decl (fun x -> x.CAst.loc) in
+    Log.error ?loc
+      "Sulfur Judgment: context %s of judgment %s declares %d component(s), \
+       variable x d1 ... dn must name as many after the variable. \
+       (Note: unit counts as no components.)"
+      (Names.Id.to_string h.ph_ctx) (Names.Id.to_string h.ph_name) ncomp
+  end ;
+  List.map sel h.ph_args
 
 (** Context declaration for a block of judgments.
 
@@ -53,9 +82,21 @@ let block_decl (hs : pheader list) : Constrexpr.constr_expr =
   ) hs ;
   d
 
+(** The components of a declaration [Γ : d]: the factors of a product, none for
+  [unit]. The context is a list of the library's tuples, [decl_type d]. *)
+let decl_components (d : Constrexpr.constr_expr) : Constrexpr.constr_expr list =
+  if Cexpr.is_ident (Names.Id.of_string "unit") d then [] else Cexpr.products d
+
+let of_pblock ncomp (pb : pblock) =
+  let sj_name = pb.pb_header.ph_name in
+  let sj_ctx = pb.pb_header.ph_ctx in
+  let sj_sel = selection pb.pb_header ncomp in
+  { sj_name ; sj_ctx ; sj_sel }
+
 let of_pjdg (pj : pjdg) : jdg =
   let j_headers = List.map (fun b -> b.pb_header) pj in
   let j_decl = block_decl j_headers in
   let j_name = (List.hd j_headers).ph_name in
-  let j_jdgs = List.map of_pblock pj in
+  let ncomp = List.length (decl_components j_decl) in
+  let j_jdgs = List.map (of_pblock ncomp) pj in
   { j_blocks = pj ; j_decl ; j_headers ; j_name ; j_jdgs }
