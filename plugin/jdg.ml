@@ -790,10 +790,11 @@ let shapes_expr (jdg : jdg) : Constrexpr.constr_expr =
 *)
 let generate_rules (pj : pjdg) : unit =
   let jdg = of_pjdg pj in
-  let shapes = def (jdg.j_name ^ "_shapes") (pretype (shapes_expr jdg)) in
+  let name = Names.Id.to_string jdg.j_name in
+  let shapes = def (name ^ "_shapes") (pretype (shapes_expr jdg)) in
   declare_instance shapes ;
   let desc =
-    def (jdg.j_name ^ "_desc") begin
+    def (name ^ "_desc") begin
       let* d = pretype (desc_expr jdg shapes) in
       (* Substitute the local definitions *)
       reduce_only [] d

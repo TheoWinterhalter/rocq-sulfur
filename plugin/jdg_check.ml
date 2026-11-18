@@ -14,7 +14,7 @@ type jdg = {
   j_blocks : pblock list ;
   j_decl : Constrexpr.constr_expr ;
   j_headers : pheader list ;
-  j_name : string
+  j_name : Names.Id.t
 }
 
 (** Context declaration for a block of judgments.
@@ -44,5 +44,5 @@ let block_decl (hs : pheader list) : Constrexpr.constr_expr =
 let of_pjdg (pj : pjdg) : jdg =
   let j_headers = List.map (fun b -> b.pb_header) pj in
   let j_decl = block_decl j_headers in
-  let j_name = Names.Id.to_string (List.hd j_headers).ph_name in
+  let j_name = (List.hd j_headers).ph_name in
   { j_blocks = pj ; j_decl ; j_headers ; j_name }
