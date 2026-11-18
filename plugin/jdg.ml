@@ -362,7 +362,9 @@ let induction_scheme (d : desc) (f : family) : EConstr.t =
         ret (app (jdg_type d) (EConstr.mkVar i))
     in
     lambda "P" p_ty @@ fun p ->
-      let motives = List.map (fun k -> app (EConstr.mkVar p) (idx d k)) (indices d) in
+      let motives =
+        List.map (fun k -> app (EConstr.mkVar p) (idx d k)) (indices d)
+      in
       ret (apps (mkconst scheme) (Array.of_list motives))
   end
 
