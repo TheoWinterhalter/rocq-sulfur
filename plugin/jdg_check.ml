@@ -12,7 +12,8 @@ module C = Constants
 
 (* Single judgment *)
 type sjdg = {
-  sj_name : Names.Id.t
+  sj_name : Names.Id.t ;
+  sj_ctx : Names.Id.t
 }
 
 type jdg = {
@@ -24,7 +25,9 @@ type jdg = {
 }
 
 let of_pblock (pb : pblock) =
-  { sj_name = pb.pb_header.ph_name }
+  let sj_name = pb.pb_header.ph_name in
+  let sj_ctx = pb.pb_header.ph_ctx in
+  { sj_name ; sj_ctx }
 
 (** Context declaration for a block of judgments.
 
