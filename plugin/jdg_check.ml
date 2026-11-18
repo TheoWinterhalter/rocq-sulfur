@@ -2,6 +2,7 @@
 
   For now, it only extracts the context declarations hidden in the headers,
   putting it at the top-level.
+  It contains redundant information, but computes it only once.
 
 *)
 
@@ -11,7 +12,8 @@ module C = Constants
 
 type jdg = {
   j_blocks : pblock list ;
-  j_decl : Constrexpr.constr_expr
+  j_decl : Constrexpr.constr_expr ;
+  j_headers : pheader list
 }
 
 (** Context declaration for a block of judgments.
@@ -39,6 +41,6 @@ let block_decl (hs : pheader list) : Constrexpr.constr_expr =
   d
 
 let of_pjdg (pj : pjdg) : jdg =
-  let hs = List.map (fun b -> b.pb_header) pj in
-  let j_decl = block_decl hs in
-  { j_blocks = pj ; j_decl }
+  let j_headers = List.map (fun b -> b.pb_header) pj in
+  let j_decl = block_decl j_headers in
+  { j_blocks = pj ; j_decl ; j_headers }

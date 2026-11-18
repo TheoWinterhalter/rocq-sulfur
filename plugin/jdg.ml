@@ -647,10 +647,8 @@ let metas (sort : Names.Id.t) (bs : Constrexpr.local_binder_expr list) :
   constant that depends on it, so that the types of the predicates reduce during
   elaboration; the bracket and the coercion of judgments find it by unification.
 *)
-let desc_expr decl (blocks : pblock list)
-  (shapes : Names.Constant.t) : Constrexpr.constr_expr =
+let desc_expr (jdg : jdg) (shapes : Names.Constant.t) : Constrexpr.constr_expr =
   let open Constrexpr_ops in
-  let hs = List.map (fun b -> b.pb_header) blocks in
   let sign, ops = saved_ops () in
   let sort = sign.Signature.sort_name in
   let shc = Cexpr.gref (Names.GlobRef.ConstRef shapes) in
@@ -668,8 +666,10 @@ let desc_expr decl (blocks : pblock list)
   let defs =
     List.mapi (fun k h ->
       (h.ph_name, Cexpr.app_expl C.Jdg.hjdg [ Cexpr.hole ; shc ; idx_expr k ])
-    ) hs @
-    List.mapi (fun i c -> (c, hctor i)) (Array.to_list sign.Signature.ctor_names)
+    ) jdg.j_headers @
+    List.mapi (fun i c ->
+      (c, hctor i)
+    ) (Array.to_list sign.Signature.ctor_names)
   in
   let hoas e =
     List.fold_right
@@ -683,7 +683,7 @@ let desc_expr decl (blocks : pblock list)
     let bs =
       [
         Cexpr.assum [ gamma ]
-          (mkAppC (Cexpr.gref' C.list, [ decl_type decl ]))
+          (mkAppC (Cexpr.gref' C.list, [ decl_type jdg.j_decl ]))
       ]
     in
     let bs = if xs = [] then bs else Cexpr.assum xs (mkIdentC sort) :: bs in
@@ -719,7 +719,7 @@ let desc_expr decl (blocks : pblock list)
   (* The rules of each block as a list, the blocks as a tuple *)
   let block k b = Cexpr.list (List.map (rule k b.pb_header) b.pb_rules) in
   mkCastC (
-    List.fold_right Cexpr.pair (List.mapi block blocks) (Cexpr.gref' C.tt),
+    List.fold_right Cexpr.pair (List.mapi block jdg.j_blocks) (Cexpr.gref' C.tt),
     Some Constr.DEFAULTcast,
     Cexpr.app_expl C.Jdg.jdg_desc [ Cexpr.hole ; mkIdentC sort ; shc ]
   )
@@ -763,11 +763,11 @@ let selection (h : pheader) ncomp : Constrexpr.constr_expr =
 (** The shapes of the headers, as the Gallina expression
   [shapes [d] [jshape_of [a1 ; ... ; am] (sel of the variable rule) ; ...]]:
   a declaration is a product of shapes ([unit] for none). *)
-let shapes_expr decl (hs : pheader list) : Constrexpr.constr_expr =
+let shapes_expr (jdg : jdg) : Constrexpr.constr_expr =
   let open Constrexpr_ops in
   let sign, _ = saved_ops () in
   let sort = sign.Signature.sort_name in
-  let dcomp = decl_components decl in
+  let dcomp = decl_components jdg.j_decl in
   let ncomp = List.length dcomp in
   let dsh =
     Cexpr.list (List.map (shape_of sort) dcomp)
@@ -779,7 +779,8 @@ let shapes_expr decl (hs : pheader list) : Constrexpr.constr_expr =
     mkAppC
       (Cexpr.gref' C.Jdg.jshape_of, [ Cexpr.hole ; jsh ; selection h ncomp ])
   in
-  mkAppC (Cexpr.gref' C.Jdg.shapes, [ dsh ; Cexpr.list (List.map jshape hs) ])
+  let shapes = List.map jshape jdg.j_headers in
+  mkAppC (Cexpr.gref' C.Jdg.shapes, [ dsh ; Cexpr.list shapes ])
 
 (** [Sulfur Judgment header := rules with ...]: the shapes are declared as the
   instance [R_shapes], the description as [R_desc] (with the local
@@ -787,13 +788,12 @@ let shapes_expr decl (hs : pheader list) : Constrexpr.constr_expr =
 *)
 let generate_rules (pj : pjdg) : unit =
   let jdg = of_pjdg pj in
-  let hs = List.map (fun b -> b.pb_header) pj in
-  let name = Names.Id.to_string (List.hd hs).ph_name in
-  let shapes = def (name ^ "_shapes") (pretype (shapes_expr jdg.j_decl hs)) in
+  let name = Names.Id.to_string (List.hd jdg.j_headers).ph_name in
+  let shapes = def (name ^ "_shapes") (pretype (shapes_expr jdg)) in
   declare_instance shapes ;
   let desc =
     def (name ^ "_desc") begin
-      let* d = pretype (desc_expr jdg.j_decl pj shapes) in
+      let* d = pretype (desc_expr jdg shapes) in
       (* Substitute the local definitions *)
       reduce_only [] d
     end
