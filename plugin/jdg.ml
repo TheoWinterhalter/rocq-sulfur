@@ -15,11 +15,11 @@ module C = Constants
 (** A rule for the generation:
   its term in the description, its name, the names of its binders and for each
   premise its judgment ([None] for a predicate). *)
-type rule = {
-  r_term : EConstr.t ;
-  r_name : string ;
-  r_binders : string list ;
-  r_prems : int option list
+type grule = {
+  gr_term : EConstr.t ;
+  gr_name : string ;
+  gr_binders : string list ;
+  gr_prems : int option list
 }
 
 let binder_names (bs : Constrexpr.local_binder_expr list) : string list =
@@ -33,12 +33,23 @@ let binder_names (bs : Constrexpr.local_binder_expr list) : string list =
       ) xs
     | _ -> []
 
+let of_prem (p : prem) =
+  match p with
+  | Jdg (k, _) -> Some k
+  | Pred _ -> None
+
+let of_binder (b : binder) =
+  match b with
+  | BMeta ({ CAst.v = Names.Name x ; _ }, _)
+  | BParam ({ CAst.v = Names.Name x ; _ }, _) -> Names.Id.to_string x
+  | BMeta _ | BParam _ -> "x"
+
 (** The rule [r] with its term [t] *)
-let rule_of (names : Names.Id.t list) (t : EConstr.t) (r : prule) = {
-  r_term = t ;
-  r_name = Names.Id.to_string r.pr_name ;
-  r_binders = binder_names r.pr_binders ;
-  r_prems = prem_kinds names r.pr_prems
+let of_rule (t : EConstr.t) (r : rule) = {
+  gr_term = t ;
+  gr_name = Names.Id.to_string r.r_name ;
+  gr_binders = List.map of_binder r.r_binders ;
+  gr_prems = List.map of_prem r.r_prems
 }
 
 (** The signature, term type and shapes of a description, from its type
@@ -109,7 +120,7 @@ type desc = {
   d_sh : EConstr.t ;
   d_cs : EConstr.t ;
   d_cl : EConstr.t ;
-  d_rules : rule list list
+  d_rules : grule list list
 }
 
 (** The family of relations generated from a description: the constants its
@@ -160,8 +171,7 @@ let reduce (transparent : Names.Constant.t list) (t : EConstr.t) : EConstr.t m =
   reduce_only ~refold:[ const_of_ref (Lazy.force C.map) ] transparent t
 
 (** The description [desc] of the judgments of [blocks], read *)
-let read_desc (blocks : pblock list) (desc : EConstr.t) : desc =
-  let d_names = List.map (fun b -> b.pb_header.ph_name) blocks in
+let read_desc (jdg : jdg) (desc : EConstr.t) : desc =
   monad_run begin
     let* desc_ty = typecheck desc None in
     let* d_sg, d_ty, d_sh = decode_sig desc_ty in
@@ -169,10 +179,11 @@ let read_desc (blocks : pblock list) (desc : EConstr.t) : desc =
     let* d_cl = resolve_tc (apps (mkglob' C.CS.laws) [| d_sg ; d_ty ; d_cs |]) in
     let* terms = decode_desc desc in
     let d_rules =
-      List.map2 (fun b ts ->
-        List.map2 (rule_of d_names) ts b.pb_rules
-      ) blocks terms
+      List.map2 (fun sj ts ->
+        List.map2 of_rule ts sj.sj_rules
+      ) jdg.j_jdgs terms
     in
+    let d_names = jdg.j_names in
     ret { d_term = desc ; d_names ; d_sg ; d_ty ; d_sh ; d_cs ; d_cl ; d_rules }
   end
 
@@ -233,19 +244,19 @@ let declare_inductives (d : desc) : family =
   let var_type (r : EConstr.t) (k : int) : EConstr.t m =
     reduce transparent (apps (jdg d C.Jdg.var_rule_type) [| r ; idx d k |])
   in
-  let rule_type (r : EConstr.t) k (rd : rule) : EConstr.t m =
+  let rule_type (r : EConstr.t) k (rd : grule) : EConstr.t m =
     let* t =
       prod "Γ" ctx_ty @@ fun g ->
         ret (apps (jdg d C.Jdg.rule_desc_type)
-          [| r ; idx d k ; rd.r_term ; EConstr.mkVar g |])
+          [| r ; idx d k ; rd.gr_term ; EConstr.mkVar g |])
     in
     let* t = reduce transparent t in
-    rename_binders (None :: List.map (fun x -> Some x) rd.r_binders) t
+    rename_binders (None :: List.map (fun x -> Some x) rd.gr_binders) t
   in
   let ctor_names =
     List.map2 (fun name rs ->
       suffix name "_var" ::
-      List.map (fun rd -> Names.Id.of_string_soft rd.r_name) rs
+      List.map (fun rd -> Names.Id.of_string_soft rd.gr_name) rs
     ) d.d_names d.d_rules
   in
   let ctor_types =
@@ -288,8 +299,8 @@ let rules_lemma (d : desc) (f : family) : Names.Constant.t =
         apps (mkglob' C.Jdg.forall_cons) [|
           rule_desc_ty d k ;
           pred ;
-          rd.r_term ;
-          mklist (rule_desc_ty d k) (List.map (fun rd -> rd.r_term) rest) ;
+          rd.gr_term ;
+          mklist (rule_desc_ty d k) (List.map (fun rd -> rd.gr_term) rest) ;
           ctor f k i ;
           build (i + 1) rest
         |]
@@ -370,7 +381,7 @@ let complete_lemma (d : desc) (f : family) ~vars ~rules ~wf : Names.Constant.t =
   pair of judgments where a rule of [i] has a premise in [i']; and their list
   as a term, which only depends on the shapes. *)
 type obligations = {
-  o_preds : (int * int * rule * int) list ;
+  o_preds : (int * int * grule * int) list ;
   o_pairs : (int * int) list ;
   o_term : EConstr.t
 }
@@ -383,7 +394,7 @@ let obligations (d : desc) : obligations =
           match p with
           | None -> Some (j, r, rd, i)
           | Some _ -> None
-        ) rd.r_prems
+        ) rd.gr_prems
       ) rs)
     ) d.d_rules
     |> List.concat
@@ -395,7 +406,7 @@ let obligations (d : desc) : obligations =
           match p with
           | Some i when i <> j -> Some (j,i)
           | _ -> None
-        ) rd.r_prems
+        ) rd.gr_prems
       ) rs
     ) d.d_rules
     |> List.concat
@@ -437,7 +448,7 @@ let obligations_class (d : desc) (f : family) (o : obligations) :
           | _ -> ret t
       in
       go t (
-        List.map (fun (_, _, rd, _) -> Some rd.r_binders) o.o_preds @
+        List.map (fun (_, _, rd, _) -> Some rd.gr_binders) o.o_preds @
         List.map (fun _ -> None) o.o_pairs
       )
     in
@@ -504,9 +515,9 @@ let subst_lemmas (d : desc) (f : family) ~sound ~complete : unit =
 
 (** The judgments of [blocks], described by [desc]: the inductives, then the
   lemmas. *)
-let generate_desc (blocks : pblock list) (desc : EConstr.t) :
+let generate_desc (jdg : jdg) (desc : EConstr.t) :
   unit =
-  let d = read_desc blocks desc in
+  let d = read_desc jdg desc in
   let f = declare_inductives d in
   let wf = wf_lemma d in
   let rules = rules_lemma d f in
@@ -753,4 +764,4 @@ let generate_rules (pj : pjdg) : unit =
       reduce_only [] d
     end
   in
-  generate_desc pj (mkconst desc)
+  generate_desc jdg (mkconst desc)

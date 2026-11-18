@@ -43,7 +43,8 @@ type jdg = {
   j_decl_comp : Constrexpr.constr_expr list ;
   j_name : Names.Id.t ;
   j_headers : pheader list ; (* TODO REMOVE *)
-  j_jdgs : sjdg list
+  j_jdgs : sjdg list ;
+  j_names : Names.Id.t list
 }
 
 (** The judgment of a premise [R t u] or [⟨ x ↦ A ⊢ R t u ⟩], by its head,
@@ -62,14 +63,14 @@ let rec prem_jdg (names : Names.Id.t list) (e : Constrexpr.constr_expr) : int =
     in
     index 0 names
 
-let prem_kinds (names : Names.Id.t list) (ps : pprem list) : int option list =
-  List.map (fun p ->
-    match p with PPred _ -> None | PJdg e -> Some (prem_jdg names e)
-  ) ps
+let of_pprem names (p : pprem) : prem =
+  match p with
+  | PPred e -> Pred e
+  | PJdg e -> Jdg (prem_jdg names e, e)
 
-let of_prule (pr : prule) : rule =
+let of_prule names (pr : prule) : rule =
   let r_binders = [] in (* TODO FIXME *)
-  let r_prems = [] in (* TODO FIXME *)
+  let r_prems = List.map (of_pprem names) pr.pr_prems in
   { r_name = pr.pr_name ; r_binders ; r_prems ; r_concl = pr.pr_concl }
 
 (** Which components of a declaration are selected to form the variable
@@ -128,19 +129,20 @@ let block_decl (hs : pheader list) : Constrexpr.constr_expr =
 let decl_components (d : Constrexpr.constr_expr) : Constrexpr.constr_expr list =
   if Cexpr.is_ident (Names.Id.of_string "unit") d then [] else Cexpr.products d
 
-let of_pblock ncomp (pb : pblock) =
+let of_pblock names ncomp (pb : pblock) =
   let sj_name = pb.pb_header.ph_name in
   let sj_ctx = pb.pb_header.ph_ctx in
   let sj_sel = selection pb.pb_header ncomp in
   let sj_type = pb.pb_header.ph_type in
-  let sj_rules = List.map of_prule pb.pb_rules in
+  let sj_rules = List.map (of_prule names) pb.pb_rules in
   { sj_name ; sj_ctx ; sj_sel ; sj_type ; sj_rules }
 
 let of_pjdg (pj : pjdg) : jdg =
   let j_headers = List.map (fun b -> b.pb_header) pj in
+  let j_names = List.map (fun h -> h.ph_name) j_headers in
   let decl = block_decl j_headers in
   let j_decl_comp = decl_components decl in
   let ncomp = List.length j_decl_comp in
   let j_name = (List.hd j_headers).ph_name in
-  let j_jdgs = List.map (of_pblock ncomp) pj in
-  { j_blocks = pj ; j_decl_comp ; j_headers ; j_name ; j_jdgs }
+  let j_jdgs = List.map (of_pblock j_names ncomp) pj in
+  { j_blocks = pj ; j_decl_comp ; j_headers ; j_name ; j_jdgs ; j_names }
