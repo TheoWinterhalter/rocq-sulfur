@@ -32,3 +32,5 @@ type pblock = {
   pb_header : pheader ;
   pb_rules : prule list
 }
+
+type pjdg = pblock list

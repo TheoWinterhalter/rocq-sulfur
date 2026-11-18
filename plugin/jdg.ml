@@ -9,6 +9,7 @@
 
 open Prelude
 open Jdg_parse
+open Jdg_check
 module C = Constants
 
 (** A rule for the generation:
@@ -759,30 +760,6 @@ let selection (h : pheader) ncomp : Constrexpr.constr_expr =
   end ;
   List.fold_right sel h.ph_args (Cexpr.gref' C.Jdg.sel_nil)
 
-(** Context declaration for a block of judgments.
-
-  It comes from the [with context Γ of d] of the first judgment, for which it
-  is mandatory. Subsequent judgments may mention it again, but only with
-  syntactically equal declarations.
-*)
-let block_decl (hs : pheader list) : Constrexpr.constr_expr =
-  let d =
-    match (List.hd hs).ph_decl with
-    | Some d -> d
-    | None ->
-      Log.error "Sulfur Judgment: the first judgment declares the context, \
-                 [with context Γ of d]."
-  in
-  List.iter (fun h ->
-    match h.ph_decl with
-    | Some d' when not (Constrexpr_ops.constr_expr_eq d d') ->
-      Log.error ?loc:d'.CAst.loc
-        "Sulfur Judgment: the judgments of a block must all use the same \
-         context declarations."
-    | _ -> ()
-  ) hs ;
-  d
-
 (** The shapes of the headers, as the Gallina expression
   [shapes [d] [jshape_of [a1 ; ... ; am] (sel of the variable rule) ; ...]]:
   a declaration is a product of shapes ([unit] for none). *)
@@ -808,17 +785,17 @@ let shapes_expr decl (hs : pheader list) : Constrexpr.constr_expr =
   instance [R_shapes], the description as [R_desc] (with the local
   definitions substituted), then handled as above.
 *)
-let generate_rules (blocks : pblock list) : unit =
-  let hs = List.map (fun b -> b.pb_header) blocks in
-  let decl = block_decl hs in
+let generate_rules (pj : pjdg) : unit =
+  let jdg = of_pjdg pj in
+  let hs = List.map (fun b -> b.pb_header) pj in
   let name = Names.Id.to_string (List.hd hs).ph_name in
-  let shapes = def (name ^ "_shapes") (pretype (shapes_expr decl hs)) in
+  let shapes = def (name ^ "_shapes") (pretype (shapes_expr jdg.j_decl hs)) in
   declare_instance shapes ;
   let desc =
     def (name ^ "_desc") begin
-      let* d = pretype (desc_expr decl blocks shapes) in
+      let* d = pretype (desc_expr jdg.j_decl pj shapes) in
       (* Substitute the local definitions *)
       reduce_only [] d
     end
   in
-  generate_desc blocks (mkconst desc)
+  generate_desc pj (mkconst desc)
