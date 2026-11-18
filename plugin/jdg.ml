@@ -728,34 +728,15 @@ let shape_of (sort : Names.Id.t) (ty : Constrexpr.constr_expr) :
   if Cexpr.is_ident sort ty then Cexpr.gref' C.Jdg.t_term
   else Constrexpr_ops.mkAppC (Cexpr.gref' C.Jdg.t_base, [ ty ])
 
-(** The judgment of a variable, from the header: each argument is the variable
-  or one of the declarations [d1 ... dn], picked by position. *)
-let selection (h : pheader) ncomp : Constrexpr.constr_expr =
+let build_sel (s : sel list) : Constrexpr.constr_expr =
   let open Constrexpr_ops in
   let pos k = ce_iter k (Cexpr.gref' C.Jdg.posS) (Cexpr.gref' C.Jdg.pos0) in
-  let sel a s =
-    if Names.Id.equal a h.ph_var then mkAppC (Cexpr.gref' C.Jdg.sel_var, [ s ])
-    else
-      let ds = List.map (fun d -> d.CAst.v) h.ph_decls in
-      match CList.index0 Names.Name.equal (Names.Name a) ds with
-      | k -> mkAppC (Cexpr.gref' C.Jdg.sel_pos, [ pos k ; s ])
-      | exception Not_found ->
-        Log.error
-          "Sulfur Judgment: %s is neither the variable nor a declaration."
-          (Names.Id.to_string a)
+  let mk a s =
+    match a with
+    | SelVar -> mkAppC (Cexpr.gref' C.Jdg.sel_var, [ s ])
+    | SelPos k -> mkAppC (Cexpr.gref' C.Jdg.sel_pos, [ pos k ; s ])
   in
-  if not (Names.Id.equal h.ph_jdg h.ph_name) then
-    Log.error "Sulfur Judgment: the variable rule must conclude %s."
-      (Names.Id.to_string h.ph_name) ;
-  if List.length h.ph_decls <> ncomp then begin
-    let loc = Option.bind h.ph_decl (fun x -> x.CAst.loc) in
-    Log.error ?loc
-      "Sulfur Judgment: context %s of judgment %s declares %d component(s), \
-       variable x d1 ... dn must name as many after the variable. \
-       (Note: unit counts as no components.)"
-      (Names.Id.to_string h.ph_ctx) (Names.Id.to_string h.ph_name) ncomp
-  end ;
-  List.fold_right sel h.ph_args (Cexpr.gref' C.Jdg.sel_nil)
+  List.fold_right mk s (Cexpr.gref' C.Jdg.sel_nil)
 
 (** The shapes of the headers, as the Gallina expression
   [shapes [d] [jshape_of [a1 ; ... ; am] (sel of the variable rule) ; ...]]:
@@ -765,18 +746,17 @@ let shapes_expr (jdg : jdg) : Constrexpr.constr_expr =
   let sign, _ = saved_ops () in
   let sort = sign.Signature.sort_name in
   let dcomp = decl_components jdg.j_decl in
-  let ncomp = List.length dcomp in
   let dsh =
     Cexpr.list (List.map (shape_of sort) dcomp)
   in
-  let jshape (h : pheader) =
+  let jshape (sj : sjdg) =
     let jsh =
-      Cexpr.list (List.map (shape_of sort) (fst (Cexpr.arrows h.ph_type)))
+      Cexpr.list (List.map (shape_of sort) (fst (Cexpr.arrows sj.sj_type)))
     in
     mkAppC
-      (Cexpr.gref' C.Jdg.jshape_of, [ Cexpr.hole ; jsh ; selection h ncomp ])
+      (Cexpr.gref' C.Jdg.jshape_of, [ Cexpr.hole ; jsh ; build_sel sj.sj_sel ])
   in
-  let shapes = List.map jshape jdg.j_headers in
+  let shapes = List.map jshape jdg.j_jdgs in
   mkAppC (Cexpr.gref' C.Jdg.shapes, [ dsh ; Cexpr.list shapes ])
 
 (** [Sulfur Judgment header := rules with ...]: the shapes are declared as the

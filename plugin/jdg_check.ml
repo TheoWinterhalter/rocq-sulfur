@@ -20,7 +20,8 @@ type sel =
 type sjdg = {
   sj_name : Names.Id.t ;
   sj_ctx : Names.Id.t ;
-  sj_sel : sel list
+  sj_sel : sel list ;
+  sj_type : Constrexpr.constr_expr
 }
 
 type jdg = {
@@ -91,7 +92,8 @@ let of_pblock ncomp (pb : pblock) =
   let sj_name = pb.pb_header.ph_name in
   let sj_ctx = pb.pb_header.ph_ctx in
   let sj_sel = selection pb.pb_header ncomp in
-  { sj_name ; sj_ctx ; sj_sel }
+  let sj_type = pb.pb_header.ph_type in
+  { sj_name ; sj_ctx ; sj_sel ; sj_type }
 
 let of_pjdg (pj : pjdg) : jdg =
   let j_headers = List.map (fun b -> b.pb_header) pj in
