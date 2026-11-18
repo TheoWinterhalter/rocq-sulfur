@@ -788,11 +788,10 @@ let shapes_expr (jdg : jdg) : Constrexpr.constr_expr =
 *)
 let generate_rules (pj : pjdg) : unit =
   let jdg = of_pjdg pj in
-  let name = Names.Id.to_string (List.hd jdg.j_headers).ph_name in
-  let shapes = def (name ^ "_shapes") (pretype (shapes_expr jdg)) in
+  let shapes = def (jdg.j_name ^ "_shapes") (pretype (shapes_expr jdg)) in
   declare_instance shapes ;
   let desc =
-    def (name ^ "_desc") begin
+    def (jdg.j_name ^ "_desc") begin
       let* d = pretype (desc_expr jdg shapes) in
       (* Substitute the local definitions *)
       reduce_only [] d
