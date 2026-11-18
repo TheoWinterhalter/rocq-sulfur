@@ -5,7 +5,7 @@
 
   The idea is that most error messages should come from this module.
 
-  TODO: selection, prem_kinds, prem_jdg, …
+  TODO: prem_kinds, prem_jdg, …
 
 *)
 
@@ -26,7 +26,7 @@ type sjdg = {
 
 type jdg = {
   j_blocks : pblock list ; (* TODO REMOVE *)
-  j_decl : Constrexpr.constr_expr ;
+  j_decl_comp : Constrexpr.constr_expr list ;
   j_name : Names.Id.t ;
   j_headers : pheader list ; (* TODO REMOVE *)
   j_jdgs : sjdg list
@@ -97,8 +97,9 @@ let of_pblock ncomp (pb : pblock) =
 
 let of_pjdg (pj : pjdg) : jdg =
   let j_headers = List.map (fun b -> b.pb_header) pj in
-  let j_decl = block_decl j_headers in
+  let decl = block_decl j_headers in
+  let j_decl_comp = decl_components decl in
+  let ncomp = List.length j_decl_comp in
   let j_name = (List.hd j_headers).ph_name in
-  let ncomp = List.length (decl_components j_decl) in
   let j_jdgs = List.map (of_pblock ncomp) pj in
-  { j_blocks = pj ; j_decl ; j_headers ; j_name ; j_jdgs }
+  { j_blocks = pj ; j_decl_comp ; j_headers ; j_name ; j_jdgs }

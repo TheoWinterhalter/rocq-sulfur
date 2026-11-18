@@ -553,8 +553,8 @@ let rec ce_iter n f x =
 let idx_expr (k : int) : Constrexpr.constr_expr =
   ce_iter k (Cexpr.gref' C.Jdg.finS) (Cexpr.gref' C.Jdg.finO)
 
-let decl_type (d : Constrexpr.constr_expr) : Constrexpr.constr_expr =
-  Cexpr.prod (decl_components d)
+let decl_type (j : jdg) : Constrexpr.constr_expr =
+  Cexpr.prod j.j_decl_comp
 
 (** Binders of a rule, over the sort of the syntax *)
 
@@ -680,7 +680,7 @@ let desc_expr (jdg : jdg) (shapes : Names.Constant.t) : Constrexpr.constr_expr =
     let bs =
       [
         Cexpr.assum [ gamma ]
-          (mkAppC (Cexpr.gref' C.list, [ decl_type jdg.j_decl ]))
+          (mkAppC (Cexpr.gref' C.list, [ decl_type jdg ]))
       ]
     in
     let bs = if xs = [] then bs else Cexpr.assum xs (mkIdentC sort) :: bs in
@@ -745,9 +745,8 @@ let shapes_expr (jdg : jdg) : Constrexpr.constr_expr =
   let open Constrexpr_ops in
   let sign, _ = saved_ops () in
   let sort = sign.Signature.sort_name in
-  let dcomp = decl_components jdg.j_decl in
   let dsh =
-    Cexpr.list (List.map (shape_of sort) dcomp)
+    Cexpr.list (List.map (shape_of sort) jdg.j_decl_comp)
   in
   let jshape (sj : sjdg) =
     let jsh =
