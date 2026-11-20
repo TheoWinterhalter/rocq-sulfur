@@ -98,10 +98,12 @@ let tuple (xs : (EConstr.t * EConstr.t) list) : EConstr.t =
   fst (go xs)
 
 (** A description:
+  the global judgment name (in practice the head of [d_names]),
   the names of its judgments, its signature, term type, shapes, instance and
   laws, and its rules (one list for each judgment).
 *)
 type desc = {
+  d_name : Names.Id.t ;
   d_term : EConstr.t ;
   d_names : Names.Id.t list ;
   d_sg : EConstr.t ;
@@ -131,7 +133,7 @@ let suffix (name : Names.Id.t) (s : string) : Names.Id.t =
 
 (** The shared lemmas are named after the first judgment *)
 let shared (d : desc) (s : string) : string =
-  Names.Id.to_string (List.hd d.d_names) ^ s
+  Names.Id.to_string d.d_name ^ s
 
 (** A constant of [JdgDesc] applied to the signature, term type, instance and
   shapes of [d] *)
@@ -160,20 +162,22 @@ let reduce (transparent : Names.Constant.t list) (t : EConstr.t) : EConstr.t m =
   reduce_only ~refold:[ const_of_ref (Lazy.force C.map) ] transparent t
 
 (** The description [desc] of the judgments [jdg], read *)
-let read_desc (jdg : jdg) (desc : EConstr.t) : desc =
+let read_desc (jdg : jdg) (d_term : EConstr.t) : desc =
   monad_run begin
-    let* desc_ty = typecheck desc None in
+    let* desc_ty = typecheck d_term None in
     let* d_sg, d_ty, d_sh = decode_sig desc_ty in
     let* d_cs = resolve_tc (apps (mkglob' C.CS.typ) [| d_sg ; d_ty |]) in
     let* d_cl = resolve_tc (apps (mkglob' C.CS.laws) [| d_sg ; d_ty ; d_cs |]) in
-    let* terms = decode_desc desc in
+    let* terms = decode_desc d_term in
     let d_rules =
       List.map2 (fun sj ts ->
         List.map2 of_rule ts sj.sj_rules
       ) jdg.j_jdgs terms
     in
+    let d_name = jdg.j_name in
     let d_names = jdg.j_names in
-    ret { d_term = desc ; d_names ; d_sg ; d_ty ; d_sh ; d_cs ; d_cl ; d_rules }
+    ret @@
+    { d_name ; d_term ; d_names ; d_sg ; d_ty ; d_sh ; d_cs ; d_cl ; d_rules }
   end
 
 (** The constants the statements may unfold: those reachable from the library's
@@ -330,7 +334,7 @@ let induction_scheme (d : desc) (f : family) : EConstr.t =
       in
       let env = Global.env () in
       Indschemes.do_mutual_induction_scheme ~register:false env rschemes ;
-      let combined = suffix (List.hd names) "_mutind" in
+      let combined = suffix d.d_name "_mutind" in
       Indschemes.do_combined_scheme
         (CAst.make combined) (List.map locate schemes) ;
       locate combined
