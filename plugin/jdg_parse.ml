@@ -17,14 +17,14 @@ type pheader = {
   ph_args : Names.Id.t list
 }
 
-type prem =
+type pprem =
 | PJdg of Constrexpr.constr_expr
 | PPred of Constrexpr.constr_expr
 
 type prule = {
   pr_name : Names.Id.t ;
   pr_binders : Constrexpr.local_binder_expr list ;
-  pr_prems : prem list ;
+  pr_prems : pprem list ;
   pr_concl : Constrexpr.constr_expr
 }
 
@@ -32,3 +32,5 @@ type pblock = {
   pb_header : pheader ;
   pb_rules : prule list
 }
+
+type pjdg = pblock list

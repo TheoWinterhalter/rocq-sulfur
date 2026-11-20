@@ -9,56 +9,36 @@
 
 open Prelude
 open Jdg_parse
+open Jdg_check
 module C = Constants
 
 (** A rule for the generation:
   its term in the description, its name, the names of its binders and for each
   premise its judgment ([None] for a predicate). *)
-type rule = {
-  r_term : EConstr.t ;
-  r_name : string ;
-  r_binders : string list ;
-  r_prems : int option list
+type grule = {
+  gr_term : EConstr.t ;
+  gr_name : string ;
+  gr_binders : string list ;
+  gr_prems : int option list
 }
 
-let binder_names (bs : Constrexpr.local_binder_expr list) : string list =
-  bs |> List.concat_map @@ fun b ->
-    match b with
-    | Constrexpr.CLocalAssum (xs, _, _, _) ->
-      List.map (fun x ->
-        match x.CAst.v with
-        | Names.Name id -> Names.Id.to_string id
-        | Names.Anonymous -> "x"
-      ) xs
-    | _ -> []
+let of_prem (p : prem) =
+  match p with
+  | Jdg (k, _) -> Some k
+  | Pred _ -> None
 
-(** The judgment of a premise [R t u] or [⟨ x ↦ A ⊢ R t u ⟩], by its head,
-  among the judgments [names] of the block *)
-let rec prem_jdg (names : Names.Id.t list) (e : Constrexpr.constr_expr) : int =
-  match e.CAst.v with
-  | Constrexpr.CNotation (_, (_, "⟨ _ ↦ _ ⊢ _ ⟩"), ([ _ ; p ], _, _, _)) ->
-    prem_jdg names p
-  | _ ->
-    let head = match e.CAst.v with Constrexpr.CApp (f, _) -> f | _ -> e in
-    let rec index k = function
-      | [] ->
-        Log.error ?loc:e.CAst.loc
-          "Sulfur Judgment: a premise is a judgment of the block, or {{ P }}."
-      | n :: ns -> if Cexpr.is_ident n head then k else index (k + 1) ns
-    in
-    index 0 names
-
-let prem_kinds (names : Names.Id.t list) (ps : prem list) : int option list =
-  List.map (fun p ->
-    match p with PPred _ -> None | PJdg e -> Some (prem_jdg names e)
-  ) ps
+let of_binder (b : binder) =
+  match b with
+  | BMeta ({ CAst.v = Names.Name x ; _ }, _)
+  | BParam ({ CAst.v = Names.Name x ; _ }, _) -> Names.Id.to_string x
+  | BMeta _ | BParam _ -> "x"
 
 (** The rule [r] with its term [t] *)
-let rule_of (names : Names.Id.t list) (t : EConstr.t) (r : prule) = {
-  r_term = t ;
-  r_name = Names.Id.to_string r.pr_name ;
-  r_binders = binder_names r.pr_binders ;
-  r_prems = prem_kinds names r.pr_prems
+let of_rule (t : EConstr.t) (r : rule) = {
+  gr_term = t ;
+  gr_name = Names.Id.to_string r.r_name ;
+  gr_binders = List.map of_binder r.r_binders ;
+  gr_prems = List.map of_prem r.r_prems
 }
 
 (** The signature, term type and shapes of a description, from its type
@@ -118,10 +98,12 @@ let tuple (xs : (EConstr.t * EConstr.t) list) : EConstr.t =
   fst (go xs)
 
 (** A description:
+  the global judgment name (in practice the head of [d_names]),
   the names of its judgments, its signature, term type, shapes, instance and
   laws, and its rules (one list for each judgment).
 *)
 type desc = {
+  d_name : Names.Id.t ;
   d_term : EConstr.t ;
   d_names : Names.Id.t list ;
   d_sg : EConstr.t ;
@@ -129,7 +111,7 @@ type desc = {
   d_sh : EConstr.t ;
   d_cs : EConstr.t ;
   d_cl : EConstr.t ;
-  d_rules : rule list list
+  d_rules : grule list list
 }
 
 (** The family of relations generated from a description: the constants its
@@ -151,7 +133,7 @@ let suffix (name : Names.Id.t) (s : string) : Names.Id.t =
 
 (** The shared lemmas are named after the first judgment *)
 let shared (d : desc) (s : string) : string =
-  Names.Id.to_string (List.hd d.d_names) ^ s
+  Names.Id.to_string d.d_name ^ s
 
 (** A constant of [JdgDesc] applied to the signature, term type, instance and
   shapes of [d] *)
@@ -179,21 +161,23 @@ let ctor (f : family) (k : int) (i : int) : EConstr.t =
 let reduce (transparent : Names.Constant.t list) (t : EConstr.t) : EConstr.t m =
   reduce_only ~refold:[ const_of_ref (Lazy.force C.map) ] transparent t
 
-(** The description [desc] of the judgments of [blocks], read *)
-let read_desc (blocks : pblock list) (desc : EConstr.t) : desc =
-  let d_names = List.map (fun b -> b.pb_header.ph_name) blocks in
+(** The description [desc] of the judgments [jdg], read *)
+let read_desc (jdg : jdg) (d_term : EConstr.t) : desc =
   monad_run begin
-    let* desc_ty = typecheck desc None in
+    let* desc_ty = typecheck d_term None in
     let* d_sg, d_ty, d_sh = decode_sig desc_ty in
     let* d_cs = resolve_tc (apps (mkglob' C.CS.typ) [| d_sg ; d_ty |]) in
     let* d_cl = resolve_tc (apps (mkglob' C.CS.laws) [| d_sg ; d_ty ; d_cs |]) in
-    let* terms = decode_desc desc in
+    let* terms = decode_desc d_term in
     let d_rules =
-      List.map2 (fun b ts ->
-        List.map2 (rule_of d_names) ts b.pb_rules
-      ) blocks terms
+      List.map2 (fun sj ts ->
+        List.map2 of_rule ts sj.sj_rules
+      ) jdg.j_jdgs terms
     in
-    ret { d_term = desc ; d_names ; d_sg ; d_ty ; d_sh ; d_cs ; d_cl ; d_rules }
+    let d_name = jdg.j_name in
+    let d_names = jdg.j_names in
+    ret @@
+    { d_name ; d_term ; d_names ; d_sg ; d_ty ; d_sh ; d_cs ; d_cl ; d_rules }
   end
 
 (** The constants the statements may unfold: those reachable from the library's
@@ -253,19 +237,19 @@ let declare_inductives (d : desc) : family =
   let var_type (r : EConstr.t) (k : int) : EConstr.t m =
     reduce transparent (apps (jdg d C.Jdg.var_rule_type) [| r ; idx d k |])
   in
-  let rule_type (r : EConstr.t) k (rd : rule) : EConstr.t m =
+  let rule_type (r : EConstr.t) k (rd : grule) : EConstr.t m =
     let* t =
       prod "Γ" ctx_ty @@ fun g ->
         ret (apps (jdg d C.Jdg.rule_desc_type)
-          [| r ; idx d k ; rd.r_term ; EConstr.mkVar g |])
+          [| r ; idx d k ; rd.gr_term ; EConstr.mkVar g |])
     in
     let* t = reduce transparent t in
-    rename_binders (None :: List.map (fun x -> Some x) rd.r_binders) t
+    rename_binders (None :: List.map (fun x -> Some x) rd.gr_binders) t
   in
   let ctor_names =
     List.map2 (fun name rs ->
       suffix name "_var" ::
-      List.map (fun rd -> Names.Id.of_string_soft rd.r_name) rs
+      List.map (fun rd -> Names.Id.of_string_soft rd.gr_name) rs
     ) d.d_names d.d_rules
   in
   let ctor_types =
@@ -308,8 +292,8 @@ let rules_lemma (d : desc) (f : family) : Names.Constant.t =
         apps (mkglob' C.Jdg.forall_cons) [|
           rule_desc_ty d k ;
           pred ;
-          rd.r_term ;
-          mklist (rule_desc_ty d k) (List.map (fun rd -> rd.r_term) rest) ;
+          rd.gr_term ;
+          mklist (rule_desc_ty d k) (List.map (fun rd -> rd.gr_term) rest) ;
           ctor f k i ;
           build (i + 1) rest
         |]
@@ -350,7 +334,7 @@ let induction_scheme (d : desc) (f : family) : EConstr.t =
       in
       let env = Global.env () in
       Indschemes.do_mutual_induction_scheme ~register:false env rschemes ;
-      let combined = suffix (List.hd names) "_mutind" in
+      let combined = suffix d.d_name "_mutind" in
       Indschemes.do_combined_scheme
         (CAst.make combined) (List.map locate schemes) ;
       locate combined
@@ -361,7 +345,9 @@ let induction_scheme (d : desc) (f : family) : EConstr.t =
         ret (app (jdg_type d) (EConstr.mkVar i))
     in
     lambda "P" p_ty @@ fun p ->
-      let motives = List.map (fun k -> app (EConstr.mkVar p) (idx d k)) (indices d) in
+      let motives =
+        List.map (fun k -> app (EConstr.mkVar p) (idx d k)) (indices d)
+      in
       ret (apps (mkconst scheme) (Array.of_list motives))
   end
 
@@ -388,7 +374,7 @@ let complete_lemma (d : desc) (f : family) ~vars ~rules ~wf : Names.Constant.t =
   pair of judgments where a rule of [i] has a premise in [i']; and their list
   as a term, which only depends on the shapes. *)
 type obligations = {
-  o_preds : (int * int * rule * int) list ;
+  o_preds : (int * int * grule * int) list ;
   o_pairs : (int * int) list ;
   o_term : EConstr.t
 }
@@ -401,7 +387,7 @@ let obligations (d : desc) : obligations =
           match p with
           | None -> Some (j, r, rd, i)
           | Some _ -> None
-        ) rd.r_prems
+        ) rd.gr_prems
       ) rs)
     ) d.d_rules
     |> List.concat
@@ -413,7 +399,7 @@ let obligations (d : desc) : obligations =
           match p with
           | Some i when i <> j -> Some (j,i)
           | _ -> None
-        ) rd.r_prems
+        ) rd.gr_prems
       ) rs
     ) d.d_rules
     |> List.concat
@@ -455,7 +441,7 @@ let obligations_class (d : desc) (f : family) (o : obligations) :
           | _ -> ret t
       in
       go t (
-        List.map (fun (_, _, rd, _) -> Some rd.r_binders) o.o_preds @
+        List.map (fun (_, _, rd, _) -> Some rd.gr_binders) o.o_preds @
         List.map (fun _ -> None) o.o_pairs
       )
     in
@@ -522,9 +508,9 @@ let subst_lemmas (d : desc) (f : family) ~sound ~complete : unit =
 
 (** The judgments of [blocks], described by [desc]: the inductives, then the
   lemmas. *)
-let generate_desc (blocks : pblock list) (desc : EConstr.t) :
+let generate_desc (jdg : jdg) (desc : EConstr.t) :
   unit =
-  let d = read_desc blocks desc in
+  let d = read_desc jdg desc in
   let f = declare_inductives d in
   let wf = wf_lemma d in
   let rules = rules_lemma d f in
@@ -537,11 +523,6 @@ let generate_desc (blocks : pblock list) (desc : EConstr.t) :
 (** *** Judgments written as rules. *)
 (******************************************************************************)
 
-let saved_ops () =
-  match !Main.saved_ops with
-  | Some x -> x
-  | None -> Log.error "Sulfur Judgment: no syntax was generated beforehand."
-
 let rec ce_iter n f x =
   if n <= 0 then x
   else Constrexpr_ops.mkAppC (f, [ ce_iter (n - 1) f x ])
@@ -550,34 +531,7 @@ let rec ce_iter n f x =
 let idx_expr (k : int) : Constrexpr.constr_expr =
   ce_iter k (Cexpr.gref' C.Jdg.finS) (Cexpr.gref' C.Jdg.finO)
 
-(** The components of a declaration [Γ : d]: the factors of a product, none for
-  [unit]. The context is a list of the library's tuples, [decl_type d]. *)
-let decl_components (d : Constrexpr.constr_expr) : Constrexpr.constr_expr list =
-  if Cexpr.is_ident (Names.Id.of_string "unit") d then [] else Cexpr.products d
-
-let decl_type (d : Constrexpr.constr_expr) : Constrexpr.constr_expr =
-  Cexpr.prod (decl_components d)
-
-(** Binders of a rule, over the sort of the syntax *)
-
-(** The arity of a meta-variable type [term → ... → term], if it is one *)
-let arity (sort : Names.Id.t) (ty : Constrexpr.constr_expr) : int option =
-  let ds, c = Cexpr.arrows ty in
-  if Cexpr.is_ident sort c && List.for_all (Cexpr.is_ident sort) ds
-  then Some (List.length ds)
-  else None
-
-(** A rule parameter: a meta-variable of arity [n], or a true parameter, whose
-  type cannot mention the sort *)
-let param (sort : Names.Id.t) (ty : Constrexpr.constr_expr) :
-  Constrexpr.constr_expr =
-  let open Constrexpr_ops in
-  match arity sort ty with
-  | Some n -> mkAppC (Cexpr.gref' C.Jdg.rp_term, [ Cexpr.nat n ])
-  | None when occur_var_constr_expr sort ty ->
-    Log.error ?loc:ty.CAst.loc
-      "A parameter type cannot mention the sort %s." (Names.Id.to_string sort)
-  | None -> mkAppC (Cexpr.gref' C.Jdg.rp_param, [ ty ])
+(** Binders of a rule *)
 
 (** [hterm → ... → hterm], the type of a meta-variable of arity [n] *)
 let rec hterm_n (n : int) : Constrexpr.constr_expr =
@@ -587,40 +541,30 @@ let rec hterm_n (n : int) : Constrexpr.constr_expr =
       [ Cexpr.assum [ CAst.make Names.Anonymous ] (Cexpr.gref' C.Jdg.hterm) ]
       (hterm_n (n - 1))
 
-(** An annotation-free binder is of the sort *)
-let typed (sort : Names.Id.t) (b : Constrexpr.local_binder_expr) :
-  Constrexpr.local_binder_expr =
-  match b with
-  | Constrexpr.CLocalAssum (xs, r, k, { CAst.v = Constrexpr.CHole _ ; _ }) ->
-    Constrexpr.CLocalAssum (xs, r, k, Constrexpr_ops.mkIdentC sort)
-  | b -> b
-
-(** A binder of the lambda of a rule: a meta-variable of arity [n] is an
-  [n]-ary function on [hterm] *)
-let hbinder (sort : Names.Id.t) (b : Constrexpr.local_binder_expr) :
-  Constrexpr.local_binder_expr =
-  match b with
-  | Constrexpr.CLocalAssum (xs, r, k, ty) when arity sort ty <> None ->
-    Constrexpr.CLocalAssum (xs, r, k, hterm_n (Option.get (arity sort ty)))
-  | b -> b
-
-(** The parameters of the binders of a rule, which must be assumptions *)
-let params (sort : Names.Id.t) (bs : Constrexpr.local_binder_expr list) :
-  Constrexpr.constr_expr list =
-  bs |> List.concat_map @@ fun b ->
+(** The parameters of the rule: a meta-variable of arity [n], or a true
+  parameter *)
+let params (bs : binder list) : Constrexpr.constr_expr list =
+  let open Constrexpr_ops in
+  List.map (fun b ->
     match b with
-    | Constrexpr.CLocalAssum (xs, _, _, ty) -> List.map (fun _ -> param sort ty) xs
-    | Constrexpr.CLocalDef ({ CAst.loc ; _ }, _, _, _)
-    | Constrexpr.CLocalPattern { CAst.loc ; _ } ->
-      Log.error ?loc "Rule binders must be assumptions (x : A)."
+    | BMeta (_, n) -> mkAppC (Cexpr.gref' C.Jdg.rp_term, [ Cexpr.nat n ])
+    | BParam (_, ty) -> mkAppC (Cexpr.gref' C.Jdg.rp_param, [ ty ])
+  ) bs
+
+(** The binders of the lambda of a rule: a meta-variable of arity [n] is an
+  [n]-ary function on [hterm] *)
+let hbinders (bs : binder list) : Constrexpr.local_binder_expr list =
+  List.map (fun b ->
+    match b with
+    | BMeta (x, n) -> Cexpr.assum [ x ] (hterm_n n)
+    | BParam (x, ty) -> Cexpr.assum [ x ] ty
+  ) bs
 
 (** The meta-variables among the binders of a rule *)
-let metas (sort : Names.Id.t) (bs : Constrexpr.local_binder_expr list) :
-  Names.lname list =
-  bs |> List.concat_map @@ fun b ->
-    match b with
-    | Constrexpr.CLocalAssum (xs, _, _, ty) when arity sort ty <> None -> xs
-    | _ -> []
+let metas (bs : binder list) : Names.lname list =
+  List.filter_map (fun b ->
+    match b with BMeta (x, _) -> Some x | BParam _ -> None
+  ) bs
 
 (** The description written by the user, as the Gallina expression
 
@@ -646,10 +590,8 @@ let metas (sort : Names.Id.t) (bs : Constrexpr.local_binder_expr list) :
   constant that depends on it, so that the types of the predicates reduce during
   elaboration; the bracket and the coercion of judgments find it by unification.
 *)
-let desc_expr decl (blocks : pblock list)
-  (shapes : Names.Constant.t) : Constrexpr.constr_expr =
+let desc_expr (jdg : jdg) (shapes : Names.Constant.t) : Constrexpr.constr_expr =
   let open Constrexpr_ops in
-  let hs = List.map (fun b -> b.pb_header) blocks in
   let sign, ops = saved_ops () in
   let sort = sign.Signature.sort_name in
   let shc = Cexpr.gref (Names.GlobRef.ConstRef shapes) in
@@ -665,10 +607,12 @@ let desc_expr decl (blocks : pblock list)
     mkAppC (Cexpr.gref' C.Jdg.hctor, [ Cexpr.gref c ])
   in
   let defs =
-    List.mapi (fun k h ->
-      (h.ph_name, Cexpr.app_expl C.Jdg.hjdg [ Cexpr.hole ; shc ; idx_expr k ])
-    ) hs @
-    List.mapi (fun i c -> (c, hctor i)) (Array.to_list sign.Signature.ctor_names)
+    List.mapi (fun k sj ->
+      (sj.sj_name, Cexpr.app_expl C.Jdg.hjdg [ Cexpr.hole ; shc ; idx_expr k ])
+    ) jdg.j_jdgs @
+    List.mapi (fun i c ->
+      (c, hctor i)
+    ) (Array.to_list sign.Signature.ctor_names)
   in
   let hoas e =
     List.fold_right
@@ -676,13 +620,13 @@ let desc_expr decl (blocks : pblock list)
       defs e
   in
   (* [{{ P }}] with meta-variables [xs] (see above); the context is named
-    and typed as in the header [h] *)
-  let pred h xs e =
-    let gamma = CAst.make (Names.Name h.ph_ctx) in
+    as in the header of the judgment [sj] and typed by the declaration *)
+  let pred sj xs e =
+    let gamma = CAst.make (Names.Name sj.sj_ctx) in
     let bs =
       [
         Cexpr.assum [ gamma ]
-          (mkAppC (Cexpr.gref' C.list, [ decl_type decl ]))
+          (mkAppC (Cexpr.gref' C.list, [ jdg.j_decl ]))
       ]
     in
     let bs = if xs = [] then bs else Cexpr.assum xs (mkIdentC sort) :: bs in
@@ -692,133 +636,86 @@ let desc_expr decl (blocks : pblock list)
     A judgment [p] is checked against [hprem] and coerced;
     [cons p l] alone would infer the type from [p] first.
   *)
-  let prems h xs l =
+  let prems sj xs l =
     let prem p =
       match p with
-      | PJdg e -> hoas e
-      | PPred e -> pred h xs e
+      | Jdg (_, e) -> hoas e
+      | Pred e -> pred sj xs e
     in
     let cons p l =
       Cexpr.app_expl C.cons [ shaped C.Jdg.hprem [] ; prem p ; l ]
     in
     List.fold_right cons l (Cexpr.gref' C.nil)
   in
-  (* A rule of the [k]th judgment, with header [h] *)
-  let rule k h r =
-    let bs = List.map (typed sort) r.pr_binders in
+  (* A rule of the [k]th judgment [sj] *)
+  let rule k sj r =
+    let bs = r.r_binders in
     shaped C.Jdg.hrule [
       idx_expr k ;
-      Cexpr.string (Names.Id.to_string r.pr_name) ;
-      Cexpr.list (params sort bs) ;
+      Cexpr.string (Names.Id.to_string r.r_name) ;
+      Cexpr.list (params bs) ;
       (* [hfun [] R] is [R]: no lambda for a rule without binders *)
-      (if bs = [] then Fun.id else mkCLambdaN (List.map (hbinder sort) bs))
-        (Cexpr.pair (prems h (metas sort bs) r.pr_prems) (hoas r.pr_concl))
+      (if bs = [] then Fun.id else mkCLambdaN (hbinders bs))
+        (Cexpr.pair (prems sj (metas bs) r.r_prems) (hoas r.r_concl))
     ]
   in
-  (* The rules of each block as a list, the blocks as a tuple *)
-  let block k b = Cexpr.list (List.map (rule k b.pb_header) b.pb_rules) in
+  (* The rules of each judgment as a list, the judgments as a tuple *)
+  let block k sj = Cexpr.list (List.map (rule k sj) sj.sj_rules) in
   mkCastC (
-    List.fold_right Cexpr.pair (List.mapi block blocks) (Cexpr.gref' C.tt),
+    List.fold_right Cexpr.pair (List.mapi block jdg.j_jdgs) (Cexpr.gref' C.tt),
     Some Constr.DEFAULTcast,
     Cexpr.app_expl C.Jdg.jdg_desc [ Cexpr.hole ; mkIdentC sort ; shc ]
   )
 
 (** The shape of an argument type: the sort is [t_term], any other type
   [t_base] *)
-let shape_of (sort : Names.Id.t) (ty : Constrexpr.constr_expr) :
-  Constrexpr.constr_expr =
-  if Cexpr.is_ident sort ty then Cexpr.gref' C.Jdg.t_term
-  else Constrexpr_ops.mkAppC (Cexpr.gref' C.Jdg.t_base, [ ty ])
+let shape_of arg : Constrexpr.constr_expr =
+  match arg with
+  | Term -> Cexpr.gref' C.Jdg.t_term
+  | Base ty -> Constrexpr_ops.mkAppC (Cexpr.gref' C.Jdg.t_base, [ ty ])
 
-(** The judgment of a variable, from the header: each argument is the variable
-  or one of the declarations [d1 ... dn], picked by position. *)
-let selection (h : pheader) ncomp : Constrexpr.constr_expr =
+let build_sel (s : sel list) : Constrexpr.constr_expr =
   let open Constrexpr_ops in
   let pos k = ce_iter k (Cexpr.gref' C.Jdg.posS) (Cexpr.gref' C.Jdg.pos0) in
-  let sel a s =
-    if Names.Id.equal a h.ph_var then mkAppC (Cexpr.gref' C.Jdg.sel_var, [ s ])
-    else
-      let ds = List.map (fun d -> d.CAst.v) h.ph_decls in
-      match CList.index0 Names.Name.equal (Names.Name a) ds with
-      | k -> mkAppC (Cexpr.gref' C.Jdg.sel_pos, [ pos k ; s ])
-      | exception Not_found ->
-        Log.error
-          "Sulfur Judgment: %s is neither the variable nor a declaration."
-          (Names.Id.to_string a)
+  let mk a s =
+    match a with
+    | SelVar -> mkAppC (Cexpr.gref' C.Jdg.sel_var, [ s ])
+    | SelPos k -> mkAppC (Cexpr.gref' C.Jdg.sel_pos, [ pos k ; s ])
   in
-  if not (Names.Id.equal h.ph_jdg h.ph_name) then
-    Log.error "Sulfur Judgment: the variable rule must conclude %s."
-      (Names.Id.to_string h.ph_name) ;
-  if List.length h.ph_decls <> ncomp then begin
-    let loc = Option.bind h.ph_decl (fun x -> x.CAst.loc) in
-    Log.error ?loc
-      "Sulfur Judgment: context %s of judgment %s declares %d component(s), \
-       variable x d1 ... dn must name as many after the variable. \
-       (Note: unit counts as no components.)"
-      (Names.Id.to_string h.ph_ctx) (Names.Id.to_string h.ph_name) ncomp
-  end ;
-  List.fold_right sel h.ph_args (Cexpr.gref' C.Jdg.sel_nil)
-
-(** Context declaration for a block of judgments.
-
-  It comes from the [with context Γ of d] of the first judgment, for which it
-  is mandatory. Subsequent judgments may mention it again, but only with
-  syntactically equal declarations.
-*)
-let block_decl (hs : pheader list) : Constrexpr.constr_expr =
-  let d =
-    match (List.hd hs).ph_decl with
-    | Some d -> d
-    | None ->
-      Log.error "Sulfur Judgment: the first judgment declares the context, \
-                 [with context Γ of d]."
-  in
-  List.iter (fun h ->
-    match h.ph_decl with
-    | Some d' when not (Constrexpr_ops.constr_expr_eq d d') ->
-      Log.error ?loc:d'.CAst.loc
-        "Sulfur Judgment: the judgments of a block must all use the same \
-         context declarations."
-    | _ -> ()
-  ) hs ;
-  d
+  List.fold_right mk s (Cexpr.gref' C.Jdg.sel_nil)
 
 (** The shapes of the headers, as the Gallina expression
   [shapes [d] [jshape_of [a1 ; ... ; am] (sel of the variable rule) ; ...]]:
   a declaration is a product of shapes ([unit] for none). *)
-let shapes_expr decl (hs : pheader list) : Constrexpr.constr_expr =
+let shapes_expr (jdg : jdg) : Constrexpr.constr_expr =
   let open Constrexpr_ops in
-  let sign, _ = saved_ops () in
-  let sort = sign.Signature.sort_name in
-  let dcomp = decl_components decl in
-  let ncomp = List.length dcomp in
   let dsh =
-    Cexpr.list (List.map (shape_of sort) dcomp)
+    Cexpr.list (List.map shape_of jdg.j_decl_comp)
   in
-  let jshape (h : pheader) =
+  let jshape (sj : sjdg) =
     let jsh =
-      Cexpr.list (List.map (shape_of sort) (fst (Cexpr.arrows h.ph_type)))
+      Cexpr.list (List.map shape_of sj.sj_args)
     in
     mkAppC
-      (Cexpr.gref' C.Jdg.jshape_of, [ Cexpr.hole ; jsh ; selection h ncomp ])
+      (Cexpr.gref' C.Jdg.jshape_of, [ Cexpr.hole ; jsh ; build_sel sj.sj_sel ])
   in
-  mkAppC (Cexpr.gref' C.Jdg.shapes, [ dsh ; Cexpr.list (List.map jshape hs) ])
+  let shapes = List.map jshape jdg.j_jdgs in
+  mkAppC (Cexpr.gref' C.Jdg.shapes, [ dsh ; Cexpr.list shapes ])
 
 (** [Sulfur Judgment header := rules with ...]: the shapes are declared as the
   instance [R_shapes], the description as [R_desc] (with the local
   definitions substituted), then handled as above.
 *)
-let generate_rules (blocks : pblock list) : unit =
-  let hs = List.map (fun b -> b.pb_header) blocks in
-  let decl = block_decl hs in
-  let name = Names.Id.to_string (List.hd hs).ph_name in
-  let shapes = def (name ^ "_shapes") (pretype (shapes_expr decl hs)) in
+let generate_rules (pj : pjdg) : unit =
+  let jdg = of_pjdg pj in
+  let name = Names.Id.to_string jdg.j_name in
+  let shapes = def (name ^ "_shapes") (pretype (shapes_expr jdg)) in
   declare_instance shapes ;
   let desc =
     def (name ^ "_desc") begin
-      let* d = pretype (desc_expr decl blocks shapes) in
+      let* d = pretype (desc_expr jdg shapes) in
       (* Substitute the local definitions *)
       reduce_only [] d
     end
   in
-  generate_desc blocks (mkconst desc)
+  generate_desc jdg (mkconst desc)
