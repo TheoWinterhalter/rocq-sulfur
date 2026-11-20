@@ -531,9 +531,6 @@ let rec ce_iter n f x =
 let idx_expr (k : int) : Constrexpr.constr_expr =
   ce_iter k (Cexpr.gref' C.Jdg.finS) (Cexpr.gref' C.Jdg.finO)
 
-let decl_type (j : jdg) : Constrexpr.constr_expr =
-  Cexpr.prod j.j_decl_comp
-
 (** Binders of a rule *)
 
 (** [hterm → ... → hterm], the type of a meta-variable of arity [n] *)
@@ -629,7 +626,7 @@ let desc_expr (jdg : jdg) (shapes : Names.Constant.t) : Constrexpr.constr_expr =
     let bs =
       [
         Cexpr.assum [ gamma ]
-          (mkAppC (Cexpr.gref' C.list, [ decl_type jdg ]))
+          (mkAppC (Cexpr.gref' C.list, [ jdg.j_decl ]))
       ]
     in
     let bs = if xs = [] then bs else Cexpr.assum xs (mkIdentC sort) :: bs in
@@ -672,10 +669,10 @@ let desc_expr (jdg : jdg) (shapes : Names.Constant.t) : Constrexpr.constr_expr =
 
 (** The shape of an argument type: the sort is [t_term], any other type
   [t_base] *)
-let shape_of (sort : Names.Id.t) (ty : Constrexpr.constr_expr) :
-  Constrexpr.constr_expr =
-  if Cexpr.is_ident sort ty then Cexpr.gref' C.Jdg.t_term
-  else Constrexpr_ops.mkAppC (Cexpr.gref' C.Jdg.t_base, [ ty ])
+let shape_of arg : Constrexpr.constr_expr =
+  match arg with
+  | Term -> Cexpr.gref' C.Jdg.t_term
+  | Base ty -> Constrexpr_ops.mkAppC (Cexpr.gref' C.Jdg.t_base, [ ty ])
 
 let build_sel (s : sel list) : Constrexpr.constr_expr =
   let open Constrexpr_ops in
@@ -692,14 +689,12 @@ let build_sel (s : sel list) : Constrexpr.constr_expr =
   a declaration is a product of shapes ([unit] for none). *)
 let shapes_expr (jdg : jdg) : Constrexpr.constr_expr =
   let open Constrexpr_ops in
-  let sign, _ = saved_ops () in
-  let sort = sign.Signature.sort_name in
   let dsh =
-    Cexpr.list (List.map (shape_of sort) jdg.j_decl_comp)
+    Cexpr.list (List.map shape_of jdg.j_decl_comp)
   in
   let jshape (sj : sjdg) =
     let jsh =
-      Cexpr.list (List.map (shape_of sort) (fst (Cexpr.arrows sj.sj_type)))
+      Cexpr.list (List.map shape_of sj.sj_args)
     in
     mkAppC
       (Cexpr.gref' C.Jdg.jshape_of, [ Cexpr.hole ; jsh ; build_sel sj.sj_sel ])
