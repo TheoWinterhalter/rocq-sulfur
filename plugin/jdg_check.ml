@@ -196,8 +196,10 @@ let of_pjdg (pj : pjdg) : jdg =
   let sort = sign.Signature.sort_name in
   let j_headers = List.map (fun b -> b.pb_header) pj in
   let j_names = List.map (fun h -> h.ph_name) j_headers in
-  let j_decl = block_decl j_headers in
-  let comp = decl_components j_decl in
+  let decl = block_decl j_headers in
+  let comp = decl_components decl in
+  (* Properly associates if needed (compared to [decl]) *)
+  let j_decl = Cexpr.prod comp in
   let j_decl_comp = List.map (to_arg sort) comp in
   let ncomp = List.length comp in
   let j_name = (List.hd j_headers).ph_name in
