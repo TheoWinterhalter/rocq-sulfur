@@ -159,7 +159,7 @@ let ctor (f : family) (k : int) (i : int) : EConstr.t =
 let reduce (transparent : Names.Constant.t list) (t : EConstr.t) : EConstr.t m =
   reduce_only ~refold:[ const_of_ref (Lazy.force C.map) ] transparent t
 
-(** The description [desc] of the judgments of [blocks], read *)
+(** The description [desc] of the judgments [jdg], read *)
 let read_desc (jdg : jdg) (desc : EConstr.t) : desc =
   monad_run begin
     let* desc_ty = typecheck desc None in
@@ -619,7 +619,7 @@ let desc_expr (jdg : jdg) (shapes : Names.Constant.t) : Constrexpr.constr_expr =
       defs e
   in
   (* [{{ P }}] with meta-variables [xs] (see above); the context is named
-    and typed as in the header [h] *)
+    as in the header of the judgment [sj] and typed by the declaration *)
   let pred sj xs e =
     let gamma = CAst.make (Names.Name sj.sj_ctx) in
     let bs =
@@ -658,7 +658,7 @@ let desc_expr (jdg : jdg) (shapes : Names.Constant.t) : Constrexpr.constr_expr =
         (Cexpr.pair (prems sj (metas bs) r.r_prems) (hoas r.r_concl))
     ]
   in
-  (* The rules of each block as a list, the blocks as a tuple *)
+  (* The rules of each judgment as a list, the judgments as a tuple *)
   let block k sj = Cexpr.list (List.map (rule k sj) sj.sj_rules) in
   mkCastC (
     List.fold_right Cexpr.pair (List.mapi block jdg.j_jdgs) (Cexpr.gref' C.tt),
