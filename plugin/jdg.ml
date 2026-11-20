@@ -22,17 +22,6 @@ type grule = {
   gr_prems : int option list
 }
 
-let binder_names (bs : Constrexpr.local_binder_expr list) : string list =
-  bs |> List.concat_map @@ fun b ->
-    match b with
-    | Constrexpr.CLocalAssum (xs, _, _, _) ->
-      List.map (fun x ->
-        match x.CAst.v with
-        | Names.Name id -> Names.Id.to_string id
-        | Names.Anonymous -> "x"
-      ) xs
-    | _ -> []
-
 let of_prem (p : prem) =
   match p with
   | Jdg (k, _) -> Some k
@@ -541,26 +530,7 @@ let idx_expr (k : int) : Constrexpr.constr_expr =
 let decl_type (j : jdg) : Constrexpr.constr_expr =
   Cexpr.prod j.j_decl_comp
 
-(** Binders of a rule, over the sort of the syntax *)
-
-(** The arity of a meta-variable type [term → ... → term], if it is one *)
-let arity (sort : Names.Id.t) (ty : Constrexpr.constr_expr) : int option =
-  let ds, c = Cexpr.arrows ty in
-  if Cexpr.is_ident sort c && List.for_all (Cexpr.is_ident sort) ds
-  then Some (List.length ds)
-  else None
-
-(** A rule parameter: a meta-variable of arity [n], or a true parameter, whose
-  type cannot mention the sort *)
-let param (sort : Names.Id.t) (ty : Constrexpr.constr_expr) :
-  Constrexpr.constr_expr =
-  let open Constrexpr_ops in
-  match arity sort ty with
-  | Some n -> mkAppC (Cexpr.gref' C.Jdg.rp_term, [ Cexpr.nat n ])
-  | None when occur_var_constr_expr sort ty ->
-    Log.error ?loc:ty.CAst.loc
-      "A parameter type cannot mention the sort %s." (Names.Id.to_string sort)
-  | None -> mkAppC (Cexpr.gref' C.Jdg.rp_param, [ ty ])
+(** Binders of a rule *)
 
 (** [hterm → ... → hterm], the type of a meta-variable of arity [n] *)
 let rec hterm_n (n : int) : Constrexpr.constr_expr =
@@ -570,40 +540,30 @@ let rec hterm_n (n : int) : Constrexpr.constr_expr =
       [ Cexpr.assum [ CAst.make Names.Anonymous ] (Cexpr.gref' C.Jdg.hterm) ]
       (hterm_n (n - 1))
 
-(** An annotation-free binder is of the sort *)
-let typed (sort : Names.Id.t) (b : Constrexpr.local_binder_expr) :
-  Constrexpr.local_binder_expr =
-  match b with
-  | Constrexpr.CLocalAssum (xs, r, k, { CAst.v = Constrexpr.CHole _ ; _ }) ->
-    Constrexpr.CLocalAssum (xs, r, k, Constrexpr_ops.mkIdentC sort)
-  | b -> b
-
-(** A binder of the lambda of a rule: a meta-variable of arity [n] is an
-  [n]-ary function on [hterm] *)
-let hbinder (sort : Names.Id.t) (b : Constrexpr.local_binder_expr) :
-  Constrexpr.local_binder_expr =
-  match b with
-  | Constrexpr.CLocalAssum (xs, r, k, ty) when arity sort ty <> None ->
-    Constrexpr.CLocalAssum (xs, r, k, hterm_n (Option.get (arity sort ty)))
-  | b -> b
-
-(** The parameters of the binders of a rule, which must be assumptions *)
-let params (sort : Names.Id.t) (bs : Constrexpr.local_binder_expr list) :
-  Constrexpr.constr_expr list =
-  bs |> List.concat_map @@ fun b ->
+(** The parameters of the rule: a meta-variable of arity [n], or a true
+  parameter *)
+let params (bs : binder list) : Constrexpr.constr_expr list =
+  let open Constrexpr_ops in
+  List.map (fun b ->
     match b with
-    | Constrexpr.CLocalAssum (xs, _, _, ty) -> List.map (fun _ -> param sort ty) xs
-    | Constrexpr.CLocalDef ({ CAst.loc ; _ }, _, _, _)
-    | Constrexpr.CLocalPattern { CAst.loc ; _ } ->
-      Log.error ?loc "Rule binders must be assumptions (x : A)."
+    | BMeta (_, n) -> mkAppC (Cexpr.gref' C.Jdg.rp_term, [ Cexpr.nat n ])
+    | BParam (_, ty) -> mkAppC (Cexpr.gref' C.Jdg.rp_param, [ ty ])
+  ) bs
+
+(** The binders of the lambda of a rule: a meta-variable of arity [n] is an
+  [n]-ary function on [hterm] *)
+let hbinders (bs : binder list) : Constrexpr.local_binder_expr list =
+  List.map (fun b ->
+    match b with
+    | BMeta (x, n) -> Cexpr.assum [ x ] (hterm_n n)
+    | BParam (x, ty) -> Cexpr.assum [ x ] ty
+  ) bs
 
 (** The meta-variables among the binders of a rule *)
-let metas (sort : Names.Id.t) (bs : Constrexpr.local_binder_expr list) :
-  Names.lname list =
-  bs |> List.concat_map @@ fun b ->
-    match b with
-    | Constrexpr.CLocalAssum (xs, _, _, ty) when arity sort ty <> None -> xs
-    | _ -> []
+let metas (bs : binder list) : Names.lname list =
+  List.filter_map (fun b ->
+    match b with BMeta (x, _) -> Some x | BParam _ -> None
+  ) bs
 
 (** The description written by the user, as the Gallina expression
 
@@ -646,9 +606,9 @@ let desc_expr (jdg : jdg) (shapes : Names.Constant.t) : Constrexpr.constr_expr =
     mkAppC (Cexpr.gref' C.Jdg.hctor, [ Cexpr.gref c ])
   in
   let defs =
-    List.mapi (fun k h ->
-      (h.ph_name, Cexpr.app_expl C.Jdg.hjdg [ Cexpr.hole ; shc ; idx_expr k ])
-    ) jdg.j_headers @
+    List.mapi (fun k sj ->
+      (sj.sj_name, Cexpr.app_expl C.Jdg.hjdg [ Cexpr.hole ; shc ; idx_expr k ])
+    ) jdg.j_jdgs @
     List.mapi (fun i c ->
       (c, hctor i)
     ) (Array.to_list sign.Signature.ctor_names)
@@ -660,8 +620,8 @@ let desc_expr (jdg : jdg) (shapes : Names.Constant.t) : Constrexpr.constr_expr =
   in
   (* [{{ P }}] with meta-variables [xs] (see above); the context is named
     and typed as in the header [h] *)
-  let pred h xs e =
-    let gamma = CAst.make (Names.Name h.ph_ctx) in
+  let pred sj xs e =
+    let gamma = CAst.make (Names.Name sj.sj_ctx) in
     let bs =
       [
         Cexpr.assum [ gamma ]
@@ -675,33 +635,33 @@ let desc_expr (jdg : jdg) (shapes : Names.Constant.t) : Constrexpr.constr_expr =
     A judgment [p] is checked against [hprem] and coerced;
     [cons p l] alone would infer the type from [p] first.
   *)
-  let prems h xs l =
+  let prems sj xs l =
     let prem p =
       match p with
-      | PJdg e -> hoas e
-      | PPred e -> pred h xs e
+      | Jdg (_, e) -> hoas e
+      | Pred e -> pred sj xs e
     in
     let cons p l =
       Cexpr.app_expl C.cons [ shaped C.Jdg.hprem [] ; prem p ; l ]
     in
     List.fold_right cons l (Cexpr.gref' C.nil)
   in
-  (* A rule of the [k]th judgment, with header [h] *)
-  let rule k h r =
-    let bs = List.map (typed sort) r.pr_binders in
+  (* A rule of the [k]th judgment [sj] *)
+  let rule k sj r =
+    let bs = r.r_binders in
     shaped C.Jdg.hrule [
       idx_expr k ;
-      Cexpr.string (Names.Id.to_string r.pr_name) ;
-      Cexpr.list (params sort bs) ;
+      Cexpr.string (Names.Id.to_string r.r_name) ;
+      Cexpr.list (params bs) ;
       (* [hfun [] R] is [R]: no lambda for a rule without binders *)
-      (if bs = [] then Fun.id else mkCLambdaN (List.map (hbinder sort) bs))
-        (Cexpr.pair (prems h (metas sort bs) r.pr_prems) (hoas r.pr_concl))
+      (if bs = [] then Fun.id else mkCLambdaN (hbinders bs))
+        (Cexpr.pair (prems sj (metas bs) r.r_prems) (hoas r.r_concl))
     ]
   in
   (* The rules of each block as a list, the blocks as a tuple *)
-  let block k b = Cexpr.list (List.map (rule k b.pb_header) b.pb_rules) in
+  let block k sj = Cexpr.list (List.map (rule k sj) sj.sj_rules) in
   mkCastC (
-    List.fold_right Cexpr.pair (List.mapi block jdg.j_blocks) (Cexpr.gref' C.tt),
+    List.fold_right Cexpr.pair (List.mapi block jdg.j_jdgs) (Cexpr.gref' C.tt),
     Some Constr.DEFAULTcast,
     Cexpr.app_expl C.Jdg.jdg_desc [ Cexpr.hole ; mkIdentC sort ; shc ]
   )

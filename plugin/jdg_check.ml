@@ -39,10 +39,8 @@ type sjdg = {
 }
 
 type jdg = {
-  j_blocks : pblock list ; (* TODO REMOVE *)
   j_decl_comp : Constrexpr.constr_expr list ;
   j_name : Names.Id.t ;
-  j_headers : pheader list ; (* TODO REMOVE *)
   j_jdgs : sjdg list ;
   j_names : Names.Id.t list
 }
@@ -177,4 +175,4 @@ let of_pjdg (pj : pjdg) : jdg =
   let ncomp = List.length j_decl_comp in
   let j_name = (List.hd j_headers).ph_name in
   let j_jdgs = List.map (of_pblock sort j_names ncomp) pj in
-  { j_blocks = pj ; j_decl_comp ; j_headers ; j_name ; j_jdgs ; j_names }
+  { j_decl_comp ; j_name ; j_jdgs ; j_names }
