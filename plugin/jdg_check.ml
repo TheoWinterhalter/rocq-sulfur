@@ -169,9 +169,14 @@ let to_arg sort ty =
 
 let to_args sort ty =
   let (args, st) = Cexpr.arrows ty in
-  let args = List.map (to_arg sort) args in
-  (* TODO Check st = Prop *)
-  args
+  begin match st.CAst.v with
+  | Constrexpr.CSort s
+    when Constrexpr_ops.sort_expr_eq s Constrexpr_ops.expr_Prop_sort -> ()
+  | _ ->
+    Log.error ?loc:st.CAst.loc
+      "Sulfur Judgment: a judgment is a relation, its type must end in Prop."
+  end ;
+  List.map (to_arg sort) args
 
 let of_pblock sort names ncomp k (pb : pblock) =
   let sj_name = pb.pb_header.ph_name in
