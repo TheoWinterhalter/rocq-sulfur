@@ -47,6 +47,31 @@ type jdg = {
   j_names : Names.Id.t list
 }
 
+(** The arity of a meta-variable type [sort → ... → sort], if it is one *)
+let arity (sort : Names.Id.t) (ty : Constrexpr.constr_expr) : int option =
+  let ds, c = Cexpr.arrows ty in
+  if Cexpr.is_ident sort c && List.for_all (Cexpr.is_ident sort) ds
+  then Some (List.length ds)
+  else None
+
+let to_binders sort (pb : Constrexpr.local_binder_expr) : binder list =
+  match pb with
+  (* Holes are converted to the sort *)
+  | Constrexpr.CLocalAssum (xs, _, _, { CAst.v = Constrexpr.CHole _ ; _ }) ->
+    List.map (fun x -> BMeta (x, 0)) xs
+  | Constrexpr.CLocalAssum (xs, _, _, ty) ->
+    begin match arity sort ty with
+    | Some n -> List.map (fun x -> BMeta (x, n)) xs
+    | None when Constrexpr_ops.occur_var_constr_expr sort ty ->
+      Log.error ?loc:ty.CAst.loc
+        "A parameter type cannot mention the sort %s."
+        (Names.Id.to_string sort)
+    | None -> List.map (fun x -> BParam (x, ty)) xs
+    end
+  | Constrexpr.CLocalDef ({ CAst.loc ; _ }, _, _, _)
+  | Constrexpr.CLocalPattern { CAst.loc ; _ } ->
+    Log.error ?loc "Rule binders must be assumptions (x : A)."
+
 (** The judgment of a premise [R t u] or [⟨ x ↦ A ⊢ R t u ⟩], by its head,
   among the judgments [names] of the block *)
 let rec prem_jdg (names : Names.Id.t list) (e : Constrexpr.constr_expr) : int =
@@ -68,8 +93,8 @@ let of_pprem names (p : pprem) : prem =
   | PPred e -> Pred e
   | PJdg e -> Jdg (prem_jdg names e, e)
 
-let of_prule names (pr : prule) : rule =
-  let r_binders = [] in (* TODO FIXME *)
+let of_prule sort names (pr : prule) : rule =
+  let r_binders = List.concat_map (to_binders sort) pr.pr_binders in
   let r_prems = List.map (of_pprem names) pr.pr_prems in
   { r_name = pr.pr_name ; r_binders ; r_prems ; r_concl = pr.pr_concl }
 
@@ -129,20 +154,27 @@ let block_decl (hs : pheader list) : Constrexpr.constr_expr =
 let decl_components (d : Constrexpr.constr_expr) : Constrexpr.constr_expr list =
   if Cexpr.is_ident (Names.Id.of_string "unit") d then [] else Cexpr.products d
 
-let of_pblock names ncomp (pb : pblock) =
+let of_pblock sort names ncomp (pb : pblock) =
   let sj_name = pb.pb_header.ph_name in
   let sj_ctx = pb.pb_header.ph_ctx in
   let sj_sel = selection pb.pb_header ncomp in
   let sj_type = pb.pb_header.ph_type in
-  let sj_rules = List.map (of_prule names) pb.pb_rules in
+  let sj_rules = List.map (of_prule sort names) pb.pb_rules in
   { sj_name ; sj_ctx ; sj_sel ; sj_type ; sj_rules }
 
+let saved_ops () =
+  match !Main.saved_ops with
+  | Some x -> x
+  | None -> Log.error "Sulfur Judgment: no syntax was generated beforehand."
+
 let of_pjdg (pj : pjdg) : jdg =
+  let sign, _ = saved_ops () in
+  let sort = sign.Signature.sort_name in
   let j_headers = List.map (fun b -> b.pb_header) pj in
   let j_names = List.map (fun h -> h.ph_name) j_headers in
   let decl = block_decl j_headers in
   let j_decl_comp = decl_components decl in
   let ncomp = List.length j_decl_comp in
   let j_name = (List.hd j_headers).ph_name in
-  let j_jdgs = List.map (of_pblock j_names ncomp) pj in
+  let j_jdgs = List.map (of_pblock sort j_names ncomp) pj in
   { j_blocks = pj ; j_decl_comp ; j_headers ; j_name ; j_jdgs ; j_names }

@@ -530,11 +530,6 @@ let generate_desc (jdg : jdg) (desc : EConstr.t) :
 (** *** Judgments written as rules. *)
 (******************************************************************************)
 
-let saved_ops () =
-  match !Main.saved_ops with
-  | Some x -> x
-  | None -> Log.error "Sulfur Judgment: no syntax was generated beforehand."
-
 let rec ce_iter n f x =
   if n <= 0 then x
   else Constrexpr_ops.mkAppC (f, [ ce_iter (n - 1) f x ])
