@@ -91,7 +91,13 @@ let of_pprem names (p : pprem) : prem =
   | PPred e -> Pred e
   | PJdg e -> Jdg (prem_jdg names e, e)
 
-let of_prule sort names (pr : prule) : rule =
+(** A rule of the [k]th judgment of the block, which it must conclude *)
+let of_prule sort names k (pr : prule) : rule =
+  if prem_jdg names pr.pr_concl <> k then begin
+    let s = Names.Id.to_string (List.nth names k) in
+    Log.error ?loc:pr.pr_concl.CAst.loc
+      "Sulfur Judgment: a rule of %s must conclude %s." s s
+  end ;
   let r_binders = List.concat_map (to_binders sort) pr.pr_binders in
   let r_prems = List.map (of_pprem names) pr.pr_prems in
   { r_name = pr.pr_name ; r_binders ; r_prems ; r_concl = pr.pr_concl }
@@ -152,12 +158,12 @@ let block_decl (hs : pheader list) : Constrexpr.constr_expr =
 let decl_components (d : Constrexpr.constr_expr) : Constrexpr.constr_expr list =
   if Cexpr.is_ident (Names.Id.of_string "unit") d then [] else Cexpr.products d
 
-let of_pblock sort names ncomp (pb : pblock) =
+let of_pblock sort names ncomp k (pb : pblock) =
   let sj_name = pb.pb_header.ph_name in
   let sj_ctx = pb.pb_header.ph_ctx in
   let sj_sel = selection pb.pb_header ncomp in
   let sj_type = pb.pb_header.ph_type in
-  let sj_rules = List.map (of_prule sort names) pb.pb_rules in
+  let sj_rules = List.map (of_prule sort names k) pb.pb_rules in
   { sj_name ; sj_ctx ; sj_sel ; sj_type ; sj_rules }
 
 let saved_ops () =
@@ -174,5 +180,5 @@ let of_pjdg (pj : pjdg) : jdg =
   let j_decl_comp = decl_components decl in
   let ncomp = List.length j_decl_comp in
   let j_name = (List.hd j_headers).ph_name in
-  let j_jdgs = List.map (of_pblock sort j_names ncomp) pj in
+  let j_jdgs = List.mapi (of_pblock sort j_names ncomp) pj in
   { j_decl_comp ; j_name ; j_jdgs ; j_names }
