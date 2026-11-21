@@ -358,7 +358,11 @@ let declare_theorem (kind : Decls.theorem_kind) (name : Names.Id.t) (stmt : ECon
   let proof, _, _ = Proof.run_tactic env tac proof in
   let body = List.hd @@ Proof.partial_proof proof in
   (* Typecheck to solve evars and get universe constraints. *)
-  let* _ = typecheck body None in
+  (* let* _ = typecheck body None in *)
+  (* Doing it is actually slow, and it seems the evar map already has what
+    we need.
+  *)
+  let* () = (fun _ _ -> ((Proof.data proof).Proof.sigma, ())) in
   (* Constant info. *)
   let info =
     Declare.Info.make ~kind:(Decls.IsProof kind)
