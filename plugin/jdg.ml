@@ -304,7 +304,7 @@ let rules_lemma (d : desc) (f : family) : Names.Constant.t =
     (stmt d f C.Jdg.rules_type)
     (Tacticals.tclTHEN
       (run_ltac "JdgDesc" "split_forall_rec" [])
-      (dispatch (fun k -> Tactics.exact_check (List.nth foralls k))))
+      (dispatch (fun k -> Tactics.exact_no_check (List.nth foralls k))))
 
 (** [R_vars : var_rules d R], the conjunction of the variable constructors. *)
 let vars_lemma (d : desc) (f : family) : Names.Constant.t =
@@ -312,7 +312,7 @@ let vars_lemma (d : desc) (f : family) : Names.Constant.t =
     (ret (app (jdg d C.Jdg.var_rules) f.f_r))
     (Tacticals.tclTHEN
       (run_ltac "JdgDesc" "split_forall_rec" [])
-      (dispatch (fun k -> Tactics.exact_check (ctor f k 1))))
+      (dispatch (fun k -> Tactics.exact_no_check (ctor f k 1))))
 
 (** The induction principle of the family, over a family of motives [P i]: the
   combined scheme of the mutual inductive applied to [P finO], [P (finS
@@ -354,7 +354,7 @@ let induction_scheme (d : desc) (f : family) : EConstr.t =
 let sound_lemma (d : desc) (f : family) : Names.Constant.t =
   lemma (shared d "_sound")
     (stmt d f C.Jdg.sound_jdg)
-    (Tactics.exact_check (
+    (Tactics.exact_no_check (
       apps (jdg d C.Jdg.sound_of_ind)
         [| d.d_term ; d.d_cl ; f.f_r ; induction_scheme d f |]
     ))
@@ -363,7 +363,7 @@ let sound_lemma (d : desc) (f : family) : Names.Constant.t =
 let complete_lemma (d : desc) (f : family) ~vars ~rules ~wf : Names.Constant.t =
   lemma (shared d "_complete")
     (stmt d f C.Jdg.complete_jdg)
-    (Tactics.exact_check (
+    (Tactics.exact_no_check (
       apps (jdg d C.Jdg.jdg_complete)
         [| d.d_term ; d.d_cl ; f.f_r ; mkconst vars ; mkconst rules ; mkconst wf |]
     ))
@@ -491,13 +491,13 @@ let subst_lemmas (d : desc) (f : family) ~sound ~complete : unit =
     match cls with
     | None ->
       ignore (lemma name (stmt k)
-        (Tactics.exact_check (proof (mkglob (Rocqlib.lib_ref "core.True.I")) k)))
+        (Tactics.exact_no_check (proof (mkglob (Rocqlib.lib_ref "core.True.I")) k)))
     | Some cls ->
       let subst =
         lemma name
           (let* concl = stmt k in
             prod "H" (mkconst cls) (fun _ -> ret concl))
-          (Tactics.exact_check
+          (Tactics.exact_no_check
             (monad_run (lambda "H" (mkconst cls) (fun h ->
               ret (proof (EConstr.mkVar h) k)))))
       in
