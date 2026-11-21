@@ -575,8 +575,8 @@ let metas (bs : binder list) : Names.lname list =
 
     [ let R := hjdg in let c := hctor Cc in ... pi ]
 
-  with [R] the judgment and [c] ranging over the constructors, so that
-  elaboration resolves them to their HOAS versions.
+  with [R] the judgment and [c] ranging over the constructors that [pi]
+  mentiones, so that elaboration resolves them to their HOAS versions.
   A binder [(x : term)] is a meta-variable, typed [hterm] in the lambda
   ([hterm → ... → hterm] for an arity), any other type is a parameter.
   A premise [{{ P }}] is first-order:
@@ -614,9 +614,10 @@ let desc_expr (jdg : jdg) (shapes : Names.Constant.t) : Constrexpr.constr_expr =
     ) (Array.to_list sign.Signature.ctor_names)
   in
   let hoas e =
+    let fv = free_vars_of_constr_expr e in
     List.fold_right
       (fun (x, v) body -> mkLetInC (CAst.make (Names.Name x), v, None, body))
-      defs e
+      (List.filter (fun (x, _) -> Names.Id.Set.mem x fv) defs) e
   in
   (* [{{ P }}] with meta-variables [xs] (see above); the context is named
     as in the header of the judgment [sj] and typed by the declaration *)
