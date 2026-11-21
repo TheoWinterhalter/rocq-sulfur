@@ -871,7 +871,7 @@ Section ConcreteFacts.
     ∀ x, wf_rule_at (i := i) rd x = true.
 
   Definition wf_desc :=
-    Forall_rec (λ i, Forall wf_rule (desc_rules desc i)) (fin_all _).
+    Forall_rec (λ i, Forall_idx (λ _, wf_rule) (desc_rules desc i)) (fin_all _).
 
   Lemma wf_desc_rule i rd :
     wf_desc →
@@ -881,8 +881,10 @@ Section ConcreteFacts.
     intros h hin.
     unfold wf_desc in h. rewrite Forall_rec_iff in h.
     rewrite Forall_forall in h.
-    specialize (h i (In_fin_all i)). rewrite Forall_forall in h.
-    apply h. assumption.
+    specialize (h i (In_fin_all i)).
+    apply In_nth_error in hin as [k e].
+    eapply Forall_idx_nth in h. 2: exact e.
+    assumption.
   Qed.
 
   Lemma map_nvar_seq (vs : list T) :
@@ -1094,16 +1096,13 @@ Section ConcreteFacts.
       | pd :: prems => prem_ok i r k pd l && pos_ok i r (S k) prems l
       end.
 
-    Fixpoint obls_ok_from i r (d : list (rule_desc (sh_at i))) l : Prop :=
-      match d with
-      | [] => True
-      | rd :: d =>
-        (∀ x, pos_ok i r 0 (rd.(rd_premises) x) l = true) ∧
-        obls_ok_from i (S r) d l
-      end.
+    Definition obls_ok_rule i l r (rd : rule_desc (sh_at i)) : Prop :=
+      ∀ x, pos_ok i r 0 (rd.(rd_premises) x) l = true.
 
     Definition obls_ok l : Prop :=
-      Forall_rec (λ i, obls_ok_from i 0 (desc_rules desc i) l) (fin_all _).
+      Forall_rec
+        (λ i, Forall_idx (obls_ok_rule i l) (desc_rules desc i))
+        (fin_all _).
 
     Lemma mem_pred_in j r i l :
       mem_pred j r i l = true →
@@ -1141,25 +1140,16 @@ Section ConcreteFacts.
         + rewrite <- PeanoNat.Nat.add_succ_comm. eapply ih. all: eassumption.
     Qed.
 
-    Lemma obls_ok_nth i r d l k rd x :
-      obls_ok_from i r d l →
-      nth_error d k = Some rd →
-      pos_ok i (r + k) 0 (rd.(rd_premises) x) l = true.
-    Proof.
-      induction d as [| rd' d ih] in r, k, x |- *.
-      - destruct k. all: discriminate.
-      - intros [h1 h2] e. destruct k as [| k].
-        + injection e as ->. rewrite PeanoNat.Nat.add_0_r. auto.
-        + rewrite <- PeanoNat.Nat.add_succ_comm. eapply ih. all: eassumption.
-    Qed.
-
-    Lemma obls_ok_at l j :
+    Lemma obls_ok_at l j r rd x :
       obls_ok l →
-      obls_ok_from j 0 (desc_rules desc j) l.
+      nth_error (desc_rules desc j) r = Some rd →
+      pos_ok j r 0 (rd.(rd_premises) x) l = true.
     Proof.
-      intros h. unfold obls_ok in h.
+      intros h e. unfold obls_ok in h.
       rewrite Forall_rec_iff, Forall_forall in h.
-      apply h. apply In_fin_all.
+      specialize (h j (In_fin_all j)).
+      eapply Forall_idx_nth in h. 2: exact e.
+      apply h.
     Qed.
 
     Lemma obligation_at l j r rd x k n P :
@@ -1169,8 +1159,7 @@ Section ConcreteFacts.
       nth_error (rd.(rd_premises) x) k = Some (pd_pred n P) →
       pred_obl rd k.
     Proof.
-      intros hok ho hr hk. apply obls_ok_at with (j := j) in hok.
-      eapply obls_ok_nth in hok. 2: exact hr. cbn in hok.
+      intros hok ho hr hk. eapply obls_ok_at in hok. 2: eassumption.
       eapply pos_ok_nth in hok. 2: exact hk. cbn in hok.
       apply mem_pred_in in hok.
       unfold obligations in ho. rewrite Forall_rec_iff, Forall_forall in ho.
@@ -1185,8 +1174,7 @@ Section ConcreteFacts.
       nth_error (rd.(rd_premises) x) k = Some (pd_jdg i' (n := n) Δ j) →
       make_obl i i'.
     Proof.
-      intros hok ho hr hk. apply obls_ok_at with (j := i) in hok.
-      eapply obls_ok_nth in hok. 2: exact hr. cbn in hok.
+      intros hok ho hr hk. eapply obls_ok_at in hok. 2: eassumption.
       eapply pos_ok_nth in hok. 2: exact hk. cbn in hok.
       rewrite orb_true_iff in hok. destruct hok as [e | hin].
       - apply eqb_fin_eq in e. subst i'. intros Γ d t h. exact h.
@@ -1574,10 +1562,17 @@ End ConcreteFacts.
 
 (** Tactics for the plugin *)
 
-(** Prove [wf_desc] *)
+(** Prove [wf_desc] and [obls_ok] *)
 Ltac wf_desc_tac :=
-  repeat constructor ;
-  intro ; reflexivity.
+  lazymatch goal with
+  | |- ?G =>
+    let G' := eval hnf in G in
+    lazymatch G' with
+    | True => exact I
+    | _ ∧ _ => refine (conj _ _) ; wf_desc_tac
+    | ∀ _, _ => intro ; exact_no_check (@eq_refl bool true)
+    end
+  end.
 
 (** Split [var_rules], a [Forall_rec], into the variable rules of the
   judgments *)

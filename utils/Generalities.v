@@ -75,6 +75,39 @@ Proof.
     + cbn. intuition auto.
 Qed.
 
+Fixpoint length_acc [A : Type] (l : list A) n :=
+  match l with
+  | [] => n
+  | _ :: l => length_acc l (S n)
+  end.
+
+Lemma length_acc_length A (l : list A) n :
+  length_acc l n = n + length l.
+Proof.
+  induction l as [| a l ih] in n |- *.
+  - cbn. lia.
+  - cbn. rewrite ih. lia.
+Qed.
+
+(** Variant of [Forall_rec] which behaves better with respect to [constructor] *)
+Definition Forall_idx [A : Type] (P : nat → A → Prop) (l : list A) :=
+  Forall_rec
+    (λ k, match nth_error l k with Some a => P k a | None => True end)
+    (seq 0 (length_acc l 0)).
+
+Lemma Forall_idx_nth A P (l : list A) k a :
+  Forall_idx P l →
+  nth_error l k = Some a →
+  P k a.
+Proof.
+  intros h e.
+  unfold Forall_idx in h. rewrite Forall_rec_iff, Forall_forall in h.
+  specialize (h k). rewrite e in h. apply h.
+  rewrite length_acc_length. apply in_seq. cbn.
+  split. 1: lia.
+  apply nth_error_Some. rewrite e. discriminate.
+Qed.
+
 (** n-ary (non-dependent) functions
 
   A pattern we reuse several times in this file.
