@@ -248,7 +248,7 @@ Proof.
   intuition (try (eapply scoping_subst ; eauto using cstyping_conversion_scoping)).
 Admitted.
 
-Sulfur Judgment typing : term → term → Prop
+Time Sulfur Judgment typing : term → term → Prop
   with context Γ of (mode * term)
   and variable x m A ↦ typing x A :=
 | type_sort (m : mode) (i : level) :

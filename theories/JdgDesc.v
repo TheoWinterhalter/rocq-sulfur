@@ -13,7 +13,7 @@ From Stdlib Require Import Utf8 String.
 From Sulfur Require Import Prelude Sig Renamings.
 From Sulfur Require Import ParamSyntax JudgmentSyntaxScoped ConcreteSyntax.
 From Sulfur Require Import JdgShape.
-From SulfurUtils Require Import Functor.
+From SulfurUtils Require Import Functor Copies.
 
 (** Judgments and declarations are built on shapes *)
 
@@ -254,7 +254,7 @@ Section HOAS.
 
   Fixpoint hmvar_aux (k : mvar) n (l : list hterm) : hterm_n n :=
     match n with
-    | 0 => λ s, M_mvar s k (map (λ t, t s) l)
+    | 0 => λ s, M_mvar s k (lmap (λ t, t s) l)
     | S n => λ x, hmvar_aux k n (x :: l)
     end.
 
@@ -377,7 +377,7 @@ Section HOAS.
   : rule_desc (sh_at i) := {|
     rd_name := name ;
     rd_params := ps ;
-    rd_premises := λ x, map (λ p, p 0 mnil) (fst (happly ps 0 pr_cl x)) ;
+    rd_premises := λ x, lmap (λ p, p 0 mnil) (fst (happly ps 0 pr_cl x)) ;
     rd_conclusion := λ x, jmap (λ t, t 0) (snd (happly ps 0 pr_cl x))
   |}.
 
@@ -443,7 +443,7 @@ Section Inst.
       else
         match σ with
         | [] => crename (rshifts s) (ι k)
-        | _ => csubstitute (csub s (map cinst σ)) (ι k)
+        | _ => csubstitute (csub s (lmap cinst σ)) (ι k)
         end
     end.
 
@@ -507,7 +507,7 @@ Section ConcreteJdg.
       fold_right
         (λ P Q, P → Q)
         (conc_jdg Γ (nvar vs) (rd.(rd_conclusion) x))
-        (map (conc_prem Γ (nvar vs)) (rd.(rd_premises) x))
+        (lmap (conc_prem Γ (nvar vs)) (rd.(rd_premises) x))
     ).
 
   (* Lookup declarations in a context, shifted by [f] *)
@@ -790,7 +790,7 @@ Section ConcreteFacts.
           destruct i. all: reflexivity.
         * rewrite rf_substitute.
           apply substitute_proper. 2: reflexivity.
-          intro i. apply rf_csub. assumption.
+          intro i. rewrite lmap_map. apply rf_csub. assumption.
   Qed.
 
   Lemma rf_cinst_t ι s (e : mexpr Kt s) :
@@ -871,7 +871,7 @@ Section ConcreteFacts.
     ∀ x, wf_rule_at (i := i) rd x = true.
 
   Definition wf_desc :=
-    Forall_rec (λ i, Forall wf_rule (desc_rules desc i)) (fin_all _).
+    Forall_rec (λ i, Forall_idx (λ _, wf_rule) (desc_rules desc i)) (fin_all _).
 
   Lemma wf_desc_rule i rd :
     wf_desc →
@@ -881,8 +881,10 @@ Section ConcreteFacts.
     intros h hin.
     unfold wf_desc in h. rewrite Forall_rec_iff in h.
     rewrite Forall_forall in h.
-    specialize (h i (In_fin_all i)). rewrite Forall_forall in h.
-    apply h. assumption.
+    specialize (h i (In_fin_all i)).
+    apply In_nth_error in hin as [k e].
+    eapply Forall_idx_nth in h. 2: exact e.
+    assumption.
   Qed.
 
   Lemma map_nvar_seq (vs : list T) :
@@ -913,7 +915,7 @@ Section ConcreteFacts.
     intros h.
     red. rewrite <- under_iff. intros vs x hvs. cbn.
     rewrite <- fold_impl_iff. intros hF.
-    rewrite Forall_map in hF.
+    rewrite lmap_map, Forall_map in hF.
     unfold conc_jdg, J.
     rewrite capply_curry. unfold Pf.
     rewrite rf_cinst_tuple.
@@ -1001,7 +1003,7 @@ Section ConcreteFacts.
     *)
 
     Definition subst_vals ar nt (σ : nat → T) (vs : list T) : list T :=
-      map (λ k, csubstitute (cups_subst (ar k) σ) (nvar vs k)) (seq 0 nt).
+      lmap (λ k, csubstitute (cups_subst (ar k) σ) (nvar vs k)) (seq 0 nt).
 
     Definition pred_stable ar nt Γ Δ σ vs (pd : premise_desc (T := T)) :=
       match pd with
@@ -1094,16 +1096,13 @@ Section ConcreteFacts.
       | pd :: prems => prem_ok i r k pd l && pos_ok i r (S k) prems l
       end.
 
-    Fixpoint obls_ok_from i r (d : list (rule_desc (sh_at i))) l : Prop :=
-      match d with
-      | [] => True
-      | rd :: d =>
-        (∀ x, pos_ok i r 0 (rd.(rd_premises) x) l = true) ∧
-        obls_ok_from i (S r) d l
-      end.
+    Definition obls_ok_rule i l r (rd : rule_desc (sh_at i)) : Prop :=
+      ∀ x, pos_ok i r 0 (rd.(rd_premises) x) l = true.
 
     Definition obls_ok l : Prop :=
-      Forall_rec (λ i, obls_ok_from i 0 (desc_rules desc i) l) (fin_all _).
+      Forall_rec
+        (λ i, Forall_idx (obls_ok_rule i l) (desc_rules desc i))
+        (fin_all _).
 
     Lemma mem_pred_in j r i l :
       mem_pred j r i l = true →
@@ -1141,25 +1140,16 @@ Section ConcreteFacts.
         + rewrite <- PeanoNat.Nat.add_succ_comm. eapply ih. all: eassumption.
     Qed.
 
-    Lemma obls_ok_nth i r d l k rd x :
-      obls_ok_from i r d l →
-      nth_error d k = Some rd →
-      pos_ok i (r + k) 0 (rd.(rd_premises) x) l = true.
-    Proof.
-      induction d as [| rd' d ih] in r, k, x |- *.
-      - destruct k. all: discriminate.
-      - intros [h1 h2] e. destruct k as [| k].
-        + injection e as ->. rewrite PeanoNat.Nat.add_0_r. auto.
-        + rewrite <- PeanoNat.Nat.add_succ_comm. eapply ih. all: eassumption.
-    Qed.
-
-    Lemma obls_ok_at l j :
+    Lemma obls_ok_at l j r rd x :
       obls_ok l →
-      obls_ok_from j 0 (desc_rules desc j) l.
+      nth_error (desc_rules desc j) r = Some rd →
+      pos_ok j r 0 (rd.(rd_premises) x) l = true.
     Proof.
-      intros h. unfold obls_ok in h.
+      intros h e. unfold obls_ok in h.
       rewrite Forall_rec_iff, Forall_forall in h.
-      apply h. apply In_fin_all.
+      specialize (h j (In_fin_all j)).
+      eapply Forall_idx_nth in h. 2: exact e.
+      apply h.
     Qed.
 
     Lemma obligation_at l j r rd x k n P :
@@ -1169,8 +1159,7 @@ Section ConcreteFacts.
       nth_error (rd.(rd_premises) x) k = Some (pd_pred n P) →
       pred_obl rd k.
     Proof.
-      intros hok ho hr hk. apply obls_ok_at with (j := j) in hok.
-      eapply obls_ok_nth in hok. 2: exact hr. cbn in hok.
+      intros hok ho hr hk. eapply obls_ok_at in hok. 2: eassumption.
       eapply pos_ok_nth in hok. 2: exact hk. cbn in hok.
       apply mem_pred_in in hok.
       unfold obligations in ho. rewrite Forall_rec_iff, Forall_forall in ho.
@@ -1185,8 +1174,7 @@ Section ConcreteFacts.
       nth_error (rd.(rd_premises) x) k = Some (pd_jdg i' (n := n) Δ j) →
       make_obl i i'.
     Proof.
-      intros hok ho hr hk. apply obls_ok_at with (j := i) in hok.
-      eapply obls_ok_nth in hok. 2: exact hr. cbn in hok.
+      intros hok ho hr hk. eapply obls_ok_at in hok. 2: eassumption.
       eapply pos_ok_nth in hok. 2: exact hk. cbn in hok.
       rewrite orb_true_iff in hok. destruct hok as [e | hin].
       - apply eqb_fin_eq in e. subst i'. intros Γ d t h. exact h.
@@ -1389,7 +1377,7 @@ Section ConcreteFacts.
         unfold inst_jdg, fmap, Sig_FMapJdg, FMap_tuple.
         erewrite ev_inst_tuple. 2: eassumption.
         apply hrules.
-        rewrite Forall_map, Forall_forall.
+        rewrite lmap_map, Forall_map, Forall_forall.
         intros pd hp.
         rewrite forallb_forall in hwp. specialize (hwp _ hp).
         destruct pd as [i' n Δ j | n P].
@@ -1428,7 +1416,7 @@ Section ConcreteFacts.
     ev_vs ar nt (λ k s, substitute (up_substs s σ) (me k s)) =
     subst_vals ar nt (λ i, ceval (σ i)) (ev_vs ar nt me).
   Proof.
-    unfold subst_vals, ev_vs.
+    unfold subst_vals, ev_vs. rewrite lmap_map.
     apply map_ext_in. intros k hk. rewrite in_seq in hk.
     unfold nvar. rewrite nth_map_seq. 2: lia.
     rewrite ev_substitute. apply csubstitute_ext.
@@ -1574,10 +1562,17 @@ End ConcreteFacts.
 
 (** Tactics for the plugin *)
 
-(** Prove [wf_desc] *)
+(** Prove [wf_desc] and [obls_ok] *)
 Ltac wf_desc_tac :=
-  repeat constructor ;
-  intro ; reflexivity.
+  lazymatch goal with
+  | |- ?G =>
+    let G' := eval hnf in G in
+    lazymatch G' with
+    | True => exact I
+    | _ ∧ _ => refine (conj _ _) ; wf_desc_tac
+    | ∀ _, _ => intro ; exact_no_check (@eq_refl bool true)
+    end
+  end.
 
 (** Split [var_rules], a [Forall_rec], into the variable rules of the
   judgments *)

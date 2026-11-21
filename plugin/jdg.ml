@@ -156,10 +156,9 @@ let stmt (d : desc) (f : family) (s : Names.GlobRef.t Lazy.t) : EConstr.t m =
 let ctor (f : family) (k : int) (i : int) : EConstr.t =
   mkctor ((f.f_mind, k), i)
 
-(** Reduce a statement, unfolding only [transparent]; [map] over a variable
-  context, in a predicate, keeps its name. *)
+(** Reduce a statement, unfolding only [transparent] *)
 let reduce (transparent : Names.Constant.t list) (t : EConstr.t) : EConstr.t m =
-  reduce_only ~refold:[ const_of_ref (Lazy.force C.map) ] transparent t
+  reduce_only transparent t
 
 (** The description [desc] of the judgments [jdg], read *)
 let read_desc (jdg : jdg) (d_term : EConstr.t) : desc =
@@ -192,7 +191,7 @@ let transparent_constants (d : desc) : Names.Constant.t list m =
     List.filter_map Fun.id opaque @
     List.map (fun g -> const_of_ref (Lazy.force g)) [
       C.rid ; C.rshift ; C.rcons ; C.rcomp ; C.up_ren ; C.Jdg.cup_subst ;
-      C.Jdg.j ; C.sub
+      C.Jdg.j ; C.sub ; C.map
     ]
   in
   let* transparent =
@@ -305,7 +304,7 @@ let rules_lemma (d : desc) (f : family) : Names.Constant.t =
     (stmt d f C.Jdg.rules_type)
     (Tacticals.tclTHEN
       (run_ltac "JdgDesc" "split_forall_rec" [])
-      (dispatch (fun k -> Tactics.exact_check (List.nth foralls k))))
+      (dispatch (fun k -> Tactics.exact_no_check (List.nth foralls k))))
 
 (** [R_vars : var_rules d R], the conjunction of the variable constructors. *)
 let vars_lemma (d : desc) (f : family) : Names.Constant.t =
@@ -313,7 +312,7 @@ let vars_lemma (d : desc) (f : family) : Names.Constant.t =
     (ret (app (jdg d C.Jdg.var_rules) f.f_r))
     (Tacticals.tclTHEN
       (run_ltac "JdgDesc" "split_forall_rec" [])
-      (dispatch (fun k -> Tactics.exact_check (ctor f k 1))))
+      (dispatch (fun k -> Tactics.exact_no_check (ctor f k 1))))
 
 (** The induction principle of the family, over a family of motives [P i]: the
   combined scheme of the mutual inductive applied to [P finO], [P (finS
@@ -355,7 +354,7 @@ let induction_scheme (d : desc) (f : family) : EConstr.t =
 let sound_lemma (d : desc) (f : family) : Names.Constant.t =
   lemma (shared d "_sound")
     (stmt d f C.Jdg.sound_jdg)
-    (Tactics.exact_check (
+    (Tactics.exact_no_check (
       apps (jdg d C.Jdg.sound_of_ind)
         [| d.d_term ; d.d_cl ; f.f_r ; induction_scheme d f |]
     ))
@@ -364,7 +363,7 @@ let sound_lemma (d : desc) (f : family) : Names.Constant.t =
 let complete_lemma (d : desc) (f : family) ~vars ~rules ~wf : Names.Constant.t =
   lemma (shared d "_complete")
     (stmt d f C.Jdg.complete_jdg)
-    (Tactics.exact_check (
+    (Tactics.exact_no_check (
       apps (jdg d C.Jdg.jdg_complete)
         [| d.d_term ; d.d_cl ; f.f_r ; mkconst vars ; mkconst rules ; mkconst wf |]
     ))
@@ -464,10 +463,11 @@ let obligations_class (d : desc) (f : family) (o : obligations) :
   judgment, which finds the instance by resolution. *)
 let subst_lemmas (d : desc) (f : family) ~sound ~complete : unit =
   let o = obligations d in
+  let obs = mkconst (def (shared d "_obls") (ret o.o_term)) in
   let ok =
     lemma (shared d "_obls_wf")
       (ret (apps (mkglob' C.Jdg.obls_ok)
-        [| d.d_sg ; d.d_ty ; d.d_sh ; d.d_term ; o.o_term |]))
+        [| d.d_sg ; d.d_ty ; d.d_sh ; d.d_term ; obs |]))
       (run_ltac "JdgDesc" "wf_desc_tac" [])
   in
   let cls = obligations_class d f o in
@@ -483,7 +483,7 @@ let subst_lemmas (d : desc) (f : family) ~sound ~complete : unit =
   in
   let proof h k =
     apps (jdg d C.Jdg.gen_preserve_subst) [|
-      d.d_term ; d.d_cl ; f.f_r ; mkconst sound ; mkconst complete ; o.o_term ;
+      d.d_term ; d.d_cl ; f.f_r ; mkconst sound ; mkconst complete ; obs ;
       mkconst ok ; h ; idx d k
     |]
   in
@@ -492,13 +492,13 @@ let subst_lemmas (d : desc) (f : family) ~sound ~complete : unit =
     match cls with
     | None ->
       ignore (lemma name (stmt k)
-        (Tactics.exact_check (proof (mkglob (Rocqlib.lib_ref "core.True.I")) k)))
+        (Tactics.exact_no_check (proof (mkglob (Rocqlib.lib_ref "core.True.I")) k)))
     | Some cls ->
       let subst =
         lemma name
           (let* concl = stmt k in
             prod "H" (mkconst cls) (fun _ -> ret concl))
-          (Tactics.exact_check
+          (Tactics.exact_no_check
             (monad_run (lambda "H" (mkconst cls) (fun h ->
               ret (proof (EConstr.mkVar h) k)))))
       in
@@ -576,8 +576,8 @@ let metas (bs : binder list) : Names.lname list =
 
     [ let R := hjdg in let c := hctor Cc in ... pi ]
 
-  with [R] the judgment and [c] ranging over the constructors, so that
-  elaboration resolves them to their HOAS versions.
+  with [R] the judgment and [c] ranging over the constructors that [pi]
+  mentiones, so that elaboration resolves them to their HOAS versions.
   A binder [(x : term)] is a meta-variable, typed [hterm] in the lambda
   ([hterm → ... → hterm] for an arity), any other type is a parameter.
   A premise [{{ P }}] is first-order:
@@ -615,9 +615,10 @@ let desc_expr (jdg : jdg) (shapes : Names.Constant.t) : Constrexpr.constr_expr =
     ) (Array.to_list sign.Signature.ctor_names)
   in
   let hoas e =
+    let fv = free_vars_of_constr_expr e in
     List.fold_right
       (fun (x, v) body -> mkLetInC (CAst.make (Names.Name x), v, None, body))
-      defs e
+      (List.filter (fun (x, _) -> Names.Id.Set.mem x fv) defs) e
   in
   (* [{{ P }}] with meta-variables [xs] (see above); the context is named
     as in the header of the judgment [sj] and typed by the declaration *)

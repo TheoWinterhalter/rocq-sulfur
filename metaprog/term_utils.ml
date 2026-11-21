@@ -312,10 +312,16 @@ let case (scrutinee : EConstr.t)
 (** *** Declaring definitions/indutives. *)
 (**************************************************************************************)
 
+(* Typecheck to solve evars and typeclasses if needed *)
+let solve_evars body =
+  let* sigma = get_sigma in
+  if Evarutil.has_undefined_evars sigma body then
+    monad_ignore @@ typecheck ~solve_tc:true body None
+  else ret ()
+
 let declare_def (kind : Decls.definition_object_kind) (name : Names.Id.t)
     ?(ty : EConstr.t option) (body : EConstr.t) : Names.Constant.t m =
-  (* Typecheck to solve evars and typeclasses. *)
-  let* _ = typecheck ~solve_tc:true body None in
+  let* _ = solve_evars body in
   let* _ =
     match ty with
     | None -> ret ()
@@ -358,7 +364,11 @@ let declare_theorem (kind : Decls.theorem_kind) (name : Names.Id.t) (stmt : ECon
   let proof, _, _ = Proof.run_tactic env tac proof in
   let body = List.hd @@ Proof.partial_proof proof in
   (* Typecheck to solve evars and get universe constraints. *)
-  let* _ = typecheck body None in
+  (* let* _ = typecheck body None in *)
+  (* Doing it is actually slow, and it seems the evar map already has what
+    we need.
+  *)
+  let* () = (fun _ _ -> ((Proof.data proof).Proof.sigma, ())) in
   (* Constant info. *)
   let info =
     Declare.Info.make ~kind:(Decls.IsProof kind)
