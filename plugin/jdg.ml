@@ -156,10 +156,9 @@ let stmt (d : desc) (f : family) (s : Names.GlobRef.t Lazy.t) : EConstr.t m =
 let ctor (f : family) (k : int) (i : int) : EConstr.t =
   mkctor ((f.f_mind, k), i)
 
-(** Reduce a statement, unfolding only [transparent]; [map] over a variable
-  context, in a predicate, keeps its name. *)
+(** Reduce a statement, unfolding only [transparent] *)
 let reduce (transparent : Names.Constant.t list) (t : EConstr.t) : EConstr.t m =
-  reduce_only ~refold:[ const_of_ref (Lazy.force C.map) ] transparent t
+  reduce_only transparent t
 
 (** The description [desc] of the judgments [jdg], read *)
 let read_desc (jdg : jdg) (d_term : EConstr.t) : desc =
@@ -192,7 +191,7 @@ let transparent_constants (d : desc) : Names.Constant.t list m =
     List.filter_map Fun.id opaque @
     List.map (fun g -> const_of_ref (Lazy.force g)) [
       C.rid ; C.rshift ; C.rcons ; C.rcomp ; C.up_ren ; C.Jdg.cup_subst ;
-      C.Jdg.j ; C.sub
+      C.Jdg.j ; C.sub ; C.map
     ]
   in
   let* transparent =

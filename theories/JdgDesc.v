@@ -13,7 +13,7 @@ From Stdlib Require Import Utf8 String.
 From Sulfur Require Import Prelude Sig Renamings.
 From Sulfur Require Import ParamSyntax JudgmentSyntaxScoped ConcreteSyntax.
 From Sulfur Require Import JdgShape.
-From SulfurUtils Require Import Functor.
+From SulfurUtils Require Import Functor Copies.
 
 (** Judgments and declarations are built on shapes *)
 
@@ -254,7 +254,7 @@ Section HOAS.
 
   Fixpoint hmvar_aux (k : mvar) n (l : list hterm) : hterm_n n :=
     match n with
-    | 0 => λ s, M_mvar s k (map (λ t, t s) l)
+    | 0 => λ s, M_mvar s k (lmap (λ t, t s) l)
     | S n => λ x, hmvar_aux k n (x :: l)
     end.
 
@@ -377,7 +377,7 @@ Section HOAS.
   : rule_desc (sh_at i) := {|
     rd_name := name ;
     rd_params := ps ;
-    rd_premises := λ x, map (λ p, p 0 mnil) (fst (happly ps 0 pr_cl x)) ;
+    rd_premises := λ x, lmap (λ p, p 0 mnil) (fst (happly ps 0 pr_cl x)) ;
     rd_conclusion := λ x, jmap (λ t, t 0) (snd (happly ps 0 pr_cl x))
   |}.
 
@@ -443,7 +443,7 @@ Section Inst.
       else
         match σ with
         | [] => crename (rshifts s) (ι k)
-        | _ => csubstitute (csub s (map cinst σ)) (ι k)
+        | _ => csubstitute (csub s (lmap cinst σ)) (ι k)
         end
     end.
 
@@ -507,7 +507,7 @@ Section ConcreteJdg.
       fold_right
         (λ P Q, P → Q)
         (conc_jdg Γ (nvar vs) (rd.(rd_conclusion) x))
-        (map (conc_prem Γ (nvar vs)) (rd.(rd_premises) x))
+        (lmap (conc_prem Γ (nvar vs)) (rd.(rd_premises) x))
     ).
 
   (* Lookup declarations in a context, shifted by [f] *)
@@ -790,7 +790,7 @@ Section ConcreteFacts.
           destruct i. all: reflexivity.
         * rewrite rf_substitute.
           apply substitute_proper. 2: reflexivity.
-          intro i. apply rf_csub. assumption.
+          intro i. rewrite lmap_map. apply rf_csub. assumption.
   Qed.
 
   Lemma rf_cinst_t ι s (e : mexpr Kt s) :
@@ -913,7 +913,7 @@ Section ConcreteFacts.
     intros h.
     red. rewrite <- under_iff. intros vs x hvs. cbn.
     rewrite <- fold_impl_iff. intros hF.
-    rewrite Forall_map in hF.
+    rewrite lmap_map, Forall_map in hF.
     unfold conc_jdg, J.
     rewrite capply_curry. unfold Pf.
     rewrite rf_cinst_tuple.
@@ -1001,7 +1001,7 @@ Section ConcreteFacts.
     *)
 
     Definition subst_vals ar nt (σ : nat → T) (vs : list T) : list T :=
-      map (λ k, csubstitute (cups_subst (ar k) σ) (nvar vs k)) (seq 0 nt).
+      lmap (λ k, csubstitute (cups_subst (ar k) σ) (nvar vs k)) (seq 0 nt).
 
     Definition pred_stable ar nt Γ Δ σ vs (pd : premise_desc (T := T)) :=
       match pd with
@@ -1389,7 +1389,7 @@ Section ConcreteFacts.
         unfold inst_jdg, fmap, Sig_FMapJdg, FMap_tuple.
         erewrite ev_inst_tuple. 2: eassumption.
         apply hrules.
-        rewrite Forall_map, Forall_forall.
+        rewrite lmap_map, Forall_map, Forall_forall.
         intros pd hp.
         rewrite forallb_forall in hwp. specialize (hwp _ hp).
         destruct pd as [i' n Δ j | n P].
@@ -1428,7 +1428,7 @@ Section ConcreteFacts.
     ev_vs ar nt (λ k s, substitute (up_substs s σ) (me k s)) =
     subst_vals ar nt (λ i, ceval (σ i)) (ev_vs ar nt me).
   Proof.
-    unfold subst_vals, ev_vs.
+    unfold subst_vals, ev_vs. rewrite lmap_map.
     apply map_ext_in. intros k hk. rewrite in_seq in hk.
     unfold nvar. rewrite nth_map_seq. 2: lia.
     rewrite ev_substitute. apply csubstitute_ext.
