@@ -312,10 +312,16 @@ let case (scrutinee : EConstr.t)
 (** *** Declaring definitions/indutives. *)
 (**************************************************************************************)
 
+(* Typecheck to solve evars and typeclasses if needed *)
+let solve_evars body =
+  let* sigma = get_sigma in
+  if Evarutil.has_undefined_evars sigma body then
+    monad_ignore @@ typecheck ~solve_tc:true body None
+  else ret ()
+
 let declare_def (kind : Decls.definition_object_kind) (name : Names.Id.t)
     ?(ty : EConstr.t option) (body : EConstr.t) : Names.Constant.t m =
-  (* Typecheck to solve evars and typeclasses. *)
-  let* _ = typecheck ~solve_tc:true body None in
+  let* _ = solve_evars body in
   let* _ =
     match ty with
     | None -> ret ()
