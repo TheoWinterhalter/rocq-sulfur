@@ -463,10 +463,11 @@ let obligations_class (d : desc) (f : family) (o : obligations) :
   judgment, which finds the instance by resolution. *)
 let subst_lemmas (d : desc) (f : family) ~sound ~complete : unit =
   let o = obligations d in
+  let obs = mkconst (def (shared d "_obls") (ret o.o_term)) in
   let ok =
     lemma (shared d "_obls_wf")
       (ret (apps (mkglob' C.Jdg.obls_ok)
-        [| d.d_sg ; d.d_ty ; d.d_sh ; d.d_term ; o.o_term |]))
+        [| d.d_sg ; d.d_ty ; d.d_sh ; d.d_term ; obs |]))
       (run_ltac "JdgDesc" "wf_desc_tac" [])
   in
   let cls = obligations_class d f o in
@@ -482,7 +483,7 @@ let subst_lemmas (d : desc) (f : family) ~sound ~complete : unit =
   in
   let proof h k =
     apps (jdg d C.Jdg.gen_preserve_subst) [|
-      d.d_term ; d.d_cl ; f.f_r ; mkconst sound ; mkconst complete ; o.o_term ;
+      d.d_term ; d.d_cl ; f.f_r ; mkconst sound ; mkconst complete ; obs ;
       mkconst ok ; h ; idx d k
     |]
   in
