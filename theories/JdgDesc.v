@@ -1564,14 +1564,11 @@ End ConcreteFacts.
 
 (** Prove [wf_desc] and [obls_ok] *)
 Ltac wf_desc_tac :=
+  hnf ;
   lazymatch goal with
-  | |- ?G =>
-    let G' := eval hnf in G in
-    lazymatch G' with
-    | True => exact I
-    | _ ∧ _ => refine (conj _ _) ; wf_desc_tac
-    | ∀ _, _ => intro ; exact_no_check (@eq_refl bool true)
-    end
+  | |- True => exact I
+  | |- _ ∧ _ => refine (conj _ _) ; wf_desc_tac
+  | |- ∀ _, _ => intro ; exact_no_check (@eq_refl bool true)
   end.
 
 (** Split [var_rules], a [Forall_rec], into the variable rules of the
