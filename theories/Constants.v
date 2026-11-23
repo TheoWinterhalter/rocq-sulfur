@@ -17,7 +17,6 @@ Register pair as sulfur.prod.pair.
 Register nat as sulfur.nat.type.
 Register O as sulfur.nat.zero.
 Register S as sulfur.nat.succ.
-Register Nat.sub as sulfur.nat.sub.
 
 Register list as sulfur.list.type.
 Register nil as sulfur.list.nil.
@@ -126,12 +125,9 @@ Register JdgDesc.jdg_desc as sulfur.jdg.jdg_desc.
 Register JdgDesc.hterm as sulfur.jdg.hterm.
 Register JdgDesc.hctor as sulfur.jdg.hctor.
 Register JdgDesc.hjdg as sulfur.jdg.hjdg.
-Register JdgDesc.hext as sulfur.jdg.hext.
-Register JdgDesc.hjp as sulfur.jdg.hjp.
 Register JdgDesc.hprem as sulfur.jdg.hprem.
 Register JdgDesc.hpred as sulfur.jdg.hpred.
 Register JdgDesc.cup_subst as sulfur.jdg.cup_subst.
-Register JdgDesc.pred_obl as sulfur.jdg.pred_obl.
 Register JdgDesc.ob as sulfur.jdg.ob.
 Register JdgDesc.ob_pred as sulfur.jdg.ob_pred.
 Register JdgDesc.ob_make as sulfur.jdg.ob_make.
@@ -144,7 +140,6 @@ Register JdgDesc.sh_at as sulfur.jdg.sh_at.
 Register JdgDesc.Idx as sulfur.jdg.jidx.
 Register JdgDesc.jdg_at as sulfur.jdg.jdg_at.
 Register JdgDesc.var_rules as sulfur.jdg.var_rules.
-Register JdgDesc.make_obl as sulfur.jdg.make_obl.
 Register finO as sulfur.fin.finO.
 Register finS as sulfur.fin.finS.
 Register JdgShape.t_term as sulfur.jdg.t_term.
