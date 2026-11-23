@@ -155,9 +155,31 @@ let fresh_global_id (base : Names.Id.t) : Names.Id.t m =
   in
   (sigma, id)
 
-(** Helper function to declare a definition. If [refresh] is [true], it will pick a fresh
-    name to avoid clashing with previously defined constants. *)
-let def (name : string) ?(refresh = false) ?(kind = Decls.Definition)
+(** Record of which functions where generated *)
+let generated_consts : Names.Cset_env.t ref =
+  Summary.ref ~name:"sulfur_generated_summary" Names.Cset_env.empty
+
+let add_generated_const : Names.Constant.t -> Libobject.obj =
+  let cache_function c =
+    generated_consts := Names.Cset_env.add c !generated_consts
+  in
+  let load_function _ = cache_function in
+  Libobject.declare_object {
+    (Libobject.default_object "sulfur_generated_libobject") with
+    cache_function ;
+    load_function ;
+    classify_function = (fun _ -> Keep)
+  }
+
+(** Helper function to declare a definition.
+
+  If [refresh] is [true], it will pick a fresh name to avoid clashing with
+  previously defined constants.
+
+  It will also record in [generated_consts] that this is a generated definition.
+
+*)
+let raw_def (name : string) ?(refresh = false) ?(kind = Decls.Definition)
     (mk_body : EConstr.t m) : Names.Constant.t =
   monad_run
     begin
@@ -169,6 +191,12 @@ let def (name : string) ?(refresh = false) ?(kind = Decls.Definition)
       let* body = mk_body in
       declare_def kind name body
     end
+
+let def (name : string) ?(refresh = false) ?(kind = Decls.Definition)
+    (mk_body : EConstr.t m) : Names.Constant.t =
+  let c = raw_def name ~refresh ~kind mk_body in
+  Lib.add_leaf (add_generated_const c) ;
+  c
 
 (** Helper function to prove a lemma using a tactic. If [refresh] is [true], it will pick
     a fresh name to avoid clashing with previously defined constants. *)

@@ -536,29 +536,6 @@ let reduce_only ?(refold = [])
     let flags = RedFlags.red_add_transparent RedFlags.all (only refold) in
     (sigma, Cbn.norm_cbn flags env sigma t)
 
-let constants_closure (roots : EConstr.t list) : Names.Constant.t list m =
-  let* env = get_env in
-  let* sigma = get_sigma in
-  let rec consts acc t =
-    match Constr.kind t with
-    | Constr.Const (c, _) -> c :: acc
-    | _ -> Constr.fold consts acc t
-  in
-  let rec go seen = function
-    | [] -> seen
-    | c :: todo when Names.Cset_env.mem c seen -> go seen todo
-    | c :: todo ->
-      let todo =
-        match (Environ.lookup_constant c env).Declarations.const_body with
-        | Declarations.Def b -> consts todo b
-        | _ -> todo
-      in
-      go (Names.Cset_env.add c seen) todo
-  in
-  let roots = List.map (EConstr.to_constr sigma) roots in
-  List.fold_left consts [] roots |> fun l ->
-  ret (Names.Cset_env.elements (go Names.Cset_env.empty l))
-
 let rename_binders (names : string option list) (t : EConstr.t) : EConstr.t m =
   let* sigma = get_sigma in
   let bs, body = EConstr.decompose_prod_n sigma (List.length names) t in

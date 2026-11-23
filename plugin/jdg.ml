@@ -179,34 +179,39 @@ let read_desc (jdg : jdg) (d_term : EConstr.t) : desc =
     { d_name ; d_term ; d_names ; d_sg ; d_ty ; d_sh ; d_cs ; d_cl ; d_rules }
   end
 
-(** The constants the statements may unfold: those reachable from the library's
-  definitions and the instance, but not those of the user's parameters, nor
-  the ones which stay folded in the statements: the description, the
-  operations of the syntax, the renamings, the lifting of substitutions, the
-  generic judgment [J], and [Nat.sub] which would otherwise pollute [csub]. *)
+(** The constants the statements may unfold
+
+  We assume the user does not use the names from Sulfur itself and that those
+  are safe to unfold always.
+
+*)
 let transparent_constants (d : desc) : Names.Constant.t list m =
   let* ops = decode_cs_ops d.d_cs in
   let* opaque = List.monad_map head_const (d.d_term :: ops) in
   let opaque =
     List.filter_map Fun.id opaque @
     List.map (fun g -> const_of_ref (Lazy.force g)) [
-      C.rid ; C.rshift ; C.rcons ; C.rcomp ; C.up_ren ; C.Jdg.cup_subst ;
-      C.Jdg.j ; C.sub
+      C.rid ; C.rshift ; C.rcons ; C.rcomp ; C.up_ren ; C.Jdg.cup_subst
     ]
   in
-  let* transparent =
-    constants_closure (
-      jdg d C.Jdg.rule_desc_type ::
-      jdg d C.Jdg.var_rule_type ::
-      jdg d C.Jdg.pred_obl ::
-      apps (mkglob' C.Jdg.make_obl) [| d.d_ty ; d.d_sh |] ::
-      jdg d C.Jdg.obligations ::
-      jdg d C.Jdg.preserve_subst_jdg :: jdg_type d ::
-      List.map mkglob' [
-        C.Jdg.hrule ; C.Jdg.hctor ; C.Jdg.hjdg ; C.Jdg.hjp ; C.Jdg.hext ;
-        C.Jdg.hpred ; C.Jdg.jdg_at
-      ]
-    )
+  let library c =
+    let file = Names.ModPath.dp (Names.Constant.modpath c) in
+    let root = Names.Id.to_string (CList.last (Names.DirPath.repr file)) in
+    List.mem root [ "Sulfur" ; "SulfurUtils" ; "Equations" ] ||
+    List.mem (Names.Constant.to_string c) [
+      "Corelib.Init.Logic.eq_rect" ; "Corelib.Init.Logic.eq_sym" ;
+      "Corelib.Init.Logic.False_rect"
+    ]
+  in
+  let is_transp c =
+    library c || Names.Cset_env.mem c !generated_consts
+  in
+  let* env = get_env in
+  let transparent =
+    (* Might be expensive when the environment is big *)
+    Environ.fold_constants (fun c _ cs ->
+      if is_transp c then c :: cs else cs
+    ) env []
   in
   ret (CList.subtract Names.Constant.CanOrd.equal transparent opaque)
 
