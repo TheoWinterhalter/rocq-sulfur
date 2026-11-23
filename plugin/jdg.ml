@@ -191,13 +191,15 @@ let transparent_constants (d : desc) : Names.Constant.t list m =
     List.filter_map Fun.id opaque @
     List.map (fun g -> const_of_ref (Lazy.force g)) [
       C.rid ; C.rshift ; C.rcons ; C.rcomp ; C.up_ren ; C.Jdg.cup_subst ;
-      C.Jdg.j ; C.sub ; C.map
+      C.Jdg.j ; C.sub
     ]
   in
   let* transparent =
     constants_closure (
-      jdg d C.Jdg.rule_desc_type :: jdg d C.Jdg.var_rule_type ::
-      jdg d C.Jdg.pred_obl :: apps (mkglob' C.Jdg.make_obl) [| d.d_ty ; d.d_sh |] ::
+      jdg d C.Jdg.rule_desc_type ::
+      jdg d C.Jdg.var_rule_type ::
+      jdg d C.Jdg.pred_obl ::
+      apps (mkglob' C.Jdg.make_obl) [| d.d_ty ; d.d_sh |] ::
       jdg d C.Jdg.obligations ::
       jdg d C.Jdg.preserve_subst_jdg :: jdg_type d ::
       List.map mkglob' [

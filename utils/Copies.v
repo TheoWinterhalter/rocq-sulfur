@@ -9,16 +9,33 @@
 From Stdlib Require Import Utf8 Bool List.
 Import ListNotations.
 
-(** Copy of List.map *)
-Fixpoint lmap {A B} (f : A → B) (l : list A) : list B :=
-  match l with
-  | [] => []
-  | x :: l => f x :: lmap f l
-  end.
+Section Lists.
 
-Lemma lmap_map {A B} (f : A → B) l :
-  lmap f l = map f l.
+  Context [A B : Type].
+  Context (f : A → B).
+
+  Fixpoint lmap (l : list A) : list B :=
+    match l with
+    | [] => []
+    | x :: l => f x :: lmap l
+    end.
+
+  Fixpoint llength (l : list A) : nat :=
+    match l with
+    | [] => 0
+    | _ :: l => S (llength l)
+    end.
+
+End Lists.
+
+Lemma lmap_map :
+  lmap = map.
 Proof.
-  induction l as [| x l ih]. 1: reflexivity.
-  cbn. f_equal. assumption.
+  reflexivity.
+Qed.
+
+Lemma llength_length :
+  llength = List.length.
+Proof.
+  reflexivity.
 Qed.

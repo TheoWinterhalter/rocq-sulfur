@@ -44,7 +44,7 @@ Section Shaped.
   Context {sh : Shapes}.
 
   (** The judgments of the block *)
-  Definition Idx := fin (List.length sh_jdgs).
+  Definition Idx := fin (llength sh_jdgs).
 
   Definition sh_vec := vec_of_list sh_jdgs.
   Definition sh_at (i : Idx) := vec_nth sh_vec i.
@@ -416,7 +416,7 @@ Section Inst.
 
   *)
   Definition csub s (σ : list T) (i : nat) : T :=
-    nth i σ (cvar (s + (i - List.length σ))).
+    nth i σ (cvar (s + (i - llength σ))).
 
   (* [s] shifts; [rshift] itself when [s = 1] *)
   Fixpoint rshifts (s : nat) : ren :=
