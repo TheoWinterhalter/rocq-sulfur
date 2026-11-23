@@ -8,7 +8,7 @@
 *)
 
 From Stdlib Require Import Utf8 List Bool.
-From SulfurUtils Require Import Functor Generalities.
+From SulfurUtils Require Import Functor Generalities Copies.
 Import ListNotations.
 
 Set Default Goal Selector "!".
@@ -45,7 +45,7 @@ Definition tuple (sh : shape) tm : Type :=
 Definition Elmap {X Y} t (f : X → Y) : El t X → El t Y :=
   match t with
   | t_term => f
-  | t_base B => id
+  | t_base B => idfun
   end.
 
 Fixpoint tuple1_map {X Y} t sh (f : X → Y) : tuple1 t sh X → tuple1 t sh Y :=
@@ -56,7 +56,7 @@ Fixpoint tuple1_map {X Y} t sh (f : X → Y) : tuple1 t sh X → tuple1 t sh Y :
 
 Definition tuple_map {X Y} sh (f : X → Y) : tuple sh X → tuple sh Y :=
   match sh with
-  | [] => id
+  | [] => idfun
   | t :: sh => tuple1_map t sh f
   end.
 
@@ -316,14 +316,14 @@ Definition tcons (a : type) (sh : shape) {X} :
 Definition thead (a : type) (sh : shape) {X} : tuple (a :: sh) X → El a X :=
   match sh with
   | [] => λ x, x
-  | b :: sh => fst
+  | b :: sh => pfst
   end.
 
 Definition ttail (a : type) (sh : shape) {X} :
   tuple (a :: sh) X → tuple sh X :=
   match sh with
   | [] => λ _, tt
-  | b :: sh => snd
+  | b :: sh => psnd
   end.
 
 Lemma tuple_map_tcons a sh X Y (f : X → Y) (x : El a X) (xs : tuple sh X) :

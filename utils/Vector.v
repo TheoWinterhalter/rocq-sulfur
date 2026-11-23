@@ -3,7 +3,7 @@
 
 From Stdlib Require Import Utf8 Relations Morphisms.
 From Equations Require Import Equations.
-From SulfurUtils Require Import Fin.
+From SulfurUtils Require Import Fin Copies.
 
 (** Enable reducing constants defined using [Equations]. *)
 Set Equations Transparent.
@@ -68,8 +68,8 @@ Equations vec_map2 {T1 T2 U} (f : T1 -> T2 -> U) {n} (xs : vec T1 n) (ys : vec T
 vec_map2 f vnil vnil := vnil ;
 vec_map2 f (vcons x xs) (vcons y ys) := vcons (f x y) (vec_map2 f xs ys).
 
-(** [vec_of_list xs] converts the list [xs] into a vector of length [List.length xs]. *)
-Equations vec_of_list {T} (xs : list T) : vec T (List.length xs) :=
+(** [vec_of_list xs] converts the list [xs] into a vector of length [length xs]. *)
+Equations vec_of_list {T} (xs : list T) : vec T (llength xs) :=
 vec_of_list nil := vnil ;
 vec_of_list (cons x xs) := vcons x (vec_of_list xs).
 
@@ -224,5 +224,5 @@ Equations hvec {A} (F : A → Type) {n} (xs : vec A n) : Type :=
 
 Equations hvec_nth {A} F {n} (xs : vec A n) (hs : hvec F xs) (i : fin n) :
   F (vec_nth xs i) :=
-  hvec_nth F (vcons x xs) hs finO := fst hs ;
-  hvec_nth F (vcons x xs) hs (finS i) := hvec_nth F xs (snd hs) i.
+  hvec_nth F (vcons x xs) hs finO := pfst hs ;
+  hvec_nth F (vcons x xs) hs (finS i) := hvec_nth F xs (psnd hs) i.

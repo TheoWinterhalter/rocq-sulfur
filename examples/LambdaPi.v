@@ -20,6 +20,7 @@ Sulfur Judgment conv : tm → tm → Prop
 
 | beta A (b : tm → tm) u :
     ⟹ conv (tapp (tlam A b) u) (b u)
+
 | congr_lam A A' (b b' : tm → tm) :
     conv A A' ;
     ⟨ x ↦ tt ⊢ conv (b x) (b' x) ⟩
@@ -53,7 +54,6 @@ Sulfur Judgment typing : tm → tm → Prop
     {{ conv (map (λ _, tt) Γ) A A' }}
     ⟹ typing t A'.
 
-(* Needed for the substitution lemma, currently false *)
 #[local] Instance: typing_obligations.
 Proof.
   red.

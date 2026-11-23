@@ -159,7 +159,7 @@ Section Val.
     cvar 0.
 
   Definition nvar (vs : list T) :=
-    λ i, nth i vs dummy.
+    λ i, lnth i vs dummy.
 
   Definition ev_vs ar m (me : menv) : list T :=
     map (λ k, ceval (me k (ar k))) (seq 0 m).
@@ -349,7 +349,7 @@ Section HOAS.
     match ps with
     | [] => λ x _, x
     | rp_term n :: ps => λ f, happly ps (S k) (f (hmvar k n))
-    | rp_param A :: ps => λ f x, happly ps k (f (fst x)) (snd x)
+    | rp_param A :: ps => λ f x, happly ps k (f (pfst x)) (psnd x)
     end.
 
   Definition hjdg_ty i : Type :=
@@ -359,7 +359,7 @@ Section HOAS.
     tuple sh_decl hterm.
 
   Definition hjdg {i} : cfun (sh_jdg i) (hjdg_ty i) :=
-    JdgShape.curry id.
+    JdgShape.curry idfun.
 
   Definition hprem :=
     ∀ s, hctx s → premise_desc (T := T).
@@ -368,7 +368,7 @@ Section HOAS.
     λ s Δ, pd_jdg i Δ (jmap (λ t, t s) j).
 
   Definition hext (d : hdecl) (P : hterm → hprem) : hprem :=
-    λ s Δ, P (hvar s) (S s) (mcons (dmap (λ t, t (s + 0)) d) Δ).
+    λ s Δ, P (hvar s) (S s) (mcons (dmap (λ t, t (s +' 0)) d) Δ).
 
   Definition hpred n (P : nary n T (ctx T → Prop)) : hprem :=
     λ _ _, pd_pred n P.
@@ -377,8 +377,8 @@ Section HOAS.
   : rule_desc (sh_at i) := {|
     rd_name := name ;
     rd_params := ps ;
-    rd_premises := λ x, lmap (λ p, p 0 mnil) (fst (happly ps 0 pr_cl x)) ;
-    rd_conclusion := λ x, jmap (λ t, t 0) (snd (happly ps 0 pr_cl x))
+    rd_premises := λ x, lmap (λ p, p 0 mnil) (pfst (happly ps 0 pr_cl x)) ;
+    rd_conclusion := λ x, jmap (λ t, t 0) (psnd (happly ps 0 pr_cl x))
   |}.
 
 End HOAS.
@@ -406,7 +406,7 @@ Section Inst.
   Fixpoint is_id {s} n i (σ : list (mexpr Kt s)) : bool :=
     match n, σ with
     | 0, [] => true
-    | S n, M_var _ j _ :: σ => (i =? j) && is_id n (S i) σ
+    | S n, M_var _ j _ :: σ => (i =?' j) &&' is_id n (S i) σ
     | _, _ => false
     end.
 
@@ -416,7 +416,7 @@ Section Inst.
 
   *)
   Definition csub s (σ : list T) (i : nat) : T :=
-    nth i σ (cvar (s + (i - List.length σ))).
+    lnth i σ (cvar (s +' (i - llength σ))).
 
   (* [s] shifts; [rshift] itself when [s = 1] *)
   Fixpoint rshifts (s : nat) : ren :=
@@ -490,21 +490,21 @@ Section ConcreteJdg.
 
   Definition conc_prem (Γ : ctx T) (ι : mvar → T) (pd : premise_desc) :=
     match pd with
-    | pd_jdg i Δ j => conc_jdg (cinst_ctx ι Δ ++ Γ) ι j
+    | pd_jdg i Δ j => conc_jdg (cinst_ctx ι Δ ++' Γ) ι j
     | pd_pred n P => napply ι n 0 P Γ
     end.
 
   (** [∀ x1 ... xn, K [x1; ...; xn]]. *)
   Fixpoint under ps (ms : list T) : (list T → params ps → Prop) → Prop :=
     match ps with
-    | [] => λ K, K (rev ms) tt
+    | [] => λ K, K (lrev ms) tt
     | rp_term _ :: ps => λ K, ∀ x, under ps (x :: ms) K
     | rp_param A :: ps => λ K, ∀ (a : A), under ps ms (λ l p, K l (a, p))
     end.
 
   Definition rule_desc_type {i} (rd : rule_desc (sh_at i)) (Γ : ctx T) : Prop :=
     under rd.(rd_params) [] (λ vs x,
-      fold_right
+      lfold_right
         (λ P Q, P → Q)
         (conc_jdg Γ (nvar vs) (rd.(rd_conclusion) x))
         (lmap (conc_prem Γ (nvar vs)) (rd.(rd_premises) x))
@@ -605,7 +605,7 @@ Section Ind.
   (* Like [rule_desc_type] but collecting induction hypotheses *)
   Definition rule_ind_case {i} P (rd : rule_desc (sh_at i)) (Γ : ctx T) : Prop :=
     under rd.(rd_params) [] (λ vs x,
-      fold_right
+      lfold_right
         (ind_prem P Γ (nvar vs))
         (conc_jdg P Γ (nvar vs) (rd.(rd_conclusion) x))
         (rd.(rd_premises) x)
@@ -613,10 +613,10 @@ Section Ind.
 
   Definition ind_type :=
     ∀ (P : ∀ i, jdg_type T i),
-      fold_right
+      lfold_right
         (λ i K,
           var_rule_type P i →
-          fold_right
+          lfold_right
             (λ rd K, (∀ Γ, rule_ind_case P rd Γ) → K)
             K
             (desc_rules desc i)
@@ -752,7 +752,8 @@ Section ConcreteFacts.
     intros h.
     induction h as [| t σ ht hσ ih] in i |- *.
     - unfold inst_sub. destruct i.
-      all: cbn. all: rewrite rf_var. all: f_equal. all: lia.
+      all: cbn. all: rewrite nadd_add.
+      all: rewrite rf_var. all: f_equal. all: lia.
     - destruct i as [| i].
       + assumption.
       + rewrite inst_sub_S. apply ih.
@@ -1003,7 +1004,7 @@ Section ConcreteFacts.
     *)
 
     Definition subst_vals ar nt (σ : nat → T) (vs : list T) : list T :=
-      lmap (λ k, csubstitute (cups_subst (ar k) σ) (nvar vs k)) (seq 0 nt).
+      lmap (λ k, csubstitute (cups_subst (ar k) σ) (nvar vs k)) (lseq 0 nt).
 
     Definition pred_stable ar nt Γ Δ σ vs (pd : premise_desc (T := T)) :=
       match pd with
@@ -1058,7 +1059,7 @@ Section ConcreteFacts.
     Definition obligation (o : ob) : Prop :=
       match o with
       | ob_pred j r i =>
-        match nth_error (desc_rules desc j) r with
+        match lnth_error (desc_rules desc j) r with
         | Some rd => pred_obl rd i
         | None => True
         end
@@ -1163,7 +1164,8 @@ Section ConcreteFacts.
       eapply pos_ok_nth in hok. 2: exact hk. cbn in hok.
       apply mem_pred_in in hok.
       unfold obligations in ho. rewrite Forall_rec_iff, Forall_forall in ho.
-      specialize (ho _ hok). cbn in ho. rewrite hr in ho.
+      specialize (ho _ hok). cbn in ho.
+      rewrite lnth_error_def in ho. rewrite hr in ho.
       exact ho.
     Qed.
 
@@ -1213,9 +1215,9 @@ Section ConcreteFacts.
   Lemma ind_cases_elim R P (B : Prop) l :
     (∀ i, var_rule_type P i) →
     (∀ i rd, In rd (desc_rules desc i) → ∀ Γ, rule_ind_case R P rd Γ) →
-    fold_right (λ i K,
+    lfold_right (λ i K,
       var_rule_type P i →
-      fold_right
+      lfold_right
         (λ rd K, (∀ Γ, rule_ind_case R P rd Γ) → K) K
         (desc_rules desc i)
     ) B l →
@@ -1564,14 +1566,11 @@ End ConcreteFacts.
 
 (** Prove [wf_desc] and [obls_ok] *)
 Ltac wf_desc_tac :=
+  hnf ;
   lazymatch goal with
-  | |- ?G =>
-    let G' := eval hnf in G in
-    lazymatch G' with
-    | True => exact I
-    | _ ∧ _ => refine (conj _ _) ; wf_desc_tac
-    | ∀ _, _ => intro ; exact_no_check (@eq_refl bool true)
-    end
+  | |- True => exact I
+  | |- _ ∧ _ => refine (conj _ _) ; wf_desc_tac
+  | |- ∀ _, _ => intro ; exact_no_check (@eq_refl bool true)
   end.
 
 (** Split [var_rules], a [Forall_rec], into the variable rules of the

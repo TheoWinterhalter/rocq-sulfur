@@ -264,11 +264,6 @@ val reduce_except : Names.Constant.t list -> EConstr.t -> EConstr.t m
 val reduce_only : ?refold:Names.Constant.t list ->
     Names.Constant.t list -> EConstr.t -> EConstr.t m
 
-(** [constants_closure roots] is the set of constants reachable from the terms
-    [roots] through the bodies of transparent constants: what a reduction of a
-    term built from [roots] may unfold. *)
-val constants_closure : EConstr.t list -> Names.Constant.t list m
-
 (** [rename_binders names t] renames the leading products of [t], one per element of
     [names] ([None] keeps the current name). [t] must start with at least that many
     products. *)
