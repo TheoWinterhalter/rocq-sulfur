@@ -26,6 +26,14 @@
 - [ ] Support for defined expressions over syntax in judgments (such as `glength` in `examples/ghosts/Typing.v`).
 - [ ] Fix "Warning: hjp does not respect the uniform inheritance condition."
 
+## Sulfur Judgment Internals/Theory
+
+- [ ] Unify syntax with and without metavariables, or find a good reason for having both.
+- [ ] Names of mctx, mterm are a bit confusing. In BiTTs and Andromeda, mctx means metavariable context (= lists of premises).
+- [ ] Better understand naturality conditions, and if there's a way to rephrase necessary conditions that is more in line with the prior work. More generally, make sure we are not "reinventing the wheel", and that any new concepts are justified by examples that couldn't be handled by existing frameworks.
+- [ ] Better understand if we really cannot handle typing judgements which presuppose the context is well-typed. Investigate if the presupositive version could be derived somehow autuomatically from the non-presupositive one.
+
+
 ## Extension ideas
 
 - We could implement a `Sulfur SOGAT` command to define syntax and typing at once.
