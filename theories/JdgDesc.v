@@ -548,10 +548,8 @@ Section ConcreteJdg.
     var_rules →
     ∀ i, var_rule_type i.
   Proof.
-    intros h i.
-    unfold var_rules in h.
-    rewrite Forall_rec_iff, Forall_forall in h.
-    apply h. apply In_fin_all.
+    intros h.
+    apply Forall_rec_fin_all. assumption.
   Qed.
 
   Lemma under_iff ps ms K :
@@ -883,9 +881,7 @@ Section ConcreteFacts.
     wf_rule rd.
   Proof.
     intros h hin.
-    unfold wf_desc in h. rewrite Forall_rec_iff in h.
-    rewrite Forall_forall in h.
-    specialize (h i (In_fin_all i)).
+    eapply Forall_rec_fin_all in h.
     apply In_nth_error in hin as [k e].
     eapply Forall_idx_nth in h. 2: exact e.
     assumption.
@@ -979,8 +975,7 @@ Section ConcreteFacts.
       rule_desc_type R rd Γ.
     Proof.
       intros h hin.
-      unfold rules_type in h. rewrite Forall_rec_iff, Forall_forall in h.
-      specialize (h i (In_fin_all i)).
+      eapply Forall_rec_fin_all in h.
       eapply In_nth_error in hin as [k e].
       eapply Forall_idx_nth in h. 2: eassumption.
       apply h.
@@ -1249,9 +1244,7 @@ Section ConcreteFacts.
       apply rule_ind_case_of_type. apply sound_step.
       assumption.
     }
-    intros i Γ.
-    rewrite Forall_rec_iff, Forall_forall in hind.
-    apply hind. apply In_fin_all.
+    refine (Forall_rec_fin_all _ hind).
   Qed.
 
   (** Completeness against an abstract "concrete" judgment *)
