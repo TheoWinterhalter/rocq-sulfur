@@ -42,6 +42,11 @@ jobs:
             startGroup "Workaround permission issue"
               sudo chown -R 1000:1000 .  # <--
             endGroup
+          script: |
+            startGroup "Build project"
+              opam install -y -v -j 2 -t rocq-sulfur
+              opam list
+            endGroup
 
       - name: Revert permissions
         # to avoid a warning at cleanup time
