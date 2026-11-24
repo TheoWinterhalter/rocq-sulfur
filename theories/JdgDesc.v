@@ -510,6 +510,9 @@ Section ConcreteJdg.
         (lmap (conc_prem Γ (nvar vs)) (rd.(rd_premises) x))
     ).
 
+  Definition rule_type {i} (rd : rule_desc (sh_at i)) : Prop :=
+    ∀ Γ, rule_desc_type rd Γ.
+
   (* Lookup declarations in a context, shifted by [f] *)
   Inductive cinctx {D} (f : D → D) : list D → nat → D → Prop :=
   | cin_head d Γ : cinctx f (d :: Γ) 0 (f d)
@@ -967,7 +970,7 @@ Section ConcreteFacts.
 
     Definition rules_type :=
       Forall_rec (λ i,
-        Forall (λ rd, ∀ Γ, rule_desc_type R rd Γ) (desc_rules desc i)
+        Forall_idx (λ _, rule_type R) (desc_rules desc i)
       ) (fin_all _).
 
     Lemma rules_type_rule i rd Γ :
@@ -977,8 +980,10 @@ Section ConcreteFacts.
     Proof.
       intros h hin.
       unfold rules_type in h. rewrite Forall_rec_iff, Forall_forall in h.
-      specialize (h i (In_fin_all i)). rewrite Forall_forall in h.
-      apply h. assumption.
+      specialize (h i (In_fin_all i)).
+      eapply In_nth_error in hin as [k e].
+      eapply Forall_idx_nth in h. 2: eassumption.
+      apply h.
     Qed.
 
     Definition sound_jdg :=
@@ -1564,20 +1569,16 @@ End ConcreteFacts.
 
 (** Tactics for the plugin *)
 
-(** Prove [wf_desc] and [obls_ok] *)
-Ltac wf_desc_tac :=
+(** Split a conjunction *)
+Ltac split_conj :=
   hnf ;
   lazymatch goal with
   | |- True => exact I
-  | |- _ ∧ _ => refine (conj _ _) ; wf_desc_tac
-  | |- ∀ _, _ => intro ; exact_no_check (@eq_refl bool true)
+  | |- _ ∧ _ => refine (conj _ _) ; split_conj
+  | |- _ => idtac
   end.
 
-(** Split [var_rules], a [Forall_rec], into the variable rules of the
-  judgments *)
-Ltac split_forall_rec :=
-  hnf ;
-  lazymatch goal with
-  | |- _ ∧ _ => split ; [ | split_forall_rec ]
-  | _ => idtac
-  end.
+(** Prove [wf_desc] and [obls_ok] *)
+Ltac wf_desc_tac :=
+  split_conj ;
+  intro ; exact_no_check (@eq_refl bool true).

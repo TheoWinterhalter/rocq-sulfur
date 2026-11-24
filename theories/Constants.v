@@ -136,7 +136,6 @@ Register JdgDesc.obls_ok as sulfur.jdg.obls_ok.
 Register JdgDesc.shapes as sulfur.jdg.shapes.
 Register JdgDesc.jshape_of as sulfur.jdg.jshape_of.
 Register JdgDesc.jdg_type as sulfur.jdg.jdg_type.
-Register JdgDesc.sh_at as sulfur.jdg.sh_at.
 Register JdgDesc.Idx as sulfur.jdg.jidx.
 Register JdgDesc.jdg_at as sulfur.jdg.jdg_at.
 Register JdgDesc.var_rules as sulfur.jdg.var_rules.
@@ -150,7 +149,7 @@ Register JdgShape.sel_pos as sulfur.jdg.sel_pos.
 Register JdgShape.pos0 as sulfur.jdg.pos0.
 Register JdgShape.posS as sulfur.jdg.posS.
 Register JdgDesc.hrule as sulfur.jdg.hrule.
-Register JdgDesc.rule_desc_type as sulfur.jdg.rule_desc_type.
+Register JdgDesc.rule_type as sulfur.jdg.rule_type.
 Register JdgDesc.var_rule_type as sulfur.jdg.var_rule_type.
 Register JdgDesc.J as sulfur.jdg.J.
 Register JdgDesc.wf_desc as sulfur.jdg.wf_desc.
@@ -161,5 +160,3 @@ Register JdgDesc.preserve_subst_jdg as sulfur.jdg.preserve_subst_jdg.
 Register JdgDesc.sound_of_ind as sulfur.jdg.sound_of_ind.
 Register JdgDesc.jdg_complete as sulfur.jdg.jdg_complete.
 Register JdgDesc.gen_preserve_subst as sulfur.jdg.gen_preserve_subst.
-Register Stdlib.Lists.List.Forall_nil as sulfur.list.forall_nil.
-Register Stdlib.Lists.List.Forall_cons as sulfur.list.forall_cons.
