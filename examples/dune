@@ -1,4 +1,8 @@
 (rocq.theory
  (name SulfurExamples)
- (package rocq-sulfur)
  (theories Sulfur))
+
+(rule
+ (alias runtest)
+ (deps (glob_files *.vo))
+ (action (progn)))
