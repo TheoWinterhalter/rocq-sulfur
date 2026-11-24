@@ -21,7 +21,6 @@ Register S as sulfur.nat.succ.
 Register list as sulfur.list.type.
 Register nil as sulfur.list.nil.
 Register cons as sulfur.list.cons.
-Register Datatypes.app as sulfur.list.app.
 
 Register string as sulfur.string.type.
 
@@ -52,8 +51,6 @@ Register rcons as sulfur.ren.rcons.
 Register rcomp as sulfur.ren.rcomp.
 Register up_ren as sulfur.ren.up_ren.
 
-Register congr_rcons as sulfur.ren.congr_rcons.
-Register congr_rcomp as sulfur.ren.congr_rcomp.
 Register congr_up_ren as sulfur.ren.congr_up_ren.
 
 (*********************************************************************************)
@@ -67,10 +64,7 @@ Register AT_bind as sulfur.arg_ty.bind.
 
 Register kind as sulfur.kind.type.
 Register Kt as sulfur.kind.t.
-Register Ka as sulfur.kind.a.
-Register Kal as sulfur.kind.al.
 
-Register signature as sulfur.signature.type.
 Register Build_signature as sulfur.signature.ctor.
 
 (*********************************************************************************)
@@ -97,12 +91,6 @@ Register ParamSyntax.scomp as sulfur.param.scomp.
 Register ParamSyntax.rscomp as sulfur.param.rscomp.
 Register ParamSyntax.srcomp as sulfur.param.srcomp.
 
-Register ParamSyntax.inv_Kal_nil as sulfur.param.inv_Kal_nil.
-Register ParamSyntax.inv_Kal_cons as sulfur.param.inv_Kal_cons.
-Register ParamSyntax.inv_Ka_term as sulfur.param.inv_Ka_term.
-Register ParamSyntax.inv_Ka_base as sulfur.param.inv_Ka_base.
-Register ParamSyntax.inv_Ka_bind as sulfur.param.inv_Ka_bind.
-
 Register ParamSyntax.sig_ind_t as sulfur.param.sig_ind_t.
 Register ParamSyntax.sig_ind as sulfur.param.sig_ind.
 
@@ -120,7 +108,6 @@ Register ConcreteSyntax.ConcreteSyntax as sulfur.cs.type.
 
 Register JdgDesc.rp_term as sulfur.jdg.rp_term.
 Register JdgDesc.rp_param as sulfur.jdg.rp_param.
-Register JdgDesc.rule_desc as sulfur.jdg.rule_desc.
 Register JdgDesc.jdg_desc as sulfur.jdg.jdg_desc.
 Register JdgDesc.hterm as sulfur.jdg.hterm.
 Register JdgDesc.hctor as sulfur.jdg.hctor.
@@ -150,7 +137,6 @@ Register JdgShape.posS as sulfur.jdg.posS.
 Register JdgDesc.hrule as sulfur.jdg.hrule.
 Register JdgDesc.rule_type as sulfur.jdg.rule_type.
 Register JdgDesc.var_rule_type as sulfur.jdg.var_rule_type.
-Register JdgDesc.J as sulfur.jdg.J.
 Register JdgDesc.facts as sulfur.jdg.facts.
 Register JdgDesc.preserve_subst_jdg as sulfur.jdg.preserve_subst_jdg.
 Register JdgDesc.gen_preserve_subst as sulfur.jdg.gen_preserve_subst.
