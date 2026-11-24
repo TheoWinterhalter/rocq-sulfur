@@ -1143,9 +1143,8 @@ Section ConcreteFacts.
       nth_error (desc_rules desc j) r = Some rd →
       pos_ok j r 0 (rd.(rd_premises) x) l = true.
     Proof.
-      intros h e. unfold obls_ok in h.
-      rewrite Forall_rec_iff, Forall_forall in h.
-      specialize (h j (In_fin_all j)).
+      intros h e.
+      eapply Forall_rec_fin_all in h.
       eapply Forall_idx_nth in h. 2: exact e.
       apply h.
     Qed.
@@ -1162,6 +1161,17 @@ Section ConcreteFacts.
       assumption.
     Qed.
 
+    Lemma obligations_in o l :
+      obligations l →
+      In o l →
+      obligation o.
+    Proof.
+      intros h hin.
+      unfold obligations in h.
+      rewrite Forall_rec_iff, Forall_forall in h.
+      eauto.
+    Qed.
+
     Lemma obligation_at l j r rd x k n P :
       obls_ok l →
       obligations l →
@@ -1172,9 +1182,8 @@ Section ConcreteFacts.
       intros hok ho hr hk.
       eapply prem_ok_at in hok. 2,3: eassumption.
       cbn in hok. rewrite ob_mem_in in hok.
-      unfold obligations in ho. rewrite Forall_rec_iff, Forall_forall in ho.
-      specialize (ho _ hok). cbn in ho.
-      rewrite lnth_error_def in ho. rewrite hr in ho.
+      eapply obligations_in in ho. 2: eassumption.
+      cbn in ho. rewrite lnth_error_def in ho. rewrite hr in ho.
       exact ho.
     Qed.
 
@@ -1191,8 +1200,8 @@ Section ConcreteFacts.
       - rewrite eqb_fin_eq in e. subst i'.
         intros Γ d t h. assumption.
       - rewrite ob_mem_in in hin.
-        unfold obligations in ho. rewrite Forall_rec_iff, Forall_forall in ho.
-        exact (ho _ hin).
+        eapply obligations_in in ho. 2: eassumption.
+        assumption.
     Qed.
 
   End Statements.
