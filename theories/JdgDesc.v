@@ -1069,26 +1069,21 @@ Section ConcreteFacts.
     Definition obligations (l : list ob) :=
       Forall_rec obligation l.
 
-    Definition mem_pred (j : Idx) (r i : nat) (l : list ob) :=
-      existsb (λ o,
-        match o with
-        | ob_pred j' r' i' => eqb_fin j j' && (r =? r') && (i =? i')
-        | _ => false
-        end
-      ) l.
+    Definition eqb_ob (o o' : ob) :=
+      match o, o' with
+      | ob_pred j r i, ob_pred j' r' i' =>
+        eqb_fin j j' && (r =? r') && (i =? i')
+      | ob_make i i', ob_make j j' => eqb_fin i j && eqb_fin i' j'
+      | _, _ => false
+      end.
 
-    Definition mem_make (i i' : Idx) (l : list ob) :=
-      existsb (λ o,
-        match o with
-        | ob_make j j' => eqb_fin i j && eqb_fin i' j'
-        | _ => false
-        end
-      ) l.
+    Definition ob_mem (o : ob) (l : list ob) :=
+      existsb (eqb_ob o) l.
 
     Definition prem_ok i r k (pd : premise_desc (T := T)) l :=
       match pd with
-      | pd_pred _ _ => mem_pred i r k l
-      | pd_jdg i' _ _ => eqb_fin i i' || mem_make i i' l
+      | pd_pred _ _ => ob_mem (ob_pred i r k) l
+      | pd_jdg i' _ _ => eqb_fin i i' || ob_mem (ob_make i i') l
       end.
 
     Fixpoint pos_ok i r k (prems : list (premise_desc (T := T))) l :=
@@ -1105,26 +1100,29 @@ Section ConcreteFacts.
         (λ i, Forall_idx (obls_ok_rule i l) (desc_rules desc i))
         (fin_all _).
 
-    Lemma mem_pred_in j r i l :
-      mem_pred j r i l = true →
-      In (ob_pred j r i) l.
+    Lemma eqb_ob_spec x y :
+      eqb_ob x y = true ↔ x = y.
     Proof.
-      unfold mem_pred. intros h.
-      apply existsb_exists in h as (o & hin & e).
-      destruct o as [j' r' i' |]. 2: discriminate.
-      rewrite !andb_true_iff, eqb_fin_eq, !PeanoNat.Nat.eqb_eq in e.
-      destruct e as [[-> ->] ->]. assumption.
+      destruct x, y. all: cbn.
+      2,3: split ; discriminate.
+      - rewrite !andb_true_iff. rewrite eqb_fin_eq.
+        rewrite !PeanoNat.Nat.eqb_eq.
+        intuition congruence.
+      - rewrite !andb_true_iff. rewrite !eqb_fin_eq.
+        intuition congruence.
     Qed.
 
-    Lemma mem_make_in i i' l :
-      mem_make i i' l = true →
-      In (ob_make i i') l.
+    Lemma ob_mem_in o l :
+      ob_mem o l = true ↔ In o l.
     Proof.
-      unfold mem_make. intros h.
-      apply existsb_exists in h as (o & hin & e).
-      destruct o as [| j j']. 1: discriminate.
-      rewrite andb_true_iff, !eqb_fin_eq in e.
-      destruct e as [-> ->]. assumption.
+      unfold ob_mem.
+      rewrite existsb_exists.
+      split.
+      - intros (o' & hin & e).
+        rewrite eqb_ob_spec in e. subst. assumption.
+      - intros hin.
+        eexists. intuition eauto.
+        rewrite eqb_ob_spec. reflexivity.
     Qed.
 
     Lemma pos_ok_nth i r k prems l j pd :
@@ -1153,6 +1151,18 @@ Section ConcreteFacts.
       apply h.
     Qed.
 
+    Lemma prem_ok_at l j r rd x k pd :
+      obls_ok l →
+      nth_error (desc_rules desc j) r = Some rd →
+      nth_error (rd.(rd_premises) x) k = Some pd →
+      prem_ok j r k pd l = true.
+    Proof.
+      intros hok hr hk.
+      eapply obls_ok_at in hok. 2: eassumption.
+      eapply pos_ok_nth in hok. 2: eassumption.
+      assumption.
+    Qed.
+
     Lemma obligation_at l j r rd x k n P :
       obls_ok l →
       obligations l →
@@ -1160,9 +1170,9 @@ Section ConcreteFacts.
       nth_error (rd.(rd_premises) x) k = Some (pd_pred n P) →
       pred_obl rd k.
     Proof.
-      intros hok ho hr hk. eapply obls_ok_at in hok. 2: eassumption.
-      eapply pos_ok_nth in hok. 2: exact hk. cbn in hok.
-      apply mem_pred_in in hok.
+      intros hok ho hr hk.
+      eapply prem_ok_at in hok. 2,3: eassumption.
+      cbn in hok. rewrite ob_mem_in in hok.
       unfold obligations in ho. rewrite Forall_rec_iff, Forall_forall in ho.
       specialize (ho _ hok). cbn in ho.
       rewrite lnth_error_def in ho. rewrite hr in ho.
@@ -1176,11 +1186,12 @@ Section ConcreteFacts.
       nth_error (rd.(rd_premises) x) k = Some (pd_jdg i' (n := n) Δ j) →
       make_obl i i'.
     Proof.
-      intros hok ho hr hk. eapply obls_ok_at in hok. 2: eassumption.
-      eapply pos_ok_nth in hok. 2: exact hk. cbn in hok.
-      rewrite orb_true_iff in hok. destruct hok as [e | hin].
-      - apply eqb_fin_eq in e. subst i'. intros Γ d t h. exact h.
-      - apply mem_make_in in hin.
+      intros hok ho hr hk. eapply prem_ok_at in hok. 2,3: eassumption.
+      cbn in hok. rewrite orb_true_iff in hok.
+      destruct hok as [e | hin].
+      - rewrite eqb_fin_eq in e. subst i'.
+        intros Γ d t h. assumption.
+      - rewrite ob_mem_in in hin.
         unfold obligations in ho. rewrite Forall_rec_iff, Forall_forall in ho.
         exact (ho _ hin).
     Qed.
