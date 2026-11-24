@@ -177,6 +177,10 @@ let add_generated_const : Names.Constant.t -> Libobject.obj =
   previously defined constants.
 
   It will also record in [generated_consts] that this is a generated definition.
+  There are three variants.
+  [raw_def] expects a body and optionally a type, and doesn't record.
+  [def_typed] is the same but records.
+  [def] is the special case where the type is always set to [None].
 
 *)
 let raw_def (name : string) ?(refresh = false) ?(kind = Decls.Definition)
