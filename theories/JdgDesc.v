@@ -179,16 +179,17 @@ End Val.
 
 (** Judgment signature from a description *)
 
+
+#[local] Instance Sig_IDecl {sh : Shapes} : IDecl Idx :=
+  λ _, tuple sh_decl.
+
+#[local] Instance Sig_IJdg {sh : Shapes} : IJdg Idx :=
+  λ i, tuple (sh_jdg i).
+
 Section ToSig.
 
   Context {sig T} {CS : ConcreteSyntax sig T}.
   Context {sh : Shapes}.
-
-  #[local] Instance: IDecl Idx :=
-    λ _, tuple sh_decl.
-
-  #[local] Instance: IJdg Idx :=
-    λ i, tuple (sh_jdg i).
 
   Definition to_premise {i} ar m (pd : premise_desc (T := T)) : premise i :=
     match pd with
@@ -510,6 +511,9 @@ Section ConcreteJdg.
         (lmap (conc_prem Γ (nvar vs)) (rd.(rd_premises) x))
     ).
 
+  Definition rule_type {i} (rd : rule_desc (sh_at i)) : Prop :=
+    ∀ Γ, rule_desc_type rd Γ.
+
   (* Lookup declarations in a context, shifted by [f] *)
   Inductive cinctx {D} (f : D → D) : list D → nat → D → Prop :=
   | cin_head d Γ : cinctx f (d :: Γ) 0 (f d)
@@ -545,10 +549,8 @@ Section ConcreteJdg.
     var_rules →
     ∀ i, var_rule_type i.
   Proof.
-    intros h i.
-    unfold var_rules in h.
-    rewrite Forall_rec_iff, Forall_forall in h.
-    apply h. apply In_fin_all.
+    intros h.
+    apply Forall_rec_fin_all. assumption.
   Qed.
 
   Lemma under_iff ps ms K :
@@ -640,8 +642,6 @@ Section ConcreteFacts.
   Context {sig T} {CS : ConcreteSyntax sig T} {sh : Shapes}.
   Context (desc : jdg_desc (T := T)).
 
-  #[local] Instance Sig_IDecl : IDecl Idx := λ _, tuple sh_decl.
-  #[local] Instance Sig_IJdg : IJdg Idx := λ i, tuple (sh_jdg i).
   #[local] Instance Sig_FMapDecl : ∀ i : Idx, FMap (declF i) :=
     λ _, FMap_tuple _.
   #[local] Instance Sig_FMapJdg : ∀ i : Idx, FMap (jdgF i) :=
@@ -880,9 +880,7 @@ Section ConcreteFacts.
     wf_rule rd.
   Proof.
     intros h hin.
-    unfold wf_desc in h. rewrite Forall_rec_iff in h.
-    rewrite Forall_forall in h.
-    specialize (h i (In_fin_all i)).
+    eapply Forall_rec_fin_all in h.
     apply In_nth_error in hin as [k e].
     eapply Forall_idx_nth in h. 2: exact e.
     assumption.
@@ -967,7 +965,7 @@ Section ConcreteFacts.
 
     Definition rules_type :=
       Forall_rec (λ i,
-        Forall (λ rd, ∀ Γ, rule_desc_type R rd Γ) (desc_rules desc i)
+        Forall_idx (λ _, rule_type R) (desc_rules desc i)
       ) (fin_all _).
 
     Lemma rules_type_rule i rd Γ :
@@ -976,9 +974,10 @@ Section ConcreteFacts.
       rule_desc_type R rd Γ.
     Proof.
       intros h hin.
-      unfold rules_type in h. rewrite Forall_rec_iff, Forall_forall in h.
-      specialize (h i (In_fin_all i)). rewrite Forall_forall in h.
-      apply h. assumption.
+      eapply Forall_rec_fin_all in h.
+      eapply In_nth_error in hin as [k e].
+      eapply Forall_idx_nth in h. 2: eassumption.
+      apply h.
     Qed.
 
     Definition sound_jdg :=
@@ -1069,26 +1068,21 @@ Section ConcreteFacts.
     Definition obligations (l : list ob) :=
       Forall_rec obligation l.
 
-    Definition mem_pred (j : Idx) (r i : nat) (l : list ob) :=
-      existsb (λ o,
-        match o with
-        | ob_pred j' r' i' => eqb_fin j j' && (r =? r') && (i =? i')
-        | _ => false
-        end
-      ) l.
+    Definition eqb_ob (o o' : ob) :=
+      match o, o' with
+      | ob_pred j r i, ob_pred j' r' i' =>
+        eqb_fin j j' && (r =? r') && (i =? i')
+      | ob_make i i', ob_make j j' => eqb_fin i j && eqb_fin i' j'
+      | _, _ => false
+      end.
 
-    Definition mem_make (i i' : Idx) (l : list ob) :=
-      existsb (λ o,
-        match o with
-        | ob_make j j' => eqb_fin i j && eqb_fin i' j'
-        | _ => false
-        end
-      ) l.
+    Definition ob_mem (o : ob) (l : list ob) :=
+      existsb (eqb_ob o) l.
 
     Definition prem_ok i r k (pd : premise_desc (T := T)) l :=
       match pd with
-      | pd_pred _ _ => mem_pred i r k l
-      | pd_jdg i' _ _ => eqb_fin i i' || mem_make i i' l
+      | pd_pred _ _ => ob_mem (ob_pred i r k) l
+      | pd_jdg i' _ _ => eqb_fin i i' || ob_mem (ob_make i i') l
       end.
 
     Fixpoint pos_ok i r k (prems : list (premise_desc (T := T))) l :=
@@ -1105,26 +1099,29 @@ Section ConcreteFacts.
         (λ i, Forall_idx (obls_ok_rule i l) (desc_rules desc i))
         (fin_all _).
 
-    Lemma mem_pred_in j r i l :
-      mem_pred j r i l = true →
-      In (ob_pred j r i) l.
+    Lemma eqb_ob_spec x y :
+      eqb_ob x y = true ↔ x = y.
     Proof.
-      unfold mem_pred. intros h.
-      apply existsb_exists in h as (o & hin & e).
-      destruct o as [j' r' i' |]. 2: discriminate.
-      rewrite !andb_true_iff, eqb_fin_eq, !PeanoNat.Nat.eqb_eq in e.
-      destruct e as [[-> ->] ->]. assumption.
+      destruct x, y. all: cbn.
+      2,3: split ; discriminate.
+      - rewrite !andb_true_iff. rewrite eqb_fin_eq.
+        rewrite !PeanoNat.Nat.eqb_eq.
+        intuition congruence.
+      - rewrite !andb_true_iff. rewrite !eqb_fin_eq.
+        intuition congruence.
     Qed.
 
-    Lemma mem_make_in i i' l :
-      mem_make i i' l = true →
-      In (ob_make i i') l.
+    Lemma ob_mem_in o l :
+      ob_mem o l = true ↔ In o l.
     Proof.
-      unfold mem_make. intros h.
-      apply existsb_exists in h as (o & hin & e).
-      destruct o as [| j j']. 1: discriminate.
-      rewrite andb_true_iff, !eqb_fin_eq in e.
-      destruct e as [-> ->]. assumption.
+      unfold ob_mem.
+      rewrite existsb_exists.
+      split.
+      - intros (o' & hin & e).
+        rewrite eqb_ob_spec in e. subst. assumption.
+      - intros hin.
+        eexists. intuition eauto.
+        rewrite eqb_ob_spec. reflexivity.
     Qed.
 
     Lemma pos_ok_nth i r k prems l j pd :
@@ -1146,11 +1143,33 @@ Section ConcreteFacts.
       nth_error (desc_rules desc j) r = Some rd →
       pos_ok j r 0 (rd.(rd_premises) x) l = true.
     Proof.
-      intros h e. unfold obls_ok in h.
-      rewrite Forall_rec_iff, Forall_forall in h.
-      specialize (h j (In_fin_all j)).
+      intros h e.
+      eapply Forall_rec_fin_all in h.
       eapply Forall_idx_nth in h. 2: exact e.
       apply h.
+    Qed.
+
+    Lemma prem_ok_at l j r rd x k pd :
+      obls_ok l →
+      nth_error (desc_rules desc j) r = Some rd →
+      nth_error (rd.(rd_premises) x) k = Some pd →
+      prem_ok j r k pd l = true.
+    Proof.
+      intros hok hr hk.
+      eapply obls_ok_at in hok. 2: eassumption.
+      eapply pos_ok_nth in hok. 2: eassumption.
+      assumption.
+    Qed.
+
+    Lemma obligations_in o l :
+      obligations l →
+      In o l →
+      obligation o.
+    Proof.
+      intros h hin.
+      unfold obligations in h.
+      rewrite Forall_rec_iff, Forall_forall in h.
+      eauto.
     Qed.
 
     Lemma obligation_at l j r rd x k n P :
@@ -1160,12 +1179,11 @@ Section ConcreteFacts.
       nth_error (rd.(rd_premises) x) k = Some (pd_pred n P) →
       pred_obl rd k.
     Proof.
-      intros hok ho hr hk. eapply obls_ok_at in hok. 2: eassumption.
-      eapply pos_ok_nth in hok. 2: exact hk. cbn in hok.
-      apply mem_pred_in in hok.
-      unfold obligations in ho. rewrite Forall_rec_iff, Forall_forall in ho.
-      specialize (ho _ hok). cbn in ho.
-      rewrite lnth_error_def in ho. rewrite hr in ho.
+      intros hok ho hr hk.
+      eapply prem_ok_at in hok. 2,3: eassumption.
+      cbn in hok. rewrite ob_mem_in in hok.
+      eapply obligations_in in ho. 2: eassumption.
+      cbn in ho. rewrite lnth_error_def in ho. rewrite hr in ho.
       exact ho.
     Qed.
 
@@ -1176,13 +1194,14 @@ Section ConcreteFacts.
       nth_error (rd.(rd_premises) x) k = Some (pd_jdg i' (n := n) Δ j) →
       make_obl i i'.
     Proof.
-      intros hok ho hr hk. eapply obls_ok_at in hok. 2: eassumption.
-      eapply pos_ok_nth in hok. 2: exact hk. cbn in hok.
-      rewrite orb_true_iff in hok. destruct hok as [e | hin].
-      - apply eqb_fin_eq in e. subst i'. intros Γ d t h. exact h.
-      - apply mem_make_in in hin.
-        unfold obligations in ho. rewrite Forall_rec_iff, Forall_forall in ho.
-        exact (ho _ hin).
+      intros hok ho hr hk. eapply prem_ok_at in hok. 2,3: eassumption.
+      cbn in hok. rewrite orb_true_iff in hok.
+      destruct hok as [e | hin].
+      - rewrite eqb_fin_eq in e. subst i'.
+        intros Γ d t h. assumption.
+      - rewrite ob_mem_in in hin.
+        eapply obligations_in in ho. 2: eassumption.
+        assumption.
     Qed.
 
   End Statements.
@@ -1244,9 +1263,7 @@ Section ConcreteFacts.
       apply rule_ind_case_of_type. apply sound_step.
       assumption.
     }
-    intros i Γ.
-    rewrite Forall_rec_iff, Forall_forall in hind.
-    apply hind. apply In_fin_all.
+    refine (Forall_rec_fin_all _ hind).
   Qed.
 
   (** Completeness against an abstract "concrete" judgment *)
@@ -1401,6 +1418,32 @@ Section ConcreteFacts.
 
   End Completeness.
 
+  (** Facts proven by the plugin, soundness and completeness follow *)
+
+  Record facts (R : ∀ i, jdg_type T i) := {
+    facts_wf : wf_desc ;
+    facts_vars : var_rules R ;
+    facts_rules : rules_type R ;
+    facts_ind : ind_type desc R
+  }.
+
+  Lemma facts_sound R :
+    facts R →
+    sound_jdg R.
+  Proof.
+    intros [].
+    apply sound_of_ind.
+    assumption.
+  Qed.
+
+  Lemma facts_complete R :
+    facts R →
+    complete_jdg R.
+  Proof.
+    intros [].
+    apply jdg_complete. all: assumption.
+  Qed.
+
   (** Preservation of substitution from soundness and completeness *)
 
   Lemma ev_up_substs k σ i :
@@ -1428,9 +1471,11 @@ Section ConcreteFacts.
   Section Preservation.
 
     Context (R : ∀ i, jdg_type T i).
-    Context (hsound : sound_jdg R).
-    Context (hcomplete : complete_jdg R).
+    Context (hfacts : facts R).
     Context obs (hok : obls_ok obs) (hobls : obligations R obs).
+
+    Let hsound : sound_jdg R := facts_sound R hfacts.
+    Let hcomplete : complete_jdg R := facts_complete R hfacts.
 
     Lemma rf_subst_tuple σ l (j : tuple l T) :
       tuple_map l creify (tuple_map l (csubstitute σ) j) =
@@ -1564,20 +1609,20 @@ End ConcreteFacts.
 
 (** Tactics for the plugin *)
 
-(** Prove [wf_desc] and [obls_ok] *)
-Ltac wf_desc_tac :=
+(** Split a conjunction *)
+Ltac split_conj :=
   hnf ;
   lazymatch goal with
   | |- True => exact I
-  | |- _ ∧ _ => refine (conj _ _) ; wf_desc_tac
-  | |- ∀ _, _ => intro ; exact_no_check (@eq_refl bool true)
+  | |- _ ∧ _ => refine (conj _ _) ; split_conj
+  | |- _ => idtac
   end.
 
-(** Split [var_rules], a [Forall_rec], into the variable rules of the
-  judgments *)
-Ltac split_forall_rec :=
-  hnf ;
-  lazymatch goal with
-  | |- _ ∧ _ => split ; [ | split_forall_rec ]
-  | _ => idtac
-  end.
+(** Prove [wf_desc] and [obls_ok] *)
+Ltac wf_desc_tac :=
+  split_conj ;
+  intro ; exact_no_check (@eq_refl bool true).
+
+(** Start proving [facts] *)
+Ltac facts_tac :=
+  constructor ; [ wf_desc_tac | split_conj | split_conj | ].

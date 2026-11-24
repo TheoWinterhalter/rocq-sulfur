@@ -177,10 +177,14 @@ let add_generated_const : Names.Constant.t -> Libobject.obj =
   previously defined constants.
 
   It will also record in [generated_consts] that this is a generated definition.
+  There are three variants.
+  [raw_def] expects a body and optionally a type, and doesn't record.
+  [def_typed] is the same but records.
+  [def] is the special case where the type is always set to [None].
 
 *)
 let raw_def (name : string) ?(refresh = false) ?(kind = Decls.Definition)
-    (mk_body : EConstr.t m) : Names.Constant.t =
+    (mk : (EConstr.t * EConstr.t option) m) : Names.Constant.t =
   monad_run
     begin
       let* name =
@@ -188,15 +192,17 @@ let raw_def (name : string) ?(refresh = false) ?(kind = Decls.Definition)
         then fresh_global_id @@ Names.Id.of_string_soft name
         else ret @@ Names.Id.of_string_soft name
       in
-      let* body = mk_body in
-      declare_def kind name body
+      let* body, ty = mk in
+      declare_def ?ty kind name body
     end
 
-let def (name : string) ?(refresh = false) ?(kind = Decls.Definition)
-    (mk_body : EConstr.t m) : Names.Constant.t =
-  let c = raw_def name ~refresh ~kind mk_body in
+let def_typed name ?(refresh = false) ?(kind = Decls.Definition) mk =
+  let c = raw_def name ~refresh ~kind mk in
   Lib.add_leaf (add_generated_const c) ;
   c
+
+let def name ?(refresh = false) ?(kind = Decls.Definition) mk =
+  def_typed name ~refresh ~kind (let* body = mk in ret (body, None))
 
 (** Helper function to prove a lemma using a tactic. If [refresh] is [true], it will pick
     a fresh name to avoid clashing with previously defined constants. *)

@@ -45,18 +45,9 @@ let of_rule (t : EConstr.t) (r : rule) = {
   [jdg_desc sg T sh]. *)
 let decode_sig (desc_ty : EConstr.t) : (EConstr.t * EConstr.t * EConstr.t) m =
   let what = "a judgment description" in
-  decode what
-    [
-      C.prod, fun a ->
-        decode what
-          [
-            C.list, fun a ->
-              decode what
-                [ C.Jdg.rule_desc, fun a -> ret (a.(0), a.(1), a.(2)) ]
-                a.(0)
-          ]
-          a.(0)
-    ]
+  decode ~whd:false
+    what
+    [ C.Jdg.jdg_desc, fun a -> ret (a.(0), a.(1), a.(2)) ]
     desc_ty
 
 (** The rule terms of a description [(l1, (l2, ... tt))], judgment by
@@ -115,11 +106,10 @@ type desc = {
 }
 
 (** The family of relations generated from a description: the constants its
-  statements may unfold, the type of its contexts, the mutual inductive, and
-  [jdg_at (R1, (R2, ... tt))] which the statements are about. *)
+  statements may unfold, the mutual inductive, and [jdg_at (R1, (R2, ... tt))]
+  which the statements are about. *)
 type family = {
   f_transparent : Names.Constant.t list ;
-  f_ctx_ty : EConstr.t ;
   f_mind : Names.MutInd.t ;
   f_r : EConstr.t
 }
@@ -142,11 +132,6 @@ let jdg (d : desc) (s : Names.GlobRef.t Lazy.t) : EConstr.t =
 
 let jdg_type (d : desc) : EConstr.t =
   apps (mkglob' C.Jdg.jdg_type) [| d.d_sh ; d.d_ty |]
-
-(** The type of the rules of judgment [k] *)
-let rule_desc_ty (d : desc) (k : int) : EConstr.t =
-  let sh_at = apps (mkglob' C.Jdg.sh_at) [| d.d_sh ; idx d k |] in
-  apps (mkglob' C.Jdg.rule_desc) [| d.d_sg ; d.d_ty ; d.d_sh ; sh_at |]
 
 (** The statement [s d R] about the family *)
 let stmt (d : desc) (f : family) (s : Names.GlobRef.t Lazy.t) : EConstr.t m =
@@ -217,10 +202,10 @@ let transparent_constants (d : desc) : Names.Constant.t list m =
 
 (** The inductives, mutual, each with its variable rule as first constructor.
   Their types come from the shapes, their constructor types are the reduced
-  [var_rule_type] and [rule_desc_type], with the meta-variables named as in
-  the description. *)
+  [var_rule_type] and [rule_type], with the meta-variables named as in the
+  description. *)
 let declare_inductives (d : desc) : family =
-  let transparent, arities, ctx_ty =
+  let transparent, arities =
     monad_run begin
       let* transparent = transparent_constants d in
       let* arities =
@@ -228,9 +213,7 @@ let declare_inductives (d : desc) : family =
           reduce transparent (app (jdg_type d) (idx d k))
         ) (indices d)
       in
-      let* sigma = get_sigma in
-      let _, ctx_ty, _ = EConstr.destProd sigma (List.hd arities) in
-      ret (transparent, arities, ctx_ty)
+      ret (transparent, arities)
     end
   in
   (* The family of relations [rs] (the inductives, or the variables standing
@@ -245,11 +228,10 @@ let declare_inductives (d : desc) : family =
   in
   let rule_type (r : EConstr.t) k (rd : grule) : EConstr.t m =
     let* t =
-      prod "Γ" ctx_ty @@ fun g ->
-        ret (apps (jdg d C.Jdg.rule_desc_type)
-          [| r ; idx d k ; rd.gr_term ; EConstr.mkVar g |])
+      reduce transparent (
+        apps (jdg d C.Jdg.rule_type) [| r ; idx d k ; rd.gr_term |]
+      )
     in
-    let* t = reduce transparent t in
     rename_binders (None :: List.map (fun x -> Some x) rd.gr_binders) t
   in
   let ctor_names =
@@ -269,57 +251,9 @@ let declare_inductives (d : desc) : family =
   in
   {
     f_transparent = transparent ;
-    f_ctx_ty = ctx_ty ;
     f_mind = mind ;
     f_r = family (List.map (fun k -> mkind (mind, k)) (indices d))
   }
-
-(** [R_wf : wf_desc d], using tactic [JdgDesc.wf_desc_tac]. *)
-let wf_lemma (d : desc) : Names.Constant.t =
-  lemma (shared d "_wf")
-    (ret (apps (mkglob' C.Jdg.wf_desc) [| d.d_sg ; d.d_ty ; d.d_sh ; d.d_term |]))
-    (run_ltac "JdgDesc" "wf_desc_tac" [])
-
-(** [R_rules : rules_type d R]: for each judgment, the [Forall] built from
-  its constructors (after the variable rule). *)
-let rules_lemma (d : desc) (f : family) : Names.Constant.t =
-  let forall k =
-    let pred =
-      monad_run begin
-        lambda "rd" (rule_desc_ty d k) @@ fun rd ->
-        prod "Γ" f.f_ctx_ty @@ fun g ->
-        ret (apps (jdg d C.Jdg.rule_desc_type)
-          [| f.f_r ; idx d k ; EConstr.mkVar rd ; EConstr.mkVar g |])
-      end
-    in
-    let rec build i = function
-      | [] -> apps (mkglob' C.Jdg.forall_nil) [| rule_desc_ty d k ; pred |]
-      | rd :: rest ->
-        apps (mkglob' C.Jdg.forall_cons) [|
-          rule_desc_ty d k ;
-          pred ;
-          rd.gr_term ;
-          mklist (rule_desc_ty d k) (List.map (fun rd -> rd.gr_term) rest) ;
-          ctor f k i ;
-          build (i + 1) rest
-        |]
-    in
-    build 2 (List.nth d.d_rules k)
-  in
-  let foralls = List.map forall (indices d) in
-  lemma (shared d "_rules")
-    (stmt d f C.Jdg.rules_type)
-    (Tacticals.tclTHEN
-      (run_ltac "JdgDesc" "split_forall_rec" [])
-      (dispatch (fun k -> Tactics.exact_no_check (List.nth foralls k))))
-
-(** [R_vars : var_rules d R], the conjunction of the variable constructors. *)
-let vars_lemma (d : desc) (f : family) : Names.Constant.t =
-  lemma (shared d "_vars")
-    (ret (app (jdg d C.Jdg.var_rules) f.f_r))
-    (Tacticals.tclTHEN
-      (run_ltac "JdgDesc" "split_forall_rec" [])
-      (dispatch (fun k -> Tactics.exact_no_check (ctor f k 1))))
 
 (** The induction principle of the family, over a family of motives [P i]: the
   combined scheme of the mutual inductive applied to [P finO], [P (finS
@@ -357,23 +291,20 @@ let induction_scheme (d : desc) (f : family) : EConstr.t =
       ret (apps (mkconst scheme) (Array.of_list motives))
   end
 
-(** [R_sound : sound_jdg d R], from the induction principle. *)
-let sound_lemma (d : desc) (f : family) : Names.Constant.t =
-  lemma (shared d "_sound")
-    (stmt d f C.Jdg.sound_jdg)
-    (Tactics.exact_no_check (
-      apps (jdg d C.Jdg.sound_of_ind)
-        [| d.d_term ; d.d_cl ; f.f_r ; induction_scheme d f |]
-    ))
-
-(** [R_complete : complete_jdg d R]. *)
-let complete_lemma (d : desc) (f : family) ~vars ~rules ~wf : Names.Constant.t =
-  lemma (shared d "_complete")
-    (stmt d f C.Jdg.complete_jdg)
-    (Tactics.exact_no_check (
-      apps (jdg d C.Jdg.jdg_complete)
-        [| d.d_term ; d.d_cl ; f.f_r ; mkconst vars ; mkconst rules ; mkconst wf |]
-    ))
+(** Prove [facts] *)
+let facts_lemma (d : desc) (f : family) : Names.Constant.t =
+  let vars = List.map (fun k -> ctor f k 1) (indices d) in
+  let rules =
+    d.d_rules
+    |> List.mapi (fun k rs -> List.mapi (fun i _ -> ctor f k (i + 2)) rs)
+    |> List.concat
+  in
+  let leaves = vars @ rules @ [ induction_scheme d f ] in
+  lemma (shared d "_facts") (stmt d f C.Jdg.facts) (
+    Tacticals.tclTHEN
+      (run_ltac "JdgDesc" "facts_tac" [])
+      (dispatch (fun k -> Tactics.exact_no_check (List.nth leaves k)))
+  )
 
 (** The obligations, located in the description: [ob_pred j r i] for the
   predicate premise [i] of rule [r] of judgment [j], [ob_make i i'] for a
@@ -468,7 +399,7 @@ let obligations_class (d : desc) (f : family) (o : obligations) :
 (** [R_obls_wf] checks the list of obligations by computation, then
   [R_subst : ∀ {H : R_obligations}, preserve_subst_jdg R i] for every
   judgment, which finds the instance by resolution. *)
-let subst_lemmas (d : desc) (f : family) ~sound ~complete : unit =
+let subst_lemmas (d : desc) (f : family) ~facts : unit =
   let o = obligations d in
   let obs = mkconst (def (shared d "_obls") (ret o.o_term)) in
   let ok =
@@ -490,7 +421,7 @@ let subst_lemmas (d : desc) (f : family) ~sound ~complete : unit =
   in
   let proof h k =
     apps (jdg d C.Jdg.gen_preserve_subst) [|
-      d.d_term ; d.d_cl ; f.f_r ; mkconst sound ; mkconst complete ; obs ;
+      d.d_term ; d.d_cl ; f.f_r ; mkconst facts ; obs ;
       mkconst ok ; h ; idx d k
     |]
   in
@@ -519,12 +450,8 @@ let generate_desc (jdg : jdg) (desc : EConstr.t) :
   unit =
   let d = read_desc jdg desc in
   let f = declare_inductives d in
-  let wf = wf_lemma d in
-  let rules = rules_lemma d f in
-  let vars = vars_lemma d f in
-  let sound = sound_lemma d f in
-  let complete = complete_lemma d f ~vars ~rules ~wf in
-  subst_lemmas d f ~sound ~complete
+  let facts = facts_lemma d f in
+  subst_lemmas d f ~facts
 
 (******************************************************************************)
 (** *** Judgments written as rules. *)
@@ -720,10 +647,13 @@ let generate_rules (pj : pjdg) : unit =
   let shapes = def (name ^ "_shapes") (pretype (shapes_expr jdg)) in
   declare_instance shapes ;
   let desc =
-    def (name ^ "_desc") begin
+    def_typed (name ^ "_desc") begin
       let* d = pretype (desc_expr jdg shapes) in
+      let* sigma = get_sigma in
+      let d, _, ty = EConstr.destCast sigma d in
       (* Substitute the local definitions *)
-      reduce_only [] d
+      let* d = reduce_only [] d in
+      ret (d, Some ty)
     end
   in
   generate_desc jdg (mkconst desc)
