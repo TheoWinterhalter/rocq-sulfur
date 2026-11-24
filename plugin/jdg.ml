@@ -45,18 +45,9 @@ let of_rule (t : EConstr.t) (r : rule) = {
   [jdg_desc sg T sh]. *)
 let decode_sig (desc_ty : EConstr.t) : (EConstr.t * EConstr.t * EConstr.t) m =
   let what = "a judgment description" in
-  decode what
-    [
-      C.prod, fun a ->
-        decode what
-          [
-            C.list, fun a ->
-              decode what
-                [ C.Jdg.rule_desc, fun a -> ret (a.(0), a.(1), a.(2)) ]
-                a.(0)
-          ]
-          a.(0)
-    ]
+  decode ~whd:false
+    what
+    [ C.Jdg.jdg_desc, fun a -> ret (a.(0), a.(1), a.(2)) ]
     desc_ty
 
 (** The rule terms of a description [(l1, (l2, ... tt))], judgment by
@@ -693,10 +684,13 @@ let generate_rules (pj : pjdg) : unit =
   let shapes = def (name ^ "_shapes") (pretype (shapes_expr jdg)) in
   declare_instance shapes ;
   let desc =
-    def (name ^ "_desc") begin
+    def_typed (name ^ "_desc") begin
       let* d = pretype (desc_expr jdg shapes) in
+      let* sigma = get_sigma in
+      let d, _, ty = EConstr.destCast sigma d in
       (* Substitute the local definitions *)
-      reduce_only [] d
+      let* d = reduce_only [] d in
+      ret (d, Some ty)
     end
   in
   generate_desc jdg (mkconst desc)
