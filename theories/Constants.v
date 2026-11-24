@@ -138,7 +138,6 @@ Register JdgDesc.jshape_of as sulfur.jdg.jshape_of.
 Register JdgDesc.jdg_type as sulfur.jdg.jdg_type.
 Register JdgDesc.Idx as sulfur.jdg.jidx.
 Register JdgDesc.jdg_at as sulfur.jdg.jdg_at.
-Register JdgDesc.var_rules as sulfur.jdg.var_rules.
 Register finO as sulfur.fin.finO.
 Register finS as sulfur.fin.finS.
 Register JdgShape.t_term as sulfur.jdg.t_term.
@@ -152,11 +151,6 @@ Register JdgDesc.hrule as sulfur.jdg.hrule.
 Register JdgDesc.rule_type as sulfur.jdg.rule_type.
 Register JdgDesc.var_rule_type as sulfur.jdg.var_rule_type.
 Register JdgDesc.J as sulfur.jdg.J.
-Register JdgDesc.wf_desc as sulfur.jdg.wf_desc.
-Register JdgDesc.rules_type as sulfur.jdg.rules_type.
-Register JdgDesc.sound_jdg as sulfur.jdg.sound_jdg.
-Register JdgDesc.complete_jdg as sulfur.jdg.complete_jdg.
+Register JdgDesc.facts as sulfur.jdg.facts.
 Register JdgDesc.preserve_subst_jdg as sulfur.jdg.preserve_subst_jdg.
-Register JdgDesc.sound_of_ind as sulfur.jdg.sound_of_ind.
-Register JdgDesc.jdg_complete as sulfur.jdg.jdg_complete.
 Register JdgDesc.gen_preserve_subst as sulfur.jdg.gen_preserve_subst.

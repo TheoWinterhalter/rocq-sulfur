@@ -255,36 +255,6 @@ let declare_inductives (d : desc) : family =
     f_r = family (List.map (fun k -> mkind (mind, k)) (indices d))
   }
 
-(** [R_wf : wf_desc d], using tactic [JdgDesc.wf_desc_tac]. *)
-let wf_lemma (d : desc) : Names.Constant.t =
-  lemma (shared d "_wf")
-    (ret (apps (mkglob' C.Jdg.wf_desc) [| d.d_sg ; d.d_ty ; d.d_sh ; d.d_term |]))
-    (run_ltac "JdgDesc" "wf_desc_tac" [])
-
-(** Prove a lemma [stmt] using the [JdgDesc.split_conj] tactic and applying
-  a constructor from [ctors] in each branch, in order.
-*)
-let conj_lemma name stmt (ctors : EConstr.t list) =
-  lemma name stmt (
-    Tacticals.tclTHEN
-      (run_ltac "JdgDesc" "split_conj" [])
-      (dispatch (fun k -> Tactics.exact_no_check (List.nth ctors k)))
-  )
-
-(** [R_rules : rules_type d R] *)
-let rules_lemma (d : desc) (f : family) =
-  let ctors =
-    d.d_rules
-    |> List.mapi (fun k rs -> List.mapi (fun i _ -> ctor f k (i + 2)) rs)
-    |> List.concat
-  in
-  conj_lemma (shared d "_rules") (stmt d f C.Jdg.rules_type) ctors
-
-(** [R_vars : var_rules d R] *)
-let vars_lemma (d : desc) (f : family) =
-  conj_lemma (shared d "_vars") (ret (app (jdg d C.Jdg.var_rules) f.f_r))
-    (List.map (fun k -> ctor f k 1) (indices d))
-
 (** The induction principle of the family, over a family of motives [P i]: the
   combined scheme of the mutual inductive applied to [P finO], [P (finS
   finO)], ..., whose type is then convertible to [ind_type d R]. The own
@@ -321,23 +291,20 @@ let induction_scheme (d : desc) (f : family) : EConstr.t =
       ret (apps (mkconst scheme) (Array.of_list motives))
   end
 
-(** [R_sound : sound_jdg d R], from the induction principle. *)
-let sound_lemma (d : desc) (f : family) : Names.Constant.t =
-  lemma (shared d "_sound")
-    (stmt d f C.Jdg.sound_jdg)
-    (Tactics.exact_no_check (
-      apps (jdg d C.Jdg.sound_of_ind)
-        [| d.d_term ; d.d_cl ; f.f_r ; induction_scheme d f |]
-    ))
-
-(** [R_complete : complete_jdg d R]. *)
-let complete_lemma (d : desc) (f : family) ~vars ~rules ~wf : Names.Constant.t =
-  lemma (shared d "_complete")
-    (stmt d f C.Jdg.complete_jdg)
-    (Tactics.exact_no_check (
-      apps (jdg d C.Jdg.jdg_complete)
-        [| d.d_term ; d.d_cl ; f.f_r ; mkconst vars ; mkconst rules ; mkconst wf |]
-    ))
+(** Prove [facts] *)
+let facts_lemma (d : desc) (f : family) : Names.Constant.t =
+  let vars = List.map (fun k -> ctor f k 1) (indices d) in
+  let rules =
+    d.d_rules
+    |> List.mapi (fun k rs -> List.mapi (fun i _ -> ctor f k (i + 2)) rs)
+    |> List.concat
+  in
+  let leaves = vars @ rules @ [ induction_scheme d f ] in
+  lemma (shared d "_facts") (stmt d f C.Jdg.facts) (
+    Tacticals.tclTHEN
+      (run_ltac "JdgDesc" "facts_tac" [])
+      (dispatch (fun k -> Tactics.exact_no_check (List.nth leaves k)))
+  )
 
 (** The obligations, located in the description: [ob_pred j r i] for the
   predicate premise [i] of rule [r] of judgment [j], [ob_make i i'] for a
@@ -432,7 +399,7 @@ let obligations_class (d : desc) (f : family) (o : obligations) :
 (** [R_obls_wf] checks the list of obligations by computation, then
   [R_subst : ∀ {H : R_obligations}, preserve_subst_jdg R i] for every
   judgment, which finds the instance by resolution. *)
-let subst_lemmas (d : desc) (f : family) ~sound ~complete : unit =
+let subst_lemmas (d : desc) (f : family) ~facts : unit =
   let o = obligations d in
   let obs = mkconst (def (shared d "_obls") (ret o.o_term)) in
   let ok =
@@ -454,7 +421,7 @@ let subst_lemmas (d : desc) (f : family) ~sound ~complete : unit =
   in
   let proof h k =
     apps (jdg d C.Jdg.gen_preserve_subst) [|
-      d.d_term ; d.d_cl ; f.f_r ; mkconst sound ; mkconst complete ; obs ;
+      d.d_term ; d.d_cl ; f.f_r ; mkconst facts ; obs ;
       mkconst ok ; h ; idx d k
     |]
   in
@@ -483,12 +450,8 @@ let generate_desc (jdg : jdg) (desc : EConstr.t) :
   unit =
   let d = read_desc jdg desc in
   let f = declare_inductives d in
-  let wf = wf_lemma d in
-  let rules = rules_lemma d f in
-  let vars = vars_lemma d f in
-  let sound = sound_lemma d f in
-  let complete = complete_lemma d f ~vars ~rules ~wf in
-  subst_lemmas d f ~sound ~complete
+  let facts = facts_lemma d f in
+  subst_lemmas d f ~facts
 
 (******************************************************************************)
 (** *** Judgments written as rules. *)

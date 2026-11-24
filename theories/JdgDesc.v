@@ -1409,6 +1409,32 @@ Section ConcreteFacts.
 
   End Completeness.
 
+  (** Facts proven by the plugin, soundness and completeness follow *)
+
+  Record facts (R : ∀ i, jdg_type T i) := {
+    facts_wf : wf_desc ;
+    facts_vars : var_rules R ;
+    facts_rules : rules_type R ;
+    facts_ind : ind_type desc R
+  }.
+
+  Lemma facts_sound R :
+    facts R →
+    sound_jdg R.
+  Proof.
+    intros [].
+    apply sound_of_ind.
+    assumption.
+  Qed.
+
+  Lemma facts_complete R :
+    facts R →
+    complete_jdg R.
+  Proof.
+    intros [].
+    apply jdg_complete. all: assumption.
+  Qed.
+
   (** Preservation of substitution from soundness and completeness *)
 
   Lemma ev_up_substs k σ i :
@@ -1436,9 +1462,11 @@ Section ConcreteFacts.
   Section Preservation.
 
     Context (R : ∀ i, jdg_type T i).
-    Context (hsound : sound_jdg R).
-    Context (hcomplete : complete_jdg R).
+    Context (hfacts : facts R).
     Context obs (hok : obls_ok obs) (hobls : obligations R obs).
+
+    Let hsound : sound_jdg R := facts_sound R hfacts.
+    Let hcomplete : complete_jdg R := facts_complete R hfacts.
 
     Lemma rf_subst_tuple σ l (j : tuple l T) :
       tuple_map l creify (tuple_map l (csubstitute σ) j) =
@@ -1585,3 +1613,7 @@ Ltac split_conj :=
 Ltac wf_desc_tac :=
   split_conj ;
   intro ; exact_no_check (@eq_refl bool true).
+
+(** Start proving [facts] *)
+Ltac facts_tac :=
+  constructor ; [ wf_desc_tac | split_conj | split_conj | ].
