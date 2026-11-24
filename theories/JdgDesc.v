@@ -179,16 +179,17 @@ End Val.
 
 (** Judgment signature from a description *)
 
+
+#[local] Instance Sig_IDecl {sh : Shapes} : IDecl Idx :=
+  λ _, tuple sh_decl.
+
+#[local] Instance Sig_IJdg {sh : Shapes} : IJdg Idx :=
+  λ i, tuple (sh_jdg i).
+
 Section ToSig.
 
   Context {sig T} {CS : ConcreteSyntax sig T}.
   Context {sh : Shapes}.
-
-  #[local] Instance: IDecl Idx :=
-    λ _, tuple sh_decl.
-
-  #[local] Instance: IJdg Idx :=
-    λ i, tuple (sh_jdg i).
 
   Definition to_premise {i} ar m (pd : premise_desc (T := T)) : premise i :=
     match pd with
@@ -641,8 +642,6 @@ Section ConcreteFacts.
   Context {sig T} {CS : ConcreteSyntax sig T} {sh : Shapes}.
   Context (desc : jdg_desc (T := T)).
 
-  #[local] Instance Sig_IDecl : IDecl Idx := λ _, tuple sh_decl.
-  #[local] Instance Sig_IJdg : IJdg Idx := λ i, tuple (sh_jdg i).
   #[local] Instance Sig_FMapDecl : ∀ i : Idx, FMap (declF i) :=
     λ _, FMap_tuple _.
   #[local] Instance Sig_FMapJdg : ∀ i : Idx, FMap (jdgF i) :=
