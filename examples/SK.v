@@ -13,7 +13,7 @@ Sulfur Syntax term : Type :=
 
 Sulfur Judgment typing : term → term → Prop
   with context Γ of term
-  and variable x A ↦ typing x A :=
+  and variable x A => typing x A :=
 | type_K (A B : term) :
     ⟹ typing tK (tarr A (tarr B A))
 | type_S (A B C : term) :
