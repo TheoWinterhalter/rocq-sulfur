@@ -23,7 +23,7 @@ Sulfur Judgment conv : tm → tm → Prop
 
 | congr_lam A A' (b b' : tm → tm) :
     conv A A' ;
-    ⟨ x ↦ tt ⊢ conv (b x) (b' x) ⟩
+    <| x => tt |- conv (b x) (b' x) |>
     ⟹ conv (tlam A b) (tlam A' b').
 
 Sulfur Judgment typing : tm → tm → Prop

@@ -63,8 +63,9 @@ Sulfur Judgment conv : tm → tm → Prop
     conv (tlam A b) (tlam A' b').
 ```
 
-> ![TIP]
+> [!TIP]
 > You may use `=>` in place of `↦` if you prefer ASCII notations.
+> Similarly, you may write `<| x => tt |- conv (b x) (b' x) |>`.
 
 This defines a new inductive type `conv` which quantifies explicitly over a
 notion of contexts (here said to be holding `unit` values):
