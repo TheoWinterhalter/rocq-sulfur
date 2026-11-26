@@ -89,4 +89,5 @@ with typing : tm → tm → Prop
 Instance: conv_obligations.
 Proof.
   red.
-Admitted.
+  constructor.
+Qed.
