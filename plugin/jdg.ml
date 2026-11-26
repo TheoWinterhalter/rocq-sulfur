@@ -111,7 +111,8 @@ type desc = {
 type family = {
   f_transparent : Names.Constant.t list ;
   f_mind : Names.MutInd.t ;
-  f_r : EConstr.t
+  f_r : EConstr.t ; (* [R] *)
+  f_rs : EConstr.t (* [Rs], the packed version *)
 }
 
 (** The indices of the judgments, as integers and as terms *)
@@ -249,10 +250,12 @@ let declare_inductives (d : desc) : family =
   let mind =
     monad_run (declare_mut_ind d.d_names arities ctor_names ctor_types)
   in
+  let r = List.map (fun k -> mkind (mind, k)) (indices d) in
   {
     f_transparent = transparent ;
     f_mind = mind ;
-    f_r = family (List.map (fun k -> mkind (mind, k)) (indices d))
+    f_r = family r ;
+    f_rs = tuple (List.combine r arities)
   }
 
 (** The induction principle of the family, over a family of motives [P i]: the
@@ -385,7 +388,7 @@ let obligations_class (d : desc) (f : family) (o : obligations) :
         let* desc_const = head_const d.d_term in
         let* t =
           reduce (Option.List.cons desc_const f.f_transparent)
-            (apps (jdg d C.Jdg.obligations) [| d.d_term ; f.f_r ; o.o_term |])
+            (apps (jdg d C.Jdg.obligations) [| d.d_term ; f.f_rs ; o.o_term |])
         in
         rename_obls t
       end
@@ -415,11 +418,11 @@ let subst_lemmas (d : desc) (f : family) ~facts : unit =
           [ C.Jdg.preserve_subst_jdg ; C.CS.csubstitute ])
     in
     reduce (extra @ f.f_transparent)
-      (apps (jdg d C.Jdg.preserve_subst_jdg) [| f.f_r ; idx d k |])
+      (apps (jdg d C.Jdg.preserve_subst_jdg) [| f.f_rs ; idx d k |])
   in
   let proof h k =
     apps (jdg d C.Jdg.gen_preserve_subst) [|
-      d.d_term ; d.d_cl ; f.f_r ; mkconst facts ; obs ;
+      d.d_term ; d.d_cl ; f.f_rs ; mkconst facts ; obs ;
       mkconst ok ; h ; idx d k
     |]
   in
@@ -427,8 +430,11 @@ let subst_lemmas (d : desc) (f : family) ~facts : unit =
     let name = Names.Id.to_string name ^ "_subst" in
     match cls with
     | None ->
-      ignore (lemma name (stmt k)
-        (Tactics.exact_no_check (proof (mkglob (Rocqlib.lib_ref "core.True.I")) k)))
+      ignore @@
+      lemma name (stmt k) (
+        Tactics.exact_no_check @@
+        proof (mkglob (Rocqlib.lib_ref "core.True.I")) k
+      )
     | Some cls ->
       let subst =
         lemma name

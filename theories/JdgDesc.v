@@ -954,16 +954,17 @@ Section ConcreteFacts.
   (** Statements about a concrete judgment *)
 
   (* [σ] is a well-typed substitution from [Δ] to [Γ] *)
-  Inductive cstyping (R : ∀ i, jdg_type T i) | : ctx T → (nat → T) → ctx T → Prop :=
+  Inductive cstyping (Rs : jdg_types T) | : ctx T → (nat → T) → ctx T → Prop :=
   | cstyping_nil Δ σ : cstyping Δ σ []
   | cstyping_cons Δ σ Γ d :
       cstyping Δ (λ k, σ (S k)) Γ →
       Forall_rec (λ i,
-        capply (R i Δ) (
+        capply (jdg_at Rs i Δ) (
           make (sh_var i) (dmap (csubstitute (λ k, σ (S k))) d) (σ 0)
         )
       ) (fin_all _) →
       cstyping Δ σ (d :: Γ).
+
   Section Statements.
 
     Context (R : ∀ i, jdg_type T i).
@@ -993,12 +994,14 @@ Section ConcreteFacts.
         proof (jsig := to_jdg_sig desc) i Γ j →
         capply (R i (cmap ceval Γ)) (jmap ceval j).
 
+    Context (Rs : jdg_types T).
+
     Definition preserve_subst_jdg i :=
       ∀ Γ Δ σ,
         under_tuple (λ j,
-          capply (R i Γ) j →
-          cstyping R Δ σ Γ →
-          capply (R i Δ) (jmap (csubstitute σ) j)
+          capply (jdg_at Rs i Γ) j →
+          cstyping Rs Δ σ Γ →
+          capply (jdg_at Rs i Δ) (jmap (csubstitute σ) j)
         ).
 
     (** Obligations for [preserve_subst_jdg]
@@ -1045,7 +1048,7 @@ Section ConcreteFacts.
       let nt := rd_nterms rd in
       under rd.(rd_params) [] (λ vs x,
         ∀ Γ Δ σ,
-          cstyping R Δ σ Γ →
+          cstyping Rs Δ σ Γ →
           stable_at ar nt Γ Δ σ vs (rd.(rd_premises) x) k
       ).
 
@@ -1444,9 +1447,10 @@ Section ConcreteFacts.
 
   Section Preservation.
 
-    Context (R : ∀ i, jdg_type T i).
+    Context (Rs : jdg_types T).
+    Let R := (jdg_at Rs).
     Context (hfacts : facts R).
-    Context obs (hok : obls_ok obs) (hobls : obligations R obs).
+    Context obs (hok : obls_ok obs) (hobls : obligations Rs obs).
 
     Let hsound : sound_jdg R := facts_sound R hfacts.
     Let hcomplete : complete_jdg R := facts_complete R hfacts.
@@ -1460,7 +1464,7 @@ Section ConcreteFacts.
     Qed.
 
     Lemma cstyping_styping Δ σ Γ :
-      cstyping R Δ σ Γ →
+      cstyping Rs Δ σ Γ →
       styping (jsig := to_jdg_sig desc) (ctx_rf Δ) (λ k, creify (σ k)) (ctx_rf Γ).
     Proof.
       induction 1 as [Δ σ | Δ σ Γ d h ih hd].
@@ -1477,7 +1481,7 @@ Section ConcreteFacts.
 
     Lemma styping_cstyping Δ σ Γ :
       styping (jsig := to_jdg_sig desc) Δ σ Γ →
-      cstyping R (cmap ceval Δ) (λ i, ceval (σ i)) (cmap ceval Γ).
+      cstyping Rs (cmap ceval Δ) (λ i, ceval (σ i)) (cmap ceval Γ).
     Proof.
       induction 1 as [Δ σ | Δ σ Γ d h ih hd].
       - constructor.
@@ -1536,7 +1540,7 @@ Section ConcreteFacts.
         apply hm.
     Qed.
 
-    Theorem gen_preserve_subst i : preserve_subst_jdg R i.
+    Theorem gen_preserve_subst i : preserve_subst_jdg Rs i.
     Proof.
       intros Γ Δ σ.
       rewrite under_tuple_iff. intros j hj hs.
