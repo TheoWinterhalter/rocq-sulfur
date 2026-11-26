@@ -304,11 +304,13 @@ Section WithSignature.
     `{FuncDeclF : forall i, Eq1Functor (declF i)}
     `{FMapJdgF : forall i, FMap (jdgF i)}
     `{FuncJdgF : forall i, Eq1Functor (jdgF i)}.
+
   Section RulesSignature.
     (* Contexts in premises must be closed, and judgments must be scoped by the context *)
     Variant premise (i : I) :=
     | prem_pred (P : ctx (declF i) -> menv -> Prop)
     | prem_ind i' (conv : forall X, declF i X -> declF i' X) {n} (Δ : mctx (declF i') 0 n) (j : mjdg (jdgF i') n).
+
     Derive NoConfusion for premise.
 
     (* The judgment of the conclusion must be closed *)
@@ -325,10 +327,13 @@ Section WithSignature.
       [rules : list {param : Type & param -> rule}]
       and remove [param] from [rule]
     *)
+
   End RulesSignature.
+
   Arguments param {_}.
   Arguments premises {_}.
   Arguments conclusion {_}.
+
   Context {jsig : jdg_sig}.
 
   Class IMakeJdg := make_jdg : forall i : I,
@@ -363,6 +368,7 @@ Section WithSignature.
     | tvar i (Γ : ctx (declF i)) (n : nat) (d : declF i term) :
       Γ ∋ n : d ->
       Γ ⊢(i) make_jdg i term d (E_var n)
+
     where "Γ ⊢( i ) j" := (proof i Γ j).
 
     Lemma conv_proof_j i Γ j j' :
@@ -370,12 +376,15 @@ Section WithSignature.
       j = j' ->
       Γ ⊢(i) j'.
     Proof. intros; subst; assumption. Qed.
+
     Lemma conv_proof_c i Γ Γ' j :
       Γ ⊢(i) j ->
       Γ = Γ' ->
       Γ' ⊢(i) j.
     Proof. intros; subst; assumption. Qed.
+
   End Derivation.
+
   Notation "Γ ⊢( i ) j" := (proof i Γ j) (at level 70).
 
   (** Behaviour of renamings **)
@@ -606,7 +615,6 @@ Section WithSignature.
         rewrite Hconv.
         apply inctx_conv; assumption.
     Qed.
-
     Theorem preserve_renaming i Γ j Δ ρ :
       Γ ⊢(i) j ->
       Δ ⊢r(i) ρ : Γ ->
@@ -648,8 +656,10 @@ Section WithSignature.
       eapply preserve_renaming. apply H.
       apply weaken_rtyping. apply id_rtyping.
     Qed.
+
   End Renamings.
   Notation "Δ ⊢r( i ) ρ : Γ" := (rtyping i Δ ρ Γ) (at level 70, ρ at level 50, i at level 50).
+
 
   (** Behaviour of substitutions **)
   Section Substitutions.
@@ -759,6 +769,7 @@ Section WithSignature.
       intro t.
       apply scoped_substitute_inst.
     Qed.
+
     Corollary closed_jdg_substitute_inst {i} (j : mjdg (jdgF i) 0) :
       forall m σ,
       substitute_jdg σ (inst_jdg m j) =
@@ -777,11 +788,13 @@ Section WithSignature.
         (σ 0) ->
       Δ ⊢s(i) σ : d::Γ
     where "Δ ⊢s( i ) σ : Γ " := (styping i Δ σ Γ).
+
     Lemma conv_styping i Δ ρ ρ' Γ :
       Δ ⊢s( i ) ρ : Γ ->
       ρ = ρ' ->
       Δ ⊢s( i ) ρ' : Γ.
     Proof. intros; subst; assumption. Qed.
+
     Derive Signature for styping.
 
     Lemma ren_to_subst_typing i Γ ρ Δ :
@@ -801,6 +814,7 @@ Section WithSignature.
       forall Γ (d : declF i term) t,
       Γ ⊢(i) make_jdg i term d t ->
       map (conv _) Γ ⊢(i') make_jdg i' term (conv _ d) t.
+
     Class SubstJSig := {
       prem_subst :
         forall i (r : rule i) x P,
@@ -824,7 +838,6 @@ Section WithSignature.
         forall n i' conv Δ j,
         In (prem_ind(n:=n) i i' conv Δ j) (r.(premises) x) ->
         IsNat conv;
-
       conv_make_jdg :
         forall (i : I) (r : rule i) x,
         In r (jsig.(rules) i) ->
@@ -833,6 +846,7 @@ Section WithSignature.
         (* [conv] preserves typing of [make_jdg] *)
         ConvMakeJdg conv
     }.
+
     (* Preserving substitutions implies preserving renamings via ren_is_subst *)
     #[export] Instance SubstJdg_RenJdg : SubstJSig -> RenJSig.
     Proof.
@@ -861,6 +875,7 @@ Section WithSignature.
         apply rew_eq1. intros. intro. apply substitute_proper. 2: reflexivity.
         intro. apply Hσ.
     Qed.
+
     Lemma conv_stype_s i Δ σ σ' Γ :
       Δ ⊢s(i) σ : Γ ->
       σ =₁ σ' ->
@@ -980,13 +995,20 @@ Section WithSignature.
         rewrite naturality_prod.
         eapply substitute_in. apply H. assumption.
     Qed.
+
   End Substitutions.
-  Notation "Δ ⊢s( i ) σ : Γ" := (styping i Δ σ Γ) (at level 70, σ at level 50, i at level 50).
+
+  Notation "Δ ⊢s( i ) σ : Γ" :=
+    (styping i Δ σ Γ) (at level 70, σ at level 50, i at level 50).
+
 End WithSignature.
+
 Arguments mnil {_ _ scope}.
 Arguments mcons {_ _ scope _}.
 Arguments inctx {_} [_] {_}.
+
 Notation "Γ ∋ n : d" := (inctx Γ n d) (at level 70, n at level 50).
+
 Arguments inst_ctx {_} [_] {_ _ _}.
 Arguments rename_ctx {_} [_] {_}.
 Arguments subst_ctx {_} [_] {_}.
@@ -1008,7 +1030,6 @@ Arguments SubstJSig {_ _ _ _ _ _} (_) {_}.
   `{IDecl unit} `{forall i : unit, FMap (declF i)} :
   IsNat(I:=unit)(i':=tt) (fun _ d => d).
 Proof. constructor. Qed.
-
 #[export] Instance IdPresMakeJdg
   `{signature}
   `{IDecl unit} `{forall i : unit, FMap (declF i)}
@@ -1020,1227 +1041,3 @@ Proof.
   unfold ConvMakeJdg. intros.
   rewrite map_id. assumption.
 Qed.
-
-(** Example module of conversion in lambda pi **)
-Module LPConv.
-  (* Syntax of lambda pi *)
-  Variant EBase := Nat.
-  Variant CLamPi := CType | CApp | CLam | CPi.
-
-  Derive NoConfusion for EBase.
-
-  #[refine]
-  Instance: Enum EBase := {|
-    enum := [ Nat ] ;
-    index_of _ := 0
-  |}.
-  Proof.
-    intros []. reflexivity.
-  Qed.
-
-  Derive NoConfusion for CLamPi.
-
-  #[refine]
-  Instance: Enum CLamPi := {|
-    enum := [ CType ; CApp ; CLam ; CPi ] ;
-    index_of x :=
-      match x with
-      | CType => 0
-      | CApp => 1
-      | CLam => 2
-      | CPi => 3
-      end
-  |}.
-  Proof.
-    sulfur_is_enum.
-  Qed.
-
-  Derive EqDec for CLamPi.
-
-  Definition sig_lp : signature := {|
-    base := EBase;
-    eval_base := fun _ => nat;
-    ctor := CLamPi;
-    ctor_type := fun c => match c with
-    | CType => [AT_base Nat]
-    | CApp => [AT_term; AT_term]
-    | CLam => [AT_bind AT_term]
-    | CPi => [AT_term; AT_bind AT_term]
-    end
-  |}.
-
-  Notation "'mterm'" := (@mexpr sig_lp Kt) (at level 0).
-
-  (* λΠ constructors, written in a more accessible way *)
-  Definition T {s} (n : nat) : mterm s :=
-  @M_ctor sig_lp s CType (
-    M_al_cons s (@M_abase sig_lp s Nat n) (M_al_nil s)
-  ).
-
-  Definition lambda {s} (t : mterm (S s)) : mterm s :=
-  @M_ctor sig_lp s CLam (
-    M_al_cons s (M_abind s (M_aterm  (S s) t)) (M_al_nil s)
-  ).
-
-  Definition Pi {s} (A : mterm s) (B : mterm (S s)) : mterm s :=
-  @M_ctor sig_lp s CPi (
-    M_al_cons s (M_aterm s A) (M_al_cons s (M_abind s (M_aterm (S s) B)) (M_al_nil s))
-  ).
-
-  Definition App {s} (f u : mterm s) : mterm s :=
-  @M_ctor sig_lp s CApp (
-    M_al_cons s (M_aterm s f) (M_al_cons s (M_aterm s u) (M_al_nil s))
-  ).
-
-  Definition Var {s} (n : nat) (Hs : n < s) : mterm s :=
-  @M_var sig_lp s n Hs.
-
-  Definition elambda (t : P.expr Kt) : P.expr Kt :=
-  @E_ctor sig_lp CLam (
-    E_al_cons (E_abind (E_aterm t)) E_al_nil
-  ).
-  Definition ePi (A B : P.expr Kt) : P.expr Kt :=
-  @E_ctor sig_lp CPi (
-    E_al_cons (E_aterm A) (E_al_cons (E_abind (E_aterm B)) E_al_nil)
-  ).
-  Definition eT (u : nat) : P.expr Kt :=
-  @E_ctor sig_lp CType (
-    E_al_cons (@E_abase sig_lp Nat u) E_al_nil
-  ).
-  Definition eApp (f u : P.expr Kt) : P.expr Kt :=
-  @E_ctor sig_lp CApp (
-    E_al_cons (E_aterm f) (E_al_cons (E_aterm u) E_al_nil)
-  ).
-
-  (* Typing rules *)
-  Instance ConvDeclF : IDecl unit := fun _ X => unit.
-  Instance ConvJdgF : IJdg unit := fun _ X => (X*X)%type.
-  Instance ConvMakeJdg : IMakeJdg unit := fun _ _ _ t => (t, t).
-  Instance LpConvNatMakeJdg (i : unit) : NatFromProd (make_jdg(IMakeJdg:=ConvMakeJdg) i).
-  Proof.
-    constructor. reflexivity.
-  Qed.
-
-  Definition nA := 0.
-  Definition nB := 1.
-  Definition nA' := 2.
-  Definition nB' := 3.
-  Definition nt := 4.
-  Definition nu := 5.
-  Definition nv := 6.
-  Definition nt' := 7.
-  Definition nu' := 8.
-  Definition nv' := 9.
-  Definition nb := 10.
-  Definition nb' := 11.
-
-  Definition A {s} := M_mvar(sig:=sig_lp) s nA.
-  Definition B {s} := M_mvar(sig:=sig_lp) s nB.
-  Definition A' {s} := M_mvar(sig:=sig_lp) s nA'.
-  Definition B' {s} := M_mvar(sig:=sig_lp) s nB'.
-  Definition t {s} := M_mvar(sig:=sig_lp) s nt.
-  Definition u {s} := M_mvar(sig:=sig_lp) s nu.
-  Definition v {s} := M_mvar(sig:=sig_lp) s nv.
-  Definition t' {s} := M_mvar(sig:=sig_lp) s nt'.
-  Definition u' {s} := M_mvar(sig:=sig_lp) s nu'.
-  Definition v' {s} := M_mvar(sig:=sig_lp) s nv'.
-  Definition b {s} := M_mvar(sig:=sig_lp) s nb.
-  Definition b' {s} := M_mvar(sig:=sig_lp) s nb'.
-
-  Definition tRefl : rule(sig:=sig_lp) tt :=
-  {|
-    premises := fun (_ : unit) => [];
-    conclusion := fun _ => (t[], t[])
-  |}.
-  Definition tSym : rule(sig:=sig_lp) tt :=
-  {|
-    premises := fun (_ : unit) => [
-      prem_ind tt (fun _ u => u)
-        mnil
-        (t[], u[])
-    ];
-    conclusion := fun _ => (u [], t [])
-  |}.
-  Definition tTrans : rule(sig:=sig_lp) tt :=
-  {|
-    premises := fun (_ : unit) => [
-      prem_ind tt (fun _ u => u)
-        mnil
-        (t[], u[]) ;
-      prem_ind tt (fun _ u => u)
-        mnil
-        (u[], v[])
-    ];
-    conclusion := fun _ => (t [], v [])
-  |}.
-
-  Definition tCongrApp : rule tt :=
-  {|
-    premises := fun (_ : unit) => [
-      prem_ind tt (fun _ u => u)
-        mnil
-        (t[], t'[]) ;
-      prem_ind tt (fun _ u => u)
-        mnil
-        (u[], u'[])
-    ];
-    conclusion := fun _ =>
-      (App (t[]) (u[]), App (t'[]) (u'[]))
-  |}.
-  (* In this rule, B and B' will be instanciated to terms with one variable ; the substitution has to take this into account *)
-  Definition tCongrPi : rule tt :=
-  {|
-    premises := fun (_ : unit) => [
-      prem_ind tt (fun _ u => u)
-        mnil
-        (A[], A'[]);
-      prem_ind tt (fun _ u => u)
-        (mcons tt mnil)
-        (B[var 0], B'[var 0])
-    ];
-    conclusion := fun _ =>
-      (Pi (A[]) (B[var 0]), Pi (A'[]) (B'[var 0]))
-  |}.
-  Definition tCongrLam : rule tt :=
-  {|
-    premises := fun (_ : unit) => [
-      prem_ind tt (fun _ u => u)
-        (mcons tt mnil)
-        (b[var 0], b'[var 0])
-    ];
-    conclusion := fun _ =>
-      (lambda (b[var 0]), lambda (b'[var 0]))
-  |}.
-
-  Definition tBeta : rule tt :=
-  {|
-    premises := fun (_ : unit) => [];
-    conclusion := fun _ =>
-    (App (lambda (b[var 0])) (u[]), b[u[]])
-  |}.
-
-  Definition typ_conv_lampi : jdg_sig := {|rules:=
-  fun u => match u with
-    tt => [
-      tRefl; tSym; tTrans;
-      tCongrApp; tCongrPi; tCongrLam;
-      tBeta
-    ]
-  end|}.
-
-  (* Overwrite notations for lambda pi *)
-  #[warnings="-notation-overridden"]
-  Notation "Γ ∋ n : A" := (@inctx sig_lp Γ n A) (at level 70, n at level 50).
-  #[warnings="-notation-overridden"]
-  Notation "Γ ⊢ j" := (proof(jsig:=typ_conv_lampi) tt Γ j) (at level 70).
-  #[warnings="-notation-overridden"]
-  Notation "Δ ⊢r ρ : Γ" := (rtyping(sig:=sig_lp) tt Δ ρ Γ) (at level 70, ρ at level 50).
-  #[warnings="-notation-overridden"]
-  Notation "Δ ⊢s σ : Γ" := (styping(jsig:=typ_conv_lampi) tt Δ σ Γ) (at level 70, σ at level 50).
-
-  Notation "Γ ⊢ A ≡ B" := (proof(jsig:=typ_conv_lampi) tt Γ (A, B)) (at level 70).
-
-  (* Sanity check *)
-  Lemma beta_rev n :
-    [] ⊢ eT n ≡ eApp (elambda (E_var 0)) (eT n).
-  Proof.
-    (* Apply symmetry *)
-    (* The instansiation msym only depends on the name of the meta-variables. This is OK because we did everything correctly when we defined our signature. *)
-    pose (msym := fun k s =>
-      if (k=?nu) then (eT n)
-      else if (k=?nt) then (eApp (elambda (E_var 0)) (eT n))
-      else (default_menv k s)
-    ).
-    eapply conv_proof_j.
-    unshelve econstructor.
-    exact msym. exact tSym. exact tt. repeat (try (left; reflexivity); right).
-    3: reflexivity.
-    2: {intros. destruct_n H. inversion H. }
-    intros. destruct_n H.
-    noconf H. simpl.
-    (* Just to avoid unfolding too much *)
-    unshelve eapply conv_proof_j.
-    exact ((eApp (elambda (E_var 0)) (eT n)), eT n).
-    2: reflexivity.
-
-    (* Apply beta *)
-    pose (mbeta := fun k s =>
-      if (k=?nb) then (E_var 0)
-      else if (k=?nu) then (eT n)
-      else (default_menv k s)
-    ).
-    eapply conv_proof_j.
-    unshelve econstructor.
-    exact mbeta. exact tBeta. exact tt. repeat (try (left; reflexivity); right).
-    3: reflexivity.
-    all: intros; destruct_n H.
-  Qed.
-
-  Instance LPConvSubst : SubstJSig typ_conv_lampi.
-  Proof.
-    constructor; intros; destruct i;
-    destruct_n H; subst; destruct_n H0;
-    try now inversion H0; try typeclasses eauto.
-  Qed.
-End LPConv.
-
-(** Example module of typing of Lambda Pi **)
-Module LambdaPi.
-  #[warnings="-notation-overridden"] Import LPConv.
-
-  Definition nA := 0.
-  Definition nB := 1.
-  Definition nf := 2.
-  Definition nu := 3.
-  Definition nb := 4.
-  Definition nt := 5.
-  Definition nA' := 6.
-
-  Definition A {s} := M_mvar(sig:=sig_lp) s nA.
-  Definition B {s} := M_mvar(sig:=sig_lp) s nB.
-  Definition f {s} := M_mvar(sig:=sig_lp) s nf.
-  Definition u {s} := M_mvar(sig:=sig_lp) s nu.
-  Definition b {s} := M_mvar(sig:=sig_lp) s nb.
-  Definition t {s} := M_mvar(sig:=sig_lp) s nt.
-  Definition A' {s} := M_mvar(sig:=sig_lp) s nA'.
-
-  (* Typing rules *)
-  Instance LpDecl : IDecl unit := fun _ X => X.
-  Instance LpJdg : IJdg unit := fun _ X => (X*X)%type.
-  Instance LpMakeJdg : IMakeJdg(InstIDecl:=LpDecl)(InstIJdg:=LpJdg) unit := fun _ X A t => (t, A).
-  Instance LpNatMakeJdg (i : unit) : NatFromProd (make_jdg(IMakeJdg:=LpMakeJdg) i).
-  Proof.
-    constructor. reflexivity.
-  Qed.
-
-
-  Definition tType : rule tt :=
-  {|
-    premises := fun _ => [];
-    conclusion := fun n => (T(s:=0) n, T (S n))
-  |}.
-
-  Definition tPi : rule tt :=
-  {|
-    premises := fun '(n, m) =>
-    [
-      prem_ind tt (fun _ A => A)
-        mnil
-        (A[], T n) ;
-      prem_ind tt (fun _ A => A)
-        (mcons(n:=0) (A[]) mnil)
-        (B[var 0], T m)
-    ] ;
-    conclusion := fun '(n, m) =>
-      (Pi (A[]) (B[var 0]), T (Nat.max n m))
-  |}.
-  Definition tApp : rule tt :=
-  {|
-    premises := fun (_ : unit) =>
-    [
-      prem_ind tt (fun _ A => A)
-        mnil
-        (f[], Pi (A[]) (B[var 0]));
-      prem_ind tt (fun _ A => A)
-        mnil
-        (u[], A[])
-    ];
-    conclusion := fun _ =>
-      (App (f[]) (u[]), B[u[]])
-  |}.
-
-
-  Definition tLam : rule tt :=
-  {|
-    premises := fun (_ : unit) =>
-    [
-      prem_ind tt (fun _ A => A)
-        (mcons(n:=0) (A[]) mnil)
-        (b[var 0], B[var 0])
-    ];
-    conclusion := fun _ =>
-      (lambda (b[var 0]), Pi (A[]) (B[var 0]))
-  |}.
-
-  Definition tConv : rule tt :=
-  {|
-    premises := fun (_ : unit) =>
-    [
-      prem_ind tt (fun _ A => A)
-        (mnil)
-        (t[], A[]);
-      prem_pred tt (fun Γ m =>
-        map (fun _ => tt) Γ ⊢ inst m (@A 0[]) ≡ inst m (@A' 0[])
-      )
-    ];
-    conclusion := fun _ =>
-      (t[], A'[])
-  |}.
-
-  Definition typ_lampi : jdg_sig := {|rules:=
-  fun u => match u with
-    tt =>[
-      tType; tPi; tApp; tLam; tConv
-    ]
-  end|}.
-
-  (* Overwrite notations for lambda pi *)
-  #[warnings="-notation-overridden"]
-  Notation "Γ ∋ n : A" := (@inctx sig_lp Γ n A) (at level 70, n at level 50).
-  #[warnings="-notation-overridden"]
-  Notation "Γ ⊢ j" := (proof(jsig:=typ_lampi) tt Γ j) (at level 70).
-  #[warnings="-notation-overridden"]
-  Notation "Δ ⊢r ρ : Γ" := (rtyping(sig:=sig_lp) tt Δ ρ Γ) (at level 70, ρ at level 50).
-  #[warnings="-notation-overridden"]
-  Notation "Δ ⊢s σ : Γ" := (styping(jsig:=typ_lampi) tt Δ σ Γ) (at level 70, σ at level 50).
-
-  (* Something that appears multiple times, so making it a lemma might be useful *)
-  Lemma subst_minus_plus_zero :
-    (fun i => E_var(sig:=sig_lp) (i - 0 + 0)) =₁ sid.
-  Proof. intro; unfold sid; f_equal; lia. Qed.
-
-  Lemma refl Γ t :
-    Γ ⊢ t ≡ t.
-  Proof.
-    pose (m := fun k s =>
-      if k =? LPConv.nt then t else
-      default_menv k s
-    ).
-    eapply conv_proof_j.
-    unshelve econstructor. exact m. exact tRefl. exact tt. repeat (try (left; reflexivity); right).
-    3: {cbn. setoid_rewrite nth_error_nil.
-      rewrite subst_minus_plus_zero. rewrite subst_sid. reflexivity.
-    }
-    - intros. noconf H.
-    - intros. noconf H.
-  Qed.
-
-  Lemma styping_to_unit Δ σ Γ :
-    Δ ⊢s σ : Γ ->
-    styping(jsig:=typ_conv_lampi) tt (map (fun _ => tt) Δ) σ (map (fun _ => tt) Γ).
-  Proof.
-    intro Hσ. induction Hσ.
-    - constructor.
-    - simpl. constructor.
-      + apply IHHσ.
-      + unfold make_jdg, LpMakeJdg, ConvMakeJdg, fmap, FMapId in *.
-        destruct i.
-        apply refl.
-  Qed.
-
-  (* This is the instance we need if we want to use preservation by substitution and renaming *)
-  Instance LPTypSubst : SubstJSig typ_lampi.
-  Proof.
-    constructor; intros; destruct i; destruct_n H; subst; try destruct x; destruct_n H0; try now inversion H0; try typeclasses eauto.
-    - inversion H0. subst.
-      (* Clean the context a bit *)
-      clear H0.
-      remember (m nA 0) as tA.
-      remember (m nA' 0) as tA'.
-      simpl.
-      setoid_rewrite nth_error_nil. setoid_rewrite nth_error_nil in H2.
-      rewrite subst_minus_plus_zero in *.
-      rewrite 2!subst_sid in *.
-      (* Apply the theorem of preservation by substitution because the predicate is an inductive predicate that we already built *)
-      pose (preserve_subst(jsig:=typ_conv_lampi) tt (map (fun _ => tt) Γ) (tA, tA')).
-      apply p; clear p.
-      apply H2.
-      (* We still need to show that :
-        [map (fun u => u) Γ ⊢s map (fun u => u) Δ]
-        This is a part that is more specific to the theory we built. We even [Admitted] a part of this proof that is not comfortable in this framework, and that is not useful for the example
-      *)
-      apply styping_to_unit. assumption.
-    - inversion H0. clear H0.
-      setoid_rewrite nth_error_nil. subst. setoid_rewrite nth_error_nil in H1.
-      rewrite subst_minus_plus_zero in *.
-      rewrite !subst_sid in *. rewrite !H2 in H1. assumption.
-  Qed.
-
-  Lemma proof_type_id n :
-    [] ⊢ (elambda (E_var 0), ePi (eT n) (eT n)).
-  Proof.
-    pose (m := fun k s =>
-      if (k=?nb) then (E_var 0)
-      else if (k=?nA) then (eT n)
-      else if (k=?nB) then (eT n)
-      else (default_menv k s)
-    ).
-    eapply conv_proof_j.
-    unshelve econstructor.
-    exact m. exact tLam. exact tt. repeat (try (left; reflexivity); right).
-    3: reflexivity.
-    2: intros; destruct_n H; noconf H.
-    intros. destruct_n H.
-    noconf H. simpl.
-    eapply conv_proof_j. apply tvar. constructor.
-    reflexivity.
-  Qed.
-
-  Lemma proof_type_id_app n :
-    [eT n] ⊢ (eApp (elambda (E_var 0)) (E_var 0), (eT n)).
-  Proof.
-    pose (m := fun k s =>
-      if (k=?nf) then (elambda (E_var 0))
-      else if (k=?nu) then (E_var 0)
-      else if (k=?nA) then (eT n)
-      else if (k=?nB) then (eT n)
-      else (default_menv k s)
-    ).
-    eapply conv_proof_j.
-    unshelve econstructor.
-    exact m. apply tApp. exact tt. repeat (try (left; reflexivity); right).
-    3: reflexivity.
-    2: intros; destruct_n H; noconf H.
-    intros. destruct_n H.
-    - noconf H.
-      simpl. unfold fmap, FMapId. simpl.
-      eapply conv_proof_j.
-      eapply (weaken_typing (jsig:=typ_lampi)).
-      apply (proof_type_id n).
-      reflexivity.
-      Unshelve.
-      + intro. typeclasses eauto.
-      + intro. eapply Eq1FProd; typeclasses eauto.
-      + typeclasses eauto.
-      + apply SubstJdg_RenJdg; typeclasses eauto.
-    - noconf H. simpl.
-      eapply conv_proof_j. apply tvar. constructor.
-      reflexivity.
-  Qed.
-
-  Lemma proof_typee_id_app_lam n :
-    [eT n] ⊢ (eApp (elambda (E_var 0)) (E_var 0),
-    eApp (elambda (E_var 0)) (eT n)).
-  Proof.
-    (* Use the conversion rule *)
-    pose (m := fun k s =>
-      if (k=?nt) then (eApp (elambda (E_var 0)) (E_var 0))
-      else if (k=?nA) then (eT n)
-      else if (k=?nA') then (eApp (elambda (E_var 0)) (eT n))
-      else (default_menv k s)
-    ).
-    eapply conv_proof_j.
-    unshelve econstructor.
-    exact m. apply tConv. exact tt. repeat (try (left; reflexivity); right).
-    3: reflexivity.
-    - (* Inductive premise *)
-      intros. destruct_n H; noconf H.
-      unfold inst_jdg, inst_ctx, fmap, FMapProd, fmap, FMapId. simpl. apply proof_type_id_app.
-    - (* Predicate premise *)
-      intros. destruct_n H; noconf H.
-      setoid_rewrite nth_error_nil.
-      rewrite subst_minus_plus_zero. rewrite 2! subst_sid.
-      simpl. unfold m. simpl.
-      (* Need to weaken the context *)
-      eapply conv_proof_j.
-      eapply (weaken_typing(jsig:=typ_conv_lampi)).
-      (* Here Rocq finds the typeclasses *)
-      apply (beta_rev n). reflexivity.
-  Qed.
-
-End LambdaPi.
-
-(** Example section of simply typed lambda calculus **)
-Module SimplLambda.
-  Variant EBase :=.
-  Variant CLamCalc := CApp | CLam.
-
-  Derive NoConfusion for EBase.
-
-  #[refine]
-  Instance: Enum EBase := {|
-    enum := [] ;
-    index_of _ := 0
-  |}.
-  Proof.
-    intros [].
-  Qed.
-
-  Derive NoConfusion for CLamCalc.
-
-  #[refine]
-  Instance: Enum CLamCalc := {|
-    enum := [ CApp ; CLam ] ;
-    index_of x :=
-      match x with
-      | CApp => 0
-      | CLam => 1
-      end
-  |}.
-  Proof.
-    sulfur_is_enum.
-  Qed.
-
-  Definition sig_lam : signature := {|
-    base := EBase;
-    eval_base := fun _ => False;
-    ctor := CLamCalc;
-    ctor_type := fun c => match c with
-    | CApp => [AT_term; AT_term]
-    | CLam => [AT_bind AT_term]
-    end
-  |}.
-
-  #[local] Notation "'mterm'" := (@mexpr sig_lam Kt) (at level 0).
-
-  (* λΠ constructors, written in a more accessible way *)
-  Definition lambda {s} (t : mterm (S s)) : mterm s :=
-  @M_ctor sig_lam s CLam (
-    M_al_cons s (M_abind s (M_aterm  (S s) t)) (M_al_nil s)
-  ).
-
-  Definition App {s} (f u : mterm s) : mterm s :=
-  @M_ctor sig_lam s CApp (
-    M_al_cons s (M_aterm s f) (M_al_cons s (M_aterm s u) (M_al_nil s))
-  ).
-
-  Definition Var {s} (n : nat) (Hs : n < s) : mterm s :=
-  @M_var sig_lam s n Hs.
-
-  Inductive sType :=
-  | sIota
-  | sArrow (A B : sType).
-
-  (* Definition of contexts and judments *)
-  Instance LamDecl : IDecl unit := fun _ _ => sType.
-  Instance LamJdg : IJdg unit := fun _ X => (X*sType)%type.
-  Instance LamMakeJdg : IMakeJdg unit := fun _ X A t => (t, A).
-  Instance LamMakeJdgNat (i : unit) : NatFromProd (make_jdg(IMakeJdg:=LamMakeJdg) i).
-  Proof.
-    constructor. reflexivity.
-  Qed.
-
-  (* Typing rules *)
-  Definition nf := 0.
-  Definition nu := 1.
-  Definition nb := 2.
-
-  Definition f {s} := M_mvar(sig:=sig_lam) s nf.
-  Definition u {s} := M_mvar(sig:=sig_lam) s nu.
-  Definition b {s} := M_mvar(sig:=sig_lam) s nb.
-
-  Definition tApp : rule tt :=
-  {|
-    premises := fun '(A, B) =>
-    [
-      prem_ind tt (fun _ A => A)
-        mnil
-        (f[], sArrow A B);
-      prem_ind tt (fun _ A => A)
-        mnil
-        (u[], A)
-    ];
-    conclusion := fun '(_, B) =>
-      (App (f[]) (u[]), B)
-  |}.
-
-  Definition tLam : rule tt :=
-  {|
-    premises := fun '(A, B) =>
-    [
-      prem_ind tt (fun _ A => A)
-        (mcons(n:=0) A mnil)
-        (b[var 0], B)
-    ];
-    conclusion := fun '(A, B) =>
-      (lambda (b[var 0]), sArrow A B)
-  |}.
-
-  Definition typ_lam : jdg_sig := {|rules:=
-  fun u => match u with
-    tt =>[tApp; tLam]
-  end|}.
-
-  (* Overwrite notations for lambda pi *)
-  #[warnings="-notation-overridden"]
-  Notation "Γ ∋ n : A" := (@inctx sig_lam Γ n A) (at level 70, n at level 50).
-  #[warnings="-notation-overridden"]
-  Notation "Γ ⊢ j" := (proof(jsig:=typ_lam) tt Γ j) (at level 70).
-  #[warnings="-notation-overridden"]
-  Notation "Δ ⊢r ρ : Γ" := (rtyping(sig:=sig_lam) tt Δ ρ Γ) (at level 70, ρ at level 50).
-  #[warnings="-notation-overridden"]
-  Notation "Δ ⊢s σ : Γ" := (styping(jsig:=typ_lam) tt Δ σ Γ) (at level 70, σ at level 50).
-
-  (* Sanity check *)
-
-  Definition elambda (t : P.expr Kt) : P.expr Kt :=
-  @E_ctor sig_lam CLam (
-    E_al_cons (E_abind (E_aterm t)) E_al_nil
-  ).
-  Definition eApp (f u : P.expr Kt) : P.expr Kt :=
-  @E_ctor sig_lam CApp (
-    E_al_cons (E_aterm f) (E_al_cons (E_aterm u) E_al_nil)
-  ).
-
-  Lemma proof_type_id :
-    [] ⊢ ((elambda (E_var 0), sArrow sIota sIota)).
-  Proof.
-    pose (m := fun k s =>
-      if (k=?nb) then (E_var(sig:=sig_lam) 0)
-      else (default_menv k s)
-    ).
-    eapply conv_proof_j.
-    unshelve econstructor.
-    exact m. exact tLam. exact (sIota, sIota). repeat (try (left; reflexivity); right).
-    3: reflexivity.
-    all: intros; destruct_n H; noconf H.
-    simpl. unfold inst_jdg, fmap, FMapProd, fmap, FMapId.
-    eapply conv_proof_j. apply tvar. constructor.
-    reflexivity.
-  Qed.
-
-  Instance LambdaSubst : SubstJSig typ_lam.
-  Proof.
-    constructor; intros; destruct i; destruct_n H;
-    subst; try destruct x; destruct_n H0;
-    try now inversion H0; try typeclasses eauto.
-  Qed.
-
-  Lemma proof_type_id_app :
-    [sIota] ⊢ (eApp (elambda (E_var 0)) (E_var 0), (sIota)).
-  Proof.
-    pose (m := fun k s =>
-      if (k=?nf) then (elambda (E_var 0))
-      else if (k=?nu) then (E_var 0)
-      else (default_menv k s)
-    ).
-    eapply conv_proof_j.
-    unshelve econstructor.
-    exact m. apply tApp. exact (sIota, sIota). repeat (try (left; reflexivity); right).
-    3: reflexivity.
-    all: intros; destruct_n H; noconf H.
-    - simpl.
-      eapply conv_proof_j.
-      eapply (weaken_typing (jsig:=typ_lam)).
-      apply (proof_type_id).
-      reflexivity.
-    - simpl.
-      eapply conv_proof_j. apply tvar. constructor.
-      reflexivity.
-  Qed.
-End SimplLambda.
-
-(** Lambda pi modulo typed conversion with eta rule **)
-Module LPEta.
-  (* Syntax of lambda pi *)
-  Variant EBase := Nat.
-  Variant CLamPi := CType | CApp | CLam | CPi.
-
-  Derive NoConfusion for EBase.
-
-  #[refine]
-  Instance: Enum EBase := {|
-    enum := [ Nat ] ;
-    index_of _ := 0
-  |}.
-  Proof.
-    intros []. reflexivity.
-  Qed.
-
-  Derive NoConfusion for CLamPi.
-
-  #[refine]
-  Instance: Enum CLamPi := {|
-    enum := [ CType ; CApp ; CLam ; CPi ] ;
-    index_of x :=
-      match x with
-      | CType => 0
-      | CApp => 1
-      | CLam => 2
-      | CPi => 3
-      end
-  |}.
-  Proof.
-    sulfur_is_enum.
-  Qed.
-
-  Definition sig_lp : signature := {|
-    base := EBase;
-    eval_base := fun _ => nat;
-    ctor := CLamPi;
-    ctor_type := fun c => match c with
-    | CType => [AT_base Nat]
-    | CApp => [AT_term; AT_term]
-    | CLam => [AT_bind AT_term]
-    | CPi => [AT_term; AT_bind AT_term]
-    end
-  |}.
-
-  Notation "'mterm'" := (@mexpr sig_lp Kt) (at level 0).
-
-  (* λΠ constructors, written in a more accessible way *)
-  Definition T {s} (n : nat) : mterm s :=
-  @M_ctor sig_lp s CType (
-    M_al_cons s (@M_abase sig_lp s Nat n) (M_al_nil s)
-  ).
-
-  Definition lambda {s} (t : mterm (S s)) : mterm s :=
-  @M_ctor sig_lp s CLam (
-    M_al_cons s (M_abind s (M_aterm  (S s) t)) (M_al_nil s)
-  ).
-
-  Definition Pi {s} (A : mterm s) (B : mterm (S s)) : mterm s :=
-  @M_ctor sig_lp s CPi (
-    M_al_cons s (M_aterm s A) (M_al_cons s (M_abind s (M_aterm (S s) B)) (M_al_nil s))
-  ).
-
-  Definition App {s} (f u : mterm s) : mterm s :=
-  @M_ctor sig_lp s CApp (
-    M_al_cons s (M_aterm s f) (M_al_cons s (M_aterm s u) (M_al_nil s))
-  ).
-
-  Definition Var {s} (n : nat) (Hs : n < s) : mterm s :=
-  @M_var sig_lp s n Hs.
-
-  Definition elambda (t : P.expr Kt) : P.expr Kt :=
-  @E_ctor sig_lp CLam (
-    E_al_cons (E_abind (E_aterm t)) E_al_nil
-  ).
-  Definition ePi (A B : P.expr Kt) : P.expr Kt :=
-  @E_ctor sig_lp CPi (
-    E_al_cons (E_aterm A) (E_al_cons (E_abind (E_aterm B)) E_al_nil)
-  ).
-  Definition eT (u : nat) : P.expr Kt :=
-  @E_ctor sig_lp CType (
-    E_al_cons (@E_abase sig_lp Nat u) E_al_nil
-  ).
-  Definition eApp (f u : P.expr Kt) : P.expr Kt :=
-  @E_ctor sig_lp CApp (
-    E_al_cons (E_aterm f) (E_al_cons (E_aterm u) E_al_nil)
-  ).
-
-  (* Typing rules *)
-  Variant ILP := | Typing | Conversion.
-
-  Instance LpDecl : IDecl ILP := fun _ X => X.
-  Instance LpJdg : IJdg ILP := fun i => match i with
-  | Typing => fun X => (X*X)%type
-  | Conversion => fun X => (X*X*X)%type
-  end.
-  Instance FMapLpJdg (i : ILP) : FMap (jdgF i).
-  Proof.
-    destruct i; typeclasses eauto.
-  Defined.
-  Instance FuncLpJdg (i : ILP) : Eq1Functor (jdgF i).
-  Proof.
-    destruct i; typeclasses eauto.
-  Defined.
-
-  Instance LpMakeJdg : IMakeJdg ILP := fun i => match i with
-  | Typing => fun _ A t => (t, A)
-  | Conversion => fun _ A t => (t, t, A)
-  end.
-
-  Instance LamMakeJdgNat (i : ILP) : NatFromProd (make_jdg(IMakeJdg:=LpMakeJdg) i).
-  Proof.
-    destruct i; constructor; reflexivity.
-  Qed.
-
-  Definition nA := 0.
-  Definition nB := 1.
-  Definition nA' := 2.
-  Definition nB' := 3.
-  Definition nt := 4.
-  Definition nu := 5.
-  Definition nv := 6.
-  Definition nt' := 7.
-  Definition nu' := 8.
-  Definition nv' := 9.
-  Definition nb := 10.
-  Definition nb' := 11.
-  Definition nf := 12.
-
-  Definition A {s} := M_mvar(sig:=sig_lp) s nA.
-  Definition B {s} := M_mvar(sig:=sig_lp) s nB.
-  Definition A' {s} := M_mvar(sig:=sig_lp) s nA'.
-  Definition B' {s} := M_mvar(sig:=sig_lp) s nB'.
-  Definition t {s} := M_mvar(sig:=sig_lp) s nt.
-  Definition u {s} := M_mvar(sig:=sig_lp) s nu.
-  Definition v {s} := M_mvar(sig:=sig_lp) s nv.
-  Definition t' {s} := M_mvar(sig:=sig_lp) s nt'.
-  Definition u' {s} := M_mvar(sig:=sig_lp) s nu'.
-  Definition v' {s} := M_mvar(sig:=sig_lp) s nv'.
-  Definition b {s} := M_mvar(sig:=sig_lp) s nb.
-  Definition b' {s} := M_mvar(sig:=sig_lp) s nb'.
-  Definition f {s} := M_mvar(sig:=sig_lp) s nf.
-
-  (* Conversion rules *)
-  #[refine] Definition tRefl : rule(sig:=sig_lp) Conversion :=
-    {|
-      premises := fun (_ : unit) => [
-        prem_ind Typing _
-          mnil
-          (t[], A[])
-      ];
-      conclusion := _
-    |}.
-  Proof.
-  exact (fun _ u => u).
-  exact (fun _ => (t[], t[], A[])).
-  Defined.
-
-  Definition tSym : rule(sig:=sig_lp) Conversion :=
-    {|
-      premises := fun (_ : unit) => [
-        prem_ind Conversion (fun _ u => u)
-          mnil
-          (t[], u[], A[])
-      ];
-      conclusion := fun _ => (u[], t[], A[])
-    |}.
-
-  Definition tTrans : rule(sig:=sig_lp) Conversion :=
-    {|
-      premises := fun (_ : unit) => [
-        prem_ind Conversion (fun _ u => u)
-          mnil
-          (t[], u[], A[]) ;
-        prem_ind Conversion (fun _ u => u)
-          mnil
-          (u[], v[], A[])
-      ];
-      conclusion := fun _ => (t[], v[], A[])
-    |}.
-
-  Definition tCongrApp : rule Conversion :=
-    {|
-      premises := fun (_ : unit) => [
-        prem_ind Conversion (fun _ u => u)
-          mnil
-          (t[], t'[], Pi (A[]) (B[var 0])) ;
-        prem_ind Conversion (fun _ u => u)
-          mnil
-          (u[], u'[], A[])
-      ];
-      conclusion := fun _ =>
-        (App (t[]) (u[]), App (t'[]) (u'[]), B[u[]])
-    |}.
-
-  Definition tCongrPi : rule Conversion :=
-    {|
-      premises := fun '(n, m) => [
-        prem_ind Conversion (fun _ u => u)
-          mnil
-          (A[], A'[], T n) ;
-        prem_ind Conversion (fun _ u => u)
-          (mcons (T n) mnil)
-          (B[var 0], B'[var 0], T m)
-      ];
-      conclusion := fun '(n, m) =>
-        (Pi (A[]) (B[var 0]), Pi (A'[]) (B'[var 0]), T (Nat.max n m))
-    |}.
-
-  Definition tCongrLam : rule Conversion :=
-    {|
-      premises := fun (_ : unit) => [
-        prem_ind Conversion (fun _ u => u)
-          (mcons (A[]) mnil)
-          (b[var 0], b'[var 0], B[var 0])
-      ];
-      conclusion := fun _ =>
-        (lambda (b[var 0]), lambda (b'[var 0]), Pi (A[]) (B[var 0]))
-    |}.
-
-  #[refine] Definition tBeta : rule(sig:=sig_lp) Conversion :=
-    {|
-      premises := fun (_ : unit) => [
-        prem_ind Typing _
-          (mcons (A[]) mnil)
-          (b[var 0], B[var 0]) ;
-        prem_ind Typing _
-          mnil
-          (u[], A[])
-      ];
-      conclusion := fun (t : unit) => _
-    |}.
-  Proof.
-    - exact (fun _ u => u).
-    - exact (fun _ u => u).
-    - exact (App (lambda (b[var 0])) (u[]), b[u[]], B[u[]]).
-  Defined.
-
-  #[refine] Definition tEta : rule Conversion :=
-    {|
-      premises := fun (_ : unit) => [
-        prem_ind Typing _
-          mnil
-          (f[], Pi (A[]) (B[var 0]))
-      ];
-      conclusion := fun _ => _
-    |}.
-  Proof.
-    - exact (fun _ u => u).
-    - exact (f[], lambda (App (f[]) (var 0)), Pi (A[]) (B[var 0])).
-  Defined.
-
-  (* Typing rules *)
-  #[refine] Definition tType : rule(sig:=sig_lp) Typing :=
-    {|
-      premises := fun _ => [];
-      conclusion := fun n : nat => _
-    |}.
-  Proof.
-    exact (T n, T (S n)).
-  Defined.
-
-  Definition tPi : rule Typing :=
-    {|
-      premises := fun '(n, m) =>
-      [
-        prem_ind Typing (fun _ A => A)
-          mnil
-          (A[], T n) ;
-        prem_ind Typing (fun _ A => A)
-          (mcons(n:=0) (A[]) mnil)
-          (B[var 0], T m)
-      ] ;
-      conclusion := fun '(n, m) =>
-        (Pi (A[]) (B[var 0]), T (Nat.max n m))
-    |}.
-
-  Definition tApp : rule Typing :=
-    {|
-      premises := fun (_ : unit) =>
-      [
-        prem_ind Typing (fun _ A => A)
-          mnil
-          (f[], Pi (A[]) (B[var 0]));
-        prem_ind Typing (fun _ A => A)
-          mnil
-          (u[], A[])
-      ];
-      conclusion := fun _ =>
-        (App (f[]) (u[]), B[u[]])
-    |}.
-
-  Definition tLam : rule Typing :=
-    {|
-      premises := fun (_ : unit) =>
-      [
-        prem_ind Typing (fun _ A => A)
-          (mcons(n:=0) (A[]) mnil)
-          (b[var 0], B[var 0])
-      ];
-      conclusion := fun _ =>
-        (lambda (b[var 0]), Pi (A[]) (B[var 0]))
-    |}.
-
-  #[refine] Definition tConv : rule(sig:=sig_lp) Typing :=
-    {|
-      premises := fun (n : nat) =>
-      [
-        prem_ind Typing (fun _ A => A)
-          (mnil)
-          (t[], A[]);
-        prem_ind Conversion _
-          mnil
-          (A[], A'[], T n)
-      ];
-      conclusion := fun _ =>
-        (t[], A'[])
-    |}.
-  Proof.
-    exact (fun _ u => u).
-  Defined.
-
-  Definition typ_lampi : jdg_sig := {| rules :=
-    fun u => match u with
-      | Conversion => [
-        tRefl; tSym; tTrans;
-        tCongrApp; tCongrPi; tCongrLam;
-        tBeta ; tEta
-      ]
-      | Typing => [
-        tType ; tPi ; tApp ; tLam ; tConv
-      ]
-    end
-  |}.
-
-  (* Overwrite notations for lambda pi *)
-  #[warnings="-notation-overridden"]
-  Notation "Γ ∋ n : A" := (@inctx sig_lp Γ n A) (at level 70, n at level 50).
-  (* #[warnings="-notation-overridden"]
-  Notation "Δ ⊢r ρ : Γ" := (rtyping(sig:=sig_lp) tt Δ ρ Γ) (at level 70, ρ at level 50).
-  #[warnings="-notation-overridden"]
-  Notation "Δ ⊢s σ : Γ" := (styping(jsig:=typ_conv_lampi) tt Δ σ Γ) (at level 70, σ at level 50). *)
-
-  Notation "Γ ⊢ u ≡ v : A" := (proof(jsig:=typ_lampi) Conversion Γ (u, v, A)) (at level 70, u at level 50, v at level 50).
-  #[warnings="-notation-overridden"]
-  Notation "Γ ⊢ t : A" := (proof(jsig:=typ_lampi) Typing Γ (t, A)) (at level 70, t at level 50).
-
-  Lemma subst_minus_plus_zero :
-    (fun i => E_var(sig:=sig_lp) (i - 0 + 0)) =₁ sid.
-  Proof. intro; unfold sid; f_equal; lia. Qed.
-
-  Lemma typed_refl Γ t A :
-    Γ ⊢ t : A ->
-    Γ ⊢ t ≡ t : A.
-  Proof.
-    intro.
-    pose (m := fun k s =>
-      if k =? nt then t else
-      if k =? nA then A else
-      default_menv k s
-    ).
-    eapply conv_proof_j.
-    unshelve econstructor. exact m. exact tRefl. exact tt. repeat (try (left; reflexivity); right).
-    3: {cbn. setoid_rewrite nth_error_nil.
-      rewrite subst_minus_plus_zero. rewrite !subst_sid. reflexivity.
-    }
-    - intros. destruct_n H0. noconf H0.
-      rewrite map_id. simpl. cbn.
-      setoid_rewrite nth_error_nil. rewrite subst_minus_plus_zero.
-      rewrite !subst_sid.
-      assumption.
-    - intros. destruct_n H0. noconf H0.
-  Qed.
-
-  Lemma conv_typed Γ s t A :
-    Γ ⊢ t ≡ s : A ->
-    Γ ⊢ t : A.
-  Proof.
-    (* We do not want to do the proof in this framework: indeed, we need an induction on [Γ ⊢ t ≡ s : A], which will be very heavy here. We would prefer to do the proof in the "nice" Rocq inductive of the relation, then transfer it to the parametric world *)
-  Admitted.
-
-  Instance LPSubst : SubstJSig typ_lampi.
-  Proof.
-    constructor; intros; destruct i; destruct_n H; subst; try destruct x; destruct_n H0; try now inversion H0; try typeclasses eauto.
-    all: noconf H0;
-    unfold ConvMakeJdg; intros; rewrite map_id; try assumption;
-    unfold make_jdg, LpMakeJdg in *.
-    all: try apply typed_refl; try assumption.
-    all: eapply conv_typed; apply H.
-  Qed.
-
-  (* Sanity check *)
-  Lemma beta_rev n :
-    [] ⊢ eT n ≡ eApp (elambda (E_var 0)) (eT n) : eT (S n).
-  Proof.
-    (* Apply symmetry *)
-    pose (msym := fun k s =>
-      if (k=?nu) then (eT n)
-      else if (k=?nt) then (eApp (elambda (E_var 0)) (eT n))
-      else if (k=?nA) then (eT (S n))
-      else (default_menv k s)
-    ).
-    eapply conv_proof_j.
-    unshelve econstructor.
-    exact msym. exact tSym. exact tt. repeat (try (left; reflexivity); right).
-    3: reflexivity.
-    2: {intros. destruct_n H. inversion H. }
-    intros. destruct_n H.
-    noconf H. simpl.
-    (* Just to avoid unfolding too much *)
-    unshelve eapply conv_proof_j.
-    exact ((eApp (elambda (E_var 0)) (eT n)), eT n, eT (S n)).
-    2: reflexivity.
-
-    (* Apply beta *)
-    pose (mbeta := fun k s =>
-      if (k=?nb) then (E_var 0)
-      else if (k=?nu) then (eT n)
-      else if (k=?nA) then (eT (S n))
-      else if (k=?nB) then (eT (S n))
-      else (default_menv k s)
-    ).
-    eapply conv_proof_j.
-    unshelve econstructor.
-    exact mbeta. exact tBeta. exact tt. repeat (try (left; reflexivity); right).
-    3: reflexivity.
-    all: intros; destruct_n H; noconf H.
-    - simpl. unfold inst_jdg, fmap, FMapProd, fmap, FMapId.
-      unshelve eapply conv_proof_j. exact (make_jdg Typing _ (eT (S n)) (E_var 0)).
-      2: reflexivity.
-      apply tvar. constructor.
-    - simpl. unfold inst_jdg, fmap, FMapProd, fmap, FMapId.
-      unshelve eapply (conv_proof_j). exact (eT n, eT (S n)).
-      2: reflexivity.
-      eapply conv_proof_j.
-      unshelve econstructor. exact default_menv. exact tType.
-      exact n. repeat (try (left; reflexivity); right).
-      3: reflexivity.
-      2: {intros. destruct_n H. }
-      intros. noconf H.
-  Qed.
-
-  Lemma proof_type_id n :
-    [] ⊢ elambda (E_var 0) : ePi (eT n) (eT n).
-  Proof.
-    pose (m := fun k s =>
-      if (k=?nb) then (E_var 0)
-      else if (k=?nA) then (eT n)
-      else if (k=?nB) then (eT n)
-      else (default_menv k s)
-    ).
-    eapply conv_proof_j.
-    unshelve econstructor.
-    exact m. exact tLam. exact tt. repeat (try (left; reflexivity); right).
-    3: reflexivity.
-    2: intros; destruct_n H; noconf H.
-    intros. destruct_n H.
-    noconf H. simpl.
-    eapply conv_proof_j. apply tvar. constructor.
-    reflexivity.
-  Qed.
-
-  Lemma proof_type_id_app n :
-    [eT n] ⊢ eApp (elambda (E_var 0)) (E_var 0) : (eT n).
-  Proof.
-    pose (m := fun k s =>
-      if (k=?nf) then (elambda (E_var 0))
-      else if (k=?nu) then (E_var 0)
-      else if (k=?nA) then (eT n)
-      else if (k=?nB) then (eT n)
-      else (default_menv k s)
-    ).
-    eapply conv_proof_j.
-    unshelve econstructor.
-    exact m. apply tApp. exact tt. repeat (try (left; reflexivity); right).
-    3: reflexivity.
-    2: intros; destruct_n H; noconf H.
-    intros. destruct_n H.
-    - noconf H.
-      simpl. unfold fmap, FMapId. simpl.
-      eapply conv_proof_j.
-      eapply (weaken_typing (jsig:=typ_lampi)).
-      apply (proof_type_id n).
-      reflexivity.
-      Unshelve.
-      apply SubstJdg_RenJdg. typeclasses eauto.
-    - noconf H. simpl.
-      eapply conv_proof_j. apply tvar. constructor.
-      reflexivity.
-  Qed.
-
-  Lemma proof_typee_id_app_lam n :
-    [eT n] ⊢ eApp (elambda (E_var 0)) (E_var 0) :
-    eApp (elambda (E_var 0)) (eT n).
-  Proof.
-    (* Use the conversion rule *)
-    pose (m := fun k s =>
-      if (k=?nt) then (eApp (elambda (E_var 0)) (E_var 0))
-      else if (k=?nA) then (eT n)
-      else if (k=?nA') then (eApp (elambda (E_var 0)) (eT n))
-      else (default_menv k s)
-    ).
-    eapply conv_proof_j.
-    unshelve econstructor.
-    exact m. apply tConv. exact (S n). repeat (try (left; reflexivity); right).
-    3: reflexivity.
-    - (* Inductive premise *)
-      intros. destruct_n H; noconf H.
-      + unfold inst_jdg, inst_ctx, fmap, FMapProd, fmap, FMapId.
-        simpl. unfold fmap, FMapId.
-        unshelve eapply conv_proof_j. exact (eApp (elambda (E_var 0)) (E_var 0), eT n). 2: reflexivity.
-        apply proof_type_id_app.
-      + simpl.
-        eapply (conv_proof_j).
-        eapply (weaken_typing(jsig:=typ_lampi)).
-        Unshelve.
-        3: exact (eT n, eApp (elambda (E_var 0)) (eT n), eT (S n)).
-        2: reflexivity.
-        apply beta_rev.
-    - (* Predicate premise *)
-      intros. destruct_n H; noconf H.
-  Qed.
-End LPEta.
