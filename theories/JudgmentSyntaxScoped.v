@@ -296,20 +296,20 @@ Section WithSignature.
   Arguments substitute_jdg [_] {_}.
 
   (** Definition of a signature of rules **)
-  Class IDecl (I : Type) := declF : I -> Type -> Type.
+  Class IDecl := declF : Type -> Type.
   Class IJdg (I : Type) := jdgF : I -> Type -> Type.
   Context {I : Type} {HEqDecI : EqDec I}
-    `{InstIDecl : IDecl I} `{InstIJdg : IJdg I}
-    `{FMapDeclF : forall i, FMap (declF i)}
-    `{FuncDeclF : forall i, Eq1Functor (declF i)}
-    `{FMapJdgF : forall i, FMap (jdgF i)}
-    `{FuncJdgF : forall i, Eq1Functor (jdgF i)}.
+    {InstIDecl : IDecl} `{InstIJdg : IJdg I}
+    {FMapDeclF : FMap declF}
+    {FuncDeclF : Eq1Functor declF}
+    {FMapJdgF : forall i, FMap (jdgF i)}
+    {FuncJdgF : forall i, Eq1Functor (jdgF i)}.
 
   Section RulesSignature.
     (* Contexts in premises must be closed, and judgments must be scoped by the context *)
     Variant premise (i : I) :=
-    | prem_pred (P : ctx (declF i) -> menv -> Prop)
-    | prem_ind i' (conv : forall X, declF i X -> declF i' X) {n} (Δ : mctx (declF i') 0 n) (j : mjdg (jdgF i') n).
+    | prem_pred (P : ctx declF -> menv -> Prop)
+    | prem_ind i' {n} (Δ : mctx declF 0 n) (j : mjdg (jdgF i') n).
 
     Derive NoConfusion for premise.
 
@@ -337,7 +337,7 @@ Section WithSignature.
   Context {jsig : jdg_sig}.
 
   Class IMakeJdg := make_jdg : forall i : I,
-    forall X, declF i X -> X -> jdgF i X.
+    forall X, declF X -> X -> jdgF i X.
 
   Context {InstIMakeJdg : IMakeJdg}
   `{NatMakeJdg : forall i : I, NatFromProd (make_jdg i)}.
@@ -345,28 +345,32 @@ Section WithSignature.
 
   (** Derivation with the rules of the signature **)
   Section Derivation.
-    Reserved Notation "Γ ⊢( i ) j" (at level 70).
-    Inductive proof : forall i, ctx (declF i) -> jdg (jdgF i) -> Prop :=
+
+    Reserved Notation "Γ ⊢( i ) j" (at level 70, format "Γ  ⊢(  i  )  j").
+
+    Inductive proof : forall i, ctx declF -> jdg (jdgF i) -> Prop :=
     (*
       We need a context, a rule and an instanciation of this rule, that will give the conclusion
     *)
-    | step i (m : menv) (Γ : ctx (declF i)) (r : rule i) (x : r.(param)) :
+    | step i (m : menv) (Γ : ctx declF) (r : rule i) (x : r.(param)) :
       (* The rule must be in the signature *)
-      In r (jsig.(rules) i) ->
+      In r (jsig.(rules) i) →
       (* Satisfy all inductive premises *)
       (
-        forall i' {n} (Δ : mctx (declF i') 0 n) (j : mjdg (jdgF i') n) conv,
-        In (prem_ind i i' conv Δ j) (r.(premises) x) ->
-        (inst_ctx m Δ ++ map (conv term) Γ) ⊢(i') inst_jdg m j
-      ) ->
+        ∀ i' {n} (Δ : mctx declF 0 n) (j : mjdg (jdgF i') n),
+          In (prem_ind i i' Δ j) (r.(premises) x) ->
+          (inst_ctx m Δ ++ Γ) ⊢(i') inst_jdg m j
+      ) →
       (* Satisfy all predicate premise, depending on Γ and m *)
       (
-        forall P, In (prem_pred i P) (r.(premises) x) ->
-        P Γ m
-      ) ->
+        ∀ P,
+          In (prem_pred i P) (r.(premises) x) →
+          P Γ m
+      ) →
       Γ ⊢(i) inst_jdg m (r.(conclusion) x)
-    | tvar i (Γ : ctx (declF i)) (n : nat) (d : declF i term) :
-      Γ ∋ n : d ->
+
+    | tvar i (Γ : ctx declF) (n : nat) (d : declF term) :
+      Γ ∋ n : d →
       Γ ⊢(i) make_jdg i term d (E_var n)
 
     where "Γ ⊢( i ) j" := (proof i Γ j).
@@ -390,12 +394,10 @@ Section WithSignature.
   (** Behaviour of renamings **)
   Section Renamings.
     (** Commutation between renaming and instantiation lemma **)
-    Lemma scoped_rename_inst {k} (n : nat) (t : mexpr k n) :
-      forall m ρ,
+    Lemma scoped_rename_inst {k} (n : nat) (t : mexpr k n) m ρ :
       rename (up_rens n ρ) (inst m t) =
       inst (fun k s => rename (up_rens s ρ) (m k s)) t.
     Proof.
-      intros.
       induction t in m, ρ |- *;
       simpl in *;
       rewrite ?IHt, ?IHt1, ?IHt2; try reflexivity.
@@ -404,26 +406,20 @@ Section WithSignature.
       - rewrite ren_subst, subst_ren.
         unfold srcomp, rscomp. apply substitute_proper. 2: reflexivity.
         intro i.
-        destruct (i<? List.length σ) eqn: Hi.
-        + rewrite up_rens_lt. 2: apply PeanoNat.Nat.ltb_lt; assumption.
-          rewrite 2!nth_error_map.
-          apply PeanoNat.Nat.ltb_lt in Hi.
-          rewrite <- nth_error_Some in Hi.
-          destruct (nth_error σ i) as [t|] eqn:Hσ; simpl.
-          2: {exfalso. apply Hi. reflexivity. }
-          apply nth_error_In in Hσ. rewrite Forall_forall in H.
-          specialize (H _ Hσ).
-          apply H.
-        + rewrite PeanoNat.Nat.ltb_ge in Hi.
-          pose (Hσ := Hi).
-          apply nth_error_None in Hσ.
-          (* rewrite up_rens_gt. 2: lia. *)
-          rewrite 2!nth_error_map. rewrite Hσ. simpl.
-          assert (List.length σ <= up_rens (List.length σ) ρ i).
-          {rewrite up_rens_gt. 2: lia. lia. }
-          rewrite <- nth_error_None in H0. rewrite H0. simpl.
-          f_equal. rewrite up_rens_gt. 2: lia. rewrite up_rens_gt. 2: lia.
-          replace (i - List.length σ + s - s) with (i - List.length σ) by lia. lia.
+        rewrite !nth_error_map.
+        destruct (nth_error σ i) as [t|] eqn: e.
+        + cbn. rewrite up_rens_lt.
+          2:{ apply nth_error_Some. congruence. }
+          rewrite e. cbn.
+          rewrite Forall_forall in H.
+          apply nth_error_In in e. eauto.
+        + cbn. rewrite !up_rens_gt.
+          2:{ apply nth_error_None in e. lia. }
+          2:{ apply nth_error_None in e. lia. }
+          erewrite nth_error_None_eq. 2: lia.
+          cbn. f_equal. f_equal.
+          replace (i - List.length σ + s - s) with (i - List.length σ) by lia.
+          f_equal. lia.
     Qed.
     Corollary closed_rename_inst {k} (t : mexpr k 0) :
       forall m ρ,
@@ -431,7 +427,7 @@ Section WithSignature.
       inst (fun k s => rename (up_rens s ρ) (m k s)) t.
     Proof. apply (scoped_rename_inst 0). Qed.
 
-    Lemma scoped_ctx_rename_inst {i s n} (Γ : mctx (declF i) s n) :
+    Lemma scoped_ctx_rename_inst {s n} (Γ : mctx declF s n) :
       forall m ρ,
       rename_ctx (up_rens s ρ) (inst_ctx m Γ) =
       inst_ctx (fun k s => rename (up_rens s ρ) (m k s)) Γ.
@@ -463,48 +459,39 @@ Section WithSignature.
     Proof. apply (@scoped_jdg_rename_inst i 0). Qed.
 
     (** Typing of a renaming **)
-    Reserved Notation "Δ ⊢r( i ) ρ : Γ" (at level 70, ρ at level 50, i at level 50).
-    Inductive rtyping : forall i, ctx (declF i) -> ren -> ctx (declF i) -> Prop :=
-    | rtyping_empty i Δ ρ :
-      Δ ⊢r(i) ρ : []
-    | rtyping_cons i Δ ρ Γ d :
-      Δ ⊢r( i ) rcomp rshift ρ : Γ ->
-      Δ ∋ (ρ 0) : fmap _ (rename (rcomp rshift ρ)) d ->
-      Δ ⊢r(i) ρ : d::Γ
-    where "Δ ⊢r( i ) ρ : Γ " := (rtyping i Δ ρ Γ).
-    Lemma conv_rtyping i Δ ρ ρ' Γ :
-      Δ ⊢r(i) ρ : Γ ->
-      ρ = ρ' ->
-      Δ ⊢r(i) ρ' : Γ.
-    Proof. intros; subst; assumption. Qed.
-    Derive Signature for rtyping.
+    Reserved Notation "Δ ⊢r ρ : Γ" (at level 70, ρ at level 50).
 
-    (* Hypothesis to add to signatures for them to preserve renaming *)
-    Class IsNat {i i'} (conv : forall X, declF i X -> declF i' X) := natural :
-    forall {X Y} (f : X -> Y) (d : declF i X),
-    fmap (declF i') f (conv _ d) = conv Y (fmap (declF i) f d).
+    Inductive rtyping : ctx declF -> ren -> ctx declF -> Prop :=
+    | rtyping_empty Δ ρ :
+      Δ ⊢r ρ : []
+    | rtyping_cons Δ ρ Γ d :
+      Δ ⊢r rcomp rshift ρ : Γ ->
+      Δ ∋ (ρ 0) : fmap _ (rename (rcomp rshift ρ)) d ->
+      Δ ⊢r ρ : d::Γ
+    where "Δ ⊢r ρ : Γ " := (rtyping Δ ρ Γ).
+
+    Lemma conv_rtyping Δ ρ ρ' Γ :
+      Δ ⊢r ρ : Γ ->
+      ρ = ρ' ->
+      Δ ⊢r ρ' : Γ.
+    Proof. intros; subst; assumption. Qed.
+
+    Derive Signature for rtyping.
 
     Class RenJSig := {
       prem_ren :
-        forall (i : I) (r : rule i) x P,
-        In r (jsig.(rules) i) ->
-        In (prem_pred i P) (r.(premises) x) ->
-        forall Γ ρ Δ m,
-        Δ ⊢r(i) ρ : Γ ->
-        P Γ m ->
-        P Δ (fun k s => rename (up_rens s ρ) (m k s)) ;
-
-      conv_nat_ren :
-        forall (i : I) (r : rule i) x,
-        In r (jsig.(rules) i) ->
-        forall n i' conv Δ j,
-        In (prem_ind(n:=n) i i' conv Δ j) (r.(premises) x) ->
-        IsNat conv
+        ∀ (i : I) (r : rule i) x P,
+          In r (jsig.(rules) i) →
+          In (prem_pred i P) (r.(premises) x) →
+          ∀ Γ ρ Δ m,
+            Δ ⊢r ρ : Γ →
+            P Γ m →
+            P Δ (λ k s, rename (up_rens s ρ) (m k s))
     }.
 
     (** Renaming lemmas **)
-    #[export] Instance rtyping_proper i :
-      Proper (eq ==> eq1 ==> eq ==> Basics.impl) (rtyping i).
+    #[export] Instance rtyping_proper :
+      Proper (eq ==> eq1 ==> eq ==> Basics.impl) rtyping.
     Proof.
       intros Δ' Δ HΔ ρ ρ' Hρ Γ' Γ HΓ H; subst.
       induction H in ρ', Hρ |- *; intros; constructor.
@@ -514,15 +501,18 @@ Section WithSignature.
         apply rename_proper. 2: reflexivity.
         unfold rcomp, rshift. intro. apply Hρ.
     Qed.
-    Lemma conv_rtype_r i Δ ρ ρ' Γ :
-      Δ ⊢r(i) ρ : Γ ->
-      ρ =₁ ρ' ->
-      Δ ⊢r(i) ρ' : Γ.
-    Proof. intros Hρ Heq. rewrite <- Heq. assumption. Qed.
 
-    Lemma rename_in i Δ Γ ρ n d :
+    Lemma conv_rtype_r Δ ρ ρ' Γ :
+      Δ ⊢r ρ : Γ ->
+      ρ =₁ ρ' ->
+      Δ ⊢r ρ' : Γ.
+    Proof.
+      intros Hρ Heq. rewrite <- Heq. assumption.
+    Qed.
+
+    Lemma rename_in Δ Γ ρ n d :
       Γ ∋ n : d ->
-      Δ ⊢r(i) ρ : Γ ->
+      Δ ⊢r ρ : Γ ->
       Δ ∋ ρ n : fmap _ (rename ρ) d.
     Proof.
       intros HΓ Hρ. induction HΓ in Δ, ρ, Hρ |- *; intros;
@@ -536,10 +526,10 @@ Section WithSignature.
         intro t. rewrite ren_ren. reflexivity.
     Qed.
 
-    Lemma rtyping_comp i Γ Δ Θ ρ ρ' :
-      Δ ⊢r(i) ρ : Γ ->
-      Θ ⊢r(i) ρ' : Δ ->
-      Θ ⊢r(i) rcomp ρ ρ' : Γ.
+    Lemma rtyping_comp Γ Δ Θ ρ ρ' :
+      Δ ⊢r ρ : Γ ->
+      Θ ⊢r ρ' : Δ ->
+      Θ ⊢r rcomp ρ ρ' : Γ.
     Proof.
       intros Hρ Hρ'. induction Hρ in Θ, ρ', Hρ' |- *; intros; constructor.
       - eapply rtyping_proper. reflexivity. 2: reflexivity.
@@ -550,9 +540,9 @@ Section WithSignature.
         rewrite ren_ren, rcomp_assoc. reflexivity.
     Qed.
 
-    Lemma weaken_rtyping i Γ ρ Δ A :
-      Δ ⊢r(i) ρ : Γ ->
-      A::Δ ⊢r(i) rcomp ρ S : Γ.
+    Lemma weaken_rtyping Γ ρ Δ A :
+      Δ ⊢r ρ : Γ ->
+      A :: Δ ⊢r rcomp ρ S : Γ.
     Proof.
       intros Hρ. induction Hρ in A |- *; intros; constructor.
       - apply IHHρ.
@@ -561,9 +551,9 @@ Section WithSignature.
         rewrite ren_ren, rcomp_assoc. reflexivity.
     Qed.
 
-    Lemma up_rtyping i Γ ρ Δ d :
-      Δ ⊢r(i) ρ : Γ ->
-      fmap _ (rename ρ) d::Δ ⊢r(i) up_ren ρ : d::Γ.
+    Lemma up_rtyping Γ ρ Δ d :
+      Δ ⊢r ρ : Γ ->
+      fmap _ (rename ρ) d :: Δ ⊢r up_ren ρ : d :: Γ.
     Proof.
       intros Hρ. constructor.
       - apply weaken_rtyping. assumption.
@@ -572,9 +562,9 @@ Section WithSignature.
         rewrite ren_ren. reflexivity.
     Qed.
 
-    Corollary up_rtyping_n i Γ ρ Δ Θ :
-      Δ ⊢r(i) ρ : Γ ->
-      (rename_ctx ρ Θ) ++ Δ ⊢r(i) up_rens (Datatypes.length Θ) ρ : Θ ++ Γ.
+    Corollary up_rtyping_n Γ ρ Δ Θ :
+      Δ ⊢r ρ : Γ ->
+      (rename_ctx ρ Θ) ++ Δ ⊢r up_rens (Datatypes.length Θ) ρ : Θ ++ Γ.
     Proof.
       induction Θ in Γ, ρ, Δ |- *; intros; simpl in *.
       - assumption.
@@ -582,8 +572,8 @@ Section WithSignature.
         apply IHΘ. assumption.
     Qed.
 
-    Lemma id_rtyping i Γ :
-      Γ ⊢r(i) rid : Γ.
+    Lemma id_rtyping Γ :
+      Γ ⊢r rid : Γ.
     Proof.
       induction Γ. constructor.
       replace a with (fmap _ (rename rid) a) at 1.
@@ -595,29 +585,9 @@ Section WithSignature.
 
     Context {HRenSig : RenJSig}.
 
-    Lemma inctx_conv {i i'} (conv : forall X, declF i X -> declF i' X) {Hconv : IsNat conv} Γ n d :
-      Γ ∋ n : d ->
-      map (conv _) Γ ∋ n : conv _ d.
-    Proof.
-      intros Hn. induction Hn in Hconv, conv |- *.
-      - simpl. rewrite <- Hconv. constructor.
-      - simpl. rewrite <- Hconv. constructor.
-        apply IHHn. assumption.
-    Qed.
-
-    Lemma rtyping_conv {i i'} conv {Hconv : IsNat conv} Δ ρ Γ :
-      Δ ⊢r(i) ρ : Γ ->
-      map (conv _) Δ ⊢r(i') ρ : map (conv _) Γ.
-    Proof.
-      intros Hi. induction Hi in conv, Hconv |- *.
-      - constructor.
-      - simpl. constructor. apply IHHi. assumption.
-        rewrite Hconv.
-        apply inctx_conv; assumption.
-    Qed.
     Theorem preserve_renaming i Γ j Δ ρ :
       Γ ⊢(i) j ->
-      Δ ⊢r(i) ρ : Γ ->
+      Δ ⊢r ρ : Γ ->
       Δ ⊢(i) rename_jdg ρ j.
     Proof.
       intros Hj Hρ.
@@ -625,23 +595,22 @@ Section WithSignature.
       (* Case of an inductive/predicate premise *)
       - (* We apply rule [r x] *)
         eapply conv_proof_j.
-        unshelve econstructor.
-        shelve.
-        exact r. exact x.
-        assumption.
-        3: {symmetry. apply closed_jdg_rename_inst. }
-        + (* Inductive premise *)
-          intros.
-          rewrite <- scoped_jdg_rename_inst. eapply H1. apply H3.
-          rewrite <- scoped_ctx_rename_inst. simpl.
-          eapply conv_rtyping.
-          eapply up_rtyping_n.
-          apply rtyping_conv. eapply conv_nat_ren.
-          apply H. apply H3. assumption.
-          f_equal. symmetry. apply inst_length.
-        + (* Predicate premise *)
-          intros.
-          eapply HRenSig. apply H. apply H3. apply Hρ. apply H2. apply H3.
+        { unshelve econstructor. 1: shelve.
+          - exact r.
+          - exact x.
+          - assumption.
+          - (* Inductive premise *)
+            intros.
+            rewrite <- scoped_jdg_rename_inst. eapply H1. 1: apply H3.
+            rewrite <- scoped_ctx_rename_inst. simpl.
+            eapply conv_rtyping.
+            + eapply up_rtyping_n. eassumption.
+            + rewrite <- inst_length. reflexivity.
+          - (* Predicate premise *)
+            intros.
+            eapply HRenSig. apply H. apply H3. apply Hρ. apply H2. apply H3.
+        }
+        rewrite closed_jdg_rename_inst. reflexivity.
       (* Case of a variable *)
       - unfold rename_jdg.
         rewrite naturality_prod.
@@ -658,8 +627,9 @@ Section WithSignature.
     Qed.
 
   End Renamings.
-  Notation "Δ ⊢r( i ) ρ : Γ" := (rtyping i Δ ρ Γ) (at level 70, ρ at level 50, i at level 50).
 
+  Notation "Δ ⊢r ρ : Γ" :=
+    (rtyping Δ ρ Γ) (at level 70, ρ at level 50).
 
   (** Behaviour of substitutions **)
   Section Substitutions.
@@ -744,10 +714,10 @@ Section WithSignature.
       inst (fun k s => substitute (up_substs s σ) (m k s)) t.
     Proof. apply (@scoped_substitute_inst _ 0). Qed.
 
-    Lemma scoped_ctx_substitute_inst {i s n} (Γ : mctx (declF i) s n) :
-      forall m σ,
-      subst_ctx (up_substs s σ) (inst_ctx m Γ) =
-      inst_ctx (fun k s => substitute (up_substs s σ) (m k s)) Γ.
+    Lemma scoped_ctx_substitute_inst {s n} (Γ : mctx declF s n) :
+      ∀ m σ,
+        subst_ctx (up_substs s σ) (inst_ctx m Γ) =
+        inst_ctx (fun k s => substitute (up_substs s σ) (m k s)) Γ.
     Proof.
       induction Γ; intros; simpl.
       - reflexivity.
@@ -778,7 +748,8 @@ Section WithSignature.
 
     (** Typing of a substitution **)
     Reserved Notation "Δ ⊢s( i ) σ : Γ" (at level 70, σ at level 50).
-    Inductive styping : forall i, ctx (declF i) -> subst -> ctx (declF i) -> Prop :=
+
+    Inductive styping : forall i, ctx declF -> subst -> ctx declF -> Prop :=
     | styping_empty i Δ σ :
       Δ ⊢s(i) σ : []
     | styping_cons i Δ σ Γ d :
@@ -798,7 +769,7 @@ Section WithSignature.
     Derive Signature for styping.
 
     Lemma ren_to_subst_typing i Γ ρ Δ :
-      Δ ⊢r(i) ρ : Γ ->
+      Δ ⊢r ρ : Γ ->
       Δ ⊢s(i) ren_to_subst ρ : Γ.
     Proof.
       intro Hρ. induction Hρ.
@@ -809,11 +780,11 @@ Section WithSignature.
     Qed.
 
     (* Hypothesis to add to signatures for them to preserve substitution *)
-    Class ConvMakeJdg {i i'} (conv : forall X, declF i X -> declF i' X) :=
+    Class ConvMakeJdg i i' :=
     conv_pres_makke_jdg :
-      forall Γ (d : declF i term) t,
+      forall Γ (d : declF term) t,
       Γ ⊢(i) make_jdg i term d t ->
-      map (conv _) Γ ⊢(i') make_jdg i' term (conv _ d) t.
+      Γ ⊢(i') make_jdg i' term d t.
 
     Class SubstJSig := {
       prem_subst :
@@ -832,19 +803,13 @@ Section WithSignature.
         forall Γ m m',
         P Γ m -> m =₂ m' -> P Γ m';
 
-      conv_nat_subst :
-        forall (i : I) (r : rule i) x,
-        In r (jsig.(rules) i) ->
-        forall n i' conv Δ j,
-        In (prem_ind(n:=n) i i' conv Δ j) (r.(premises) x) ->
-        IsNat conv;
       conv_make_jdg :
         forall (i : I) (r : rule i) x,
         In r (jsig.(rules) i) ->
-        forall n i' conv Δ j,
-        In (prem_ind(n:=n) i i' conv Δ j) (r.(premises) x) ->
-        (* [conv] preserves typing of [make_jdg] *)
-        ConvMakeJdg conv
+        forall n i' Δ j,
+        In (prem_ind(n:=n) i i' Δ j) (r.(premises) x) ->
+        (* preserves typing of [make_jdg] *)
+        ConvMakeJdg i i'
     }.
 
     (* Preserving substitutions implies preserving renamings via ren_is_subst *)
@@ -852,7 +817,6 @@ Section WithSignature.
     Proof.
       intro H.
       constructor.
-      2: apply H.
       intros.
       eapply prem_pred_ext. apply H0. apply H1.
       2: {intros k s. rewrite <- ren_is_subst. reflexivity. }
@@ -948,16 +912,15 @@ Section WithSignature.
       rewrite <- up_subst_sid at 2. apply up_styping. assumption.
     Qed.
 
-    Lemma styping_subst i i' Γ σ Δ conv {Hconv : IsNat conv} :
-      ConvMakeJdg conv ->
+    Lemma styping_subst i i' Γ σ Δ :
+      ConvMakeJdg i i' ->
       Δ ⊢s(i) σ : Γ ->
-      map (conv _) Δ ⊢s(i') σ : map (conv _) Γ.
+      Δ ⊢s(i') σ : Γ.
     Proof.
-      intros Hconv_make Hi. induction Hi in Hconv_make, Hconv, conv |- *.
+      intros Hconv_make Hi. induction Hi in Hconv_make |- *.
       - constructor.
-      - simpl. constructor.
+      - constructor.
         apply IHHi; try assumption.
-        rewrite Hconv.
         apply Hconv_make. assumption.
     Qed.
 
@@ -982,8 +945,7 @@ Section WithSignature.
           rewrite <- scoped_ctx_substitute_inst. simpl.
           eapply conv_styping.
           eapply up_styping_n.
-          apply styping_subst.
-          eapply conv_nat_subst. apply H. apply H3.
+          eapply styping_subst.
           eapply conv_make_jdg. apply H. apply H3.
           assumption.
           f_equal. symmetry. apply inst_length.
@@ -1013,11 +975,11 @@ Arguments inst_ctx {_} [_] {_ _ _}.
 Arguments rename_ctx {_} [_] {_}.
 Arguments subst_ctx {_} [_] {_}.
 
-Arguments prem_ind {_ _ _ _ _} (_ _) {_}.
+Arguments prem_ind {_ _ _ _ _} _ {_}.
 
 Notation "Γ ⊢( i ) j" := (proof i Γ j) (at level 70).
 
-Notation "Δ ⊢r( i ) ρ : Γ" := (rtyping i Δ ρ Γ) (at level 70, ρ at level 50).
+Notation "Δ ⊢r ρ : Γ" := (rtyping Δ ρ Γ) (at level 70, ρ at level 50).
 Notation "Δ ⊢s( i ) σ : Γ" := (styping i Δ σ Γ) (at level 70, σ at level 50).
 
 Arguments IMakeJdg (_) {_ _}.
@@ -1025,19 +987,14 @@ Arguments IMakeJdg (_) {_ _}.
 Arguments RenJSig {_ _ _ _ _} (_).
 Arguments SubstJSig {_ _ _ _ _ _} (_) {_}.
 
-#[export] Instance IdIsNat
-  `{signature}
-  `{IDecl unit} `{forall i : unit, FMap (declF i)} :
-  IsNat(I:=unit)(i':=tt) (fun _ d => d).
-Proof. constructor. Qed.
 #[export] Instance IdPresMakeJdg
   `{signature}
-  `{IDecl unit} `{forall i : unit, FMap (declF i)}
+  `{IDecl} `{FMap declF}
   `{IJdg unit} `{forall i : unit, FMap (jdgF i)}
   `{!IMakeJdg unit}
   `{jsig : !jdg_sig} :
-  @ConvMakeJdg _ unit _ _ _ _ jsig _ tt tt (fun _ d => d).
+  @ConvMakeJdg _ unit _ _ _ _ jsig _ tt tt.
 Proof.
   unfold ConvMakeJdg. intros.
-  rewrite map_id. assumption.
+  assumption.
 Qed.

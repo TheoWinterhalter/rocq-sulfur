@@ -179,9 +179,8 @@ End Val.
 
 (** Judgment signature from a description *)
 
-
-#[local] Instance Sig_IDecl {sh : Shapes} : IDecl Idx :=
-  λ _, tuple sh_decl.
+#[local] Instance Sig_IDecl {sh : Shapes} : IDecl :=
+  tuple sh_decl.
 
 #[local] Instance Sig_IJdg {sh : Shapes} : IJdg Idx :=
   λ i, tuple (sh_jdg i).
@@ -193,7 +192,7 @@ Section ToSig.
 
   Definition to_premise {i} ar m (pd : premise_desc (T := T)) : premise i :=
     match pd with
-    | pd_jdg ix Δ j => prem_ind (i := i) ix (λ X x, x) Δ j
+    | pd_jdg ix Δ j => prem_ind (i := i) ix Δ j
     | pd_pred n P =>
       prem_pred i (λ Γ me, napply (ev_vals ar m me) _ 0 P (cmap ceval Γ))
     end.
@@ -646,12 +645,12 @@ Section ConcreteFacts.
   Context {sig T} {CS : ConcreteSyntax sig T} {sh : Shapes}.
   Context (desc : jdg_desc (T := T)).
 
-  #[local] Instance Sig_FMapDecl : ∀ i : Idx, FMap (declF i) :=
-    λ _, FMap_tuple _.
+  #[local] Instance Sig_FMapDecl : FMap declF :=
+    FMap_tuple _.
   #[local] Instance Sig_FMapJdg : ∀ i : Idx, FMap (jdgF i) :=
     λ _, FMap_tuple _.
-  #[local] Instance Sig_FuncDecl : ∀ i : Idx, Eq1Functor (declF i) :=
-    λ _, Eq1Functor_tuple _.
+  #[local] Instance Sig_FuncDecl : Eq1Functor declF :=
+    Eq1Functor_tuple _.
   #[local] Instance Sig_FuncJdg : ∀ i : Idx, Eq1Functor (jdgF i) :=
     λ _, Eq1Functor_tuple _.
   #[local] Instance Sig_IMakeJdg : IMakeJdg Idx :=
@@ -829,9 +828,9 @@ Section ConcreteFacts.
     intro t. apply rf_rename.
   Qed.
 
-  Lemma cinctx_inctx i Γ n d :
+  Lemma cinctx_inctx Γ n d :
     cinctx (dmap (crename rshift)) Γ n d →
-    @inctx sig (declF i) _ (ctx_rf Γ) n (dmap creify d).
+    @inctx sig declF _ (ctx_rf Γ) n (dmap creify d).
   Proof.
     induction 1 as [d Γ | d d' Γ n h ih].
     - cbn. eapply conv_in_d. 1: econstructor.
@@ -926,11 +925,10 @@ Section ConcreteFacts.
     - eapply step
       with (r := to_rule rd) (m := λ k _, creify (nvar vs k)) (x := x).
       + apply in_to_rules. assumption.
-      + intros i' n Δ j conv hin. cbn in hin.
+      + intros i' n Δ j hin. cbn in hin.
         rewrite in_map_iff in hin. destruct hin as [pd [hp hp']].
         destruct pd as [n' Δ' j' | ]. 2: discriminate.
         noconf hp.
-        cbn. rewrite map_id.
         rewrite Forall_forall in hF. specialize (hF _ hp').
         unfold conc_prem, conc_jdg, J in hF. rewrite capply_curry in hF.
         unfold Pf, ctx_rf in hF.
@@ -1349,7 +1347,7 @@ Section ConcreteFacts.
     induction Δ as [| n d Δ ih].
     - reflexivity.
     - cbn in h. rewrite andb_true_iff in h. destruct h as [hd hΔ].
-      cbn. unfold fmap, FMap_tuple.
+      cbn. unfold fmap, Sig_FMapDecl, FMap_tuple.
       erewrite ev_inst_tuple. 2: eassumption.
       f_equal. apply ih. assumption.
   Qed.
@@ -1362,8 +1360,8 @@ Section ConcreteFacts.
     intro t. apply ev_rename.
   Qed.
 
-  Lemma inctx_cinctx i Γ n d :
-    @inctx sig (declF i) _ Γ n d →
+  Lemma inctx_cinctx Γ n d :
+    @inctx sig declF _ Γ n d →
     cinctx (dmap (crename rshift)) (cmap ceval Γ) n (dmap ceval d).
   Proof.
     induction 1 as [d Γ | d d' Γ n h ih].
@@ -1406,10 +1404,9 @@ Section ConcreteFacts.
         destruct pd as [i' n Δ j | n P].
         + unfold wf_prem, wf_jdg in hwp. cbn in hwp.
           rewrite !andb_true_iff in hwp. destruct hwp as (hΔ & hwj).
-          specialize (ih i' _ Δ j (λ X x, x)).
+          specialize (ih i' _ Δ j).
           specialize ih with (1 := in_map _ _ _ hp).
           cbn in ih. unfold inst_jdg, fmap, Sig_FMapJdg, FMap_tuple in ih.
-          rewrite map_id in ih.
           rewrite map_app in ih.
           erewrite ev_inst_ctx in ih. 2: eassumption.
           erewrite ev_inst_tuple in ih. 2: eassumption.
@@ -1559,20 +1556,13 @@ Section ConcreteFacts.
         intros Γ m m' h hm.
         unfold ev_vals in *. erewrite <- ev_vs_ext. 1: exact h.
         apply hm.
-      - intros i r x hr n i' conv Δ j hP. cbn in hr.
-        apply in_to_rules_inv in hr as (rd & hr & ->).
-        cbn in hP. rewrite in_map_iff in hP.
-        destruct hP as (pd & e & ?).
-        destruct pd as [i'' n' Δ' j' |]. 2: discriminate.
-        noconf e.
-        intros X Y f d. reflexivity.
-      - intros i r x hr n i' conv Δ j hP. cbn in hr.
+      - intros i r x hr n i' Δ j hP. cbn in hr.
         apply in_to_rules_inv in hr as (rd & hr & ->).
         cbn in hP. rewrite in_map_iff in hP.
         destruct hP as (pd & e & hin).
         destruct pd as [i'' n' Δ' j' |]. 2: discriminate.
         noconf e.
-        intros Γ d t h. rewrite map_id.
+        intros Γ d t h.
         apply In_nth_error in hin as [k hk].
         apply In_nth_error in hr as [ri hr].
         pose proof (make_obligation_at _ _ _ _ _ _ _ _ _ _ _ hok hobls hr hk)
