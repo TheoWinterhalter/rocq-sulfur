@@ -117,7 +117,6 @@ Register JdgDesc.hpred as sulfur.jdg.hpred.
 Register JdgDesc.cup_subst as sulfur.jdg.cup_subst.
 Register JdgDesc.ob as sulfur.jdg.ob.
 Register JdgDesc.ob_pred as sulfur.jdg.ob_pred.
-Register JdgDesc.ob_make as sulfur.jdg.ob_make.
 Register JdgDesc.obligations as sulfur.jdg.obligations.
 Register JdgDesc.obls_ok as sulfur.jdg.obls_ok.
 Register JdgDesc.shapes as sulfur.jdg.shapes.

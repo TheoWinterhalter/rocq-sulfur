@@ -1049,16 +1049,9 @@ Section ConcreteFacts.
           stable_at ar nt Γ Δ σ vs (rd.(rd_premises) x) k
       ).
 
-    (* Obligation related to [make] *)
-    Definition make_obl i i' : Prop :=
-      ∀ Γ d t,
-        capply (R i Γ) (make (sh_var i) d t) →
-        capply (R i' Γ) (make (sh_var i') d t).
-
     (** Obligation references for the plugin *)
     Inductive ob :=
-    | ob_pred (j : Idx) (r i : nat)
-    | ob_make (i i' : Idx).
+    | ob_pred (j : Idx) (r i : nat).
 
     Definition obligation (o : ob) : Prop :=
       match o with
@@ -1067,7 +1060,6 @@ Section ConcreteFacts.
         | Some rd => pred_obl rd i
         | None => True
         end
-      | ob_make i i' => make_obl i i'
       end.
 
     Definition obligations (l : list ob) :=
@@ -1077,8 +1069,6 @@ Section ConcreteFacts.
       match o, o' with
       | ob_pred j r i, ob_pred j' r' i' =>
         eqb_fin j j' && (r =? r') && (i =? i')
-      | ob_make i i', ob_make j j' => eqb_fin i j && eqb_fin i' j'
-      | _, _ => false
       end.
 
     Definition ob_mem (o : ob) (l : list ob) :=
@@ -1087,7 +1077,7 @@ Section ConcreteFacts.
     Definition prem_ok i r k (pd : premise_desc (T := T)) l :=
       match pd with
       | pd_pred _ _ => ob_mem (ob_pred i r k) l
-      | pd_jdg i' _ _ => eqb_fin i i' || ob_mem (ob_make i i') l
+      | pd_jdg i' _ _ => true
       end.
 
     Fixpoint pos_ok i r k (prems : list (premise_desc (T := T))) l :=
@@ -1107,13 +1097,10 @@ Section ConcreteFacts.
     Lemma eqb_ob_spec x y :
       eqb_ob x y = true ↔ x = y.
     Proof.
-      destruct x, y. all: cbn.
-      2,3: split ; discriminate.
-      - rewrite !andb_true_iff. rewrite eqb_fin_eq.
-        rewrite !PeanoNat.Nat.eqb_eq.
-        intuition congruence.
-      - rewrite !andb_true_iff. rewrite !eqb_fin_eq.
-        intuition congruence.
+      destruct x, y. cbn.
+      rewrite !andb_true_iff. rewrite eqb_fin_eq.
+      rewrite !PeanoNat.Nat.eqb_eq.
+      intuition congruence.
     Qed.
 
     Lemma ob_mem_in o l :
@@ -1190,23 +1177,6 @@ Section ConcreteFacts.
       eapply obligations_in in ho. 2: eassumption.
       cbn in ho. rewrite lnth_error_def in ho. rewrite hr in ho.
       exact ho.
-    Qed.
-
-    Lemma make_obligation_at l i r rd x k i' n Δ j :
-      obls_ok l →
-      obligations l →
-      nth_error (desc_rules desc i) r = Some rd →
-      nth_error (rd.(rd_premises) x) k = Some (pd_jdg i' (n := n) Δ j) →
-      make_obl i i'.
-    Proof.
-      intros hok ho hr hk. eapply prem_ok_at in hok. 2,3: eassumption.
-      cbn in hok. rewrite orb_true_iff in hok.
-      destruct hok as [e | hin].
-      - rewrite eqb_fin_eq in e. subst i'.
-        intros Γ d t h. assumption.
-      - rewrite ob_mem_in in hin.
-        eapply obligations_in in ho. 2: eassumption.
-        assumption.
     Qed.
 
   End Statements.

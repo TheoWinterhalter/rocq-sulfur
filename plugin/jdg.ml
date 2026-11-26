@@ -345,9 +345,7 @@ let obligations (d : desc) : obligations =
   let obs =
     List.map (fun (j, r, _, i) ->
       apps (mkglob' C.Jdg.ob_pred) [| d.d_sh ; idx d j ; mknat r ; mknat i |])
-      o_preds @
-    List.map (fun (i, i') ->
-      apps (mkglob' C.Jdg.ob_make) [| d.d_sh ; idx d i ; idx d i' |]) o_pairs
+      o_preds
   in
   { o_preds ; o_pairs ; o_term = mklist (app (mkglob' C.Jdg.ob) d.d_sh) obs }
 
