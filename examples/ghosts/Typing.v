@@ -230,7 +230,7 @@ Notation "Γ ⊢ u ≡ v" :=
   (conversion Γ u v)
   (at level 80, u, v at next level, format "Γ  ⊢  u  ≡  v").
 
-Lemma cstyping_conversion_scoping Δ Γ σ :
+(* Lemma cstyping_conversion_scoping Δ Γ σ :
   cstyping Fin.finO conversion Δ σ Γ →
   cstyping (sh := scoping_shapes) Fin.finO scoping (sc Δ) σ (sc Γ).
 Proof.
@@ -240,12 +240,12 @@ Proof.
   - auto.
   - cbn. unfold id.
     (* It seems we want something stronger *)
-Admitted.
+Admitted. *)
 
 Instance: conversion_obligations.
 Proof.
-  red.
-  intuition (try (eapply scoping_subst ; eauto using cstyping_conversion_scoping)).
+  (* red.
+  intuition (try (eapply scoping_subst ; eauto using cstyping_conversion_scoping)). *)
 Admitted.
 
 Time Sulfur Judgment typing : term → term → Prop
@@ -484,7 +484,7 @@ Notation "Γ ⊢ t : A" :=
   (typing Γ t A)
   (at level 80, t, A at next level, format "Γ  ⊢  t  :  A").
 
-Lemma cstyping_typing_scoping Δ Γ σ :
+(* Lemma cstyping_typing_scoping Δ Γ σ :
   cstyping Fin.finO typing Δ σ Γ →
   cstyping (sh := scoping_shapes) Fin.finO scoping (sc Δ) σ (sc Γ).
 Proof.
@@ -495,7 +495,7 @@ Proof.
   - cbn. unfold id.
     destruct d as [m t]. cbn in *.
     (* Might be ok *)
-Admitted.
+Admitted. *)
 
 Instance: typing_obligations.
 Proof.

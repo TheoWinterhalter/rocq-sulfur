@@ -747,30 +747,30 @@ Section WithSignature.
     Proof. apply (@scoped_jdg_substitute_inst i 0). Qed.
 
     (** Typing of a substitution **)
-    Reserved Notation "Δ ⊢s( i ) σ : Γ" (at level 70, σ at level 50).
+    Reserved Notation "Δ ⊢s σ : Γ" (at level 70, σ at level 50).
 
-    Inductive styping : forall i, ctx declF -> subst -> ctx declF -> Prop :=
-    | styping_empty i Δ σ :
-      Δ ⊢s(i) σ : []
-    | styping_cons i Δ σ Γ d :
-      Δ ⊢s(i) rscomp rshift σ : Γ ->
-      Δ ⊢(i) make_jdg i term
-        (fmap _ (substitute (rscomp rshift σ)) d)
-        (σ 0) ->
-      Δ ⊢s(i) σ : d::Γ
-    where "Δ ⊢s( i ) σ : Γ " := (styping i Δ σ Γ).
+    Inductive styping : ctx declF → subst → ctx declF → Prop :=
+    | styping_empty Δ σ :
+      Δ ⊢s σ : []
+    | styping_cons Δ σ Γ d :
+      Δ ⊢s rscomp rshift σ : Γ →
+      (∀ i,
+        Δ ⊢(i) make_jdg i term (fmap _ (substitute (rscomp rshift σ)) d) (σ 0)
+      ) →
+      Δ ⊢s σ : d::Γ
+    where "Δ ⊢s σ : Γ " := (styping Δ σ Γ).
 
-    Lemma conv_styping i Δ ρ ρ' Γ :
-      Δ ⊢s( i ) ρ : Γ ->
+    Lemma conv_styping Δ ρ ρ' Γ :
+      Δ ⊢s ρ : Γ ->
       ρ = ρ' ->
-      Δ ⊢s( i ) ρ' : Γ.
+      Δ ⊢s ρ' : Γ.
     Proof. intros; subst; assumption. Qed.
 
     Derive Signature for styping.
 
-    Lemma ren_to_subst_typing i Γ ρ Δ :
+    Lemma ren_to_subst_typing Γ ρ Δ :
       Δ ⊢r ρ : Γ ->
-      Δ ⊢s(i) ren_to_subst ρ : Γ.
+      Δ ⊢s ren_to_subst ρ : Γ.
     Proof.
       intro Hρ. induction Hρ.
       - constructor.
@@ -779,20 +779,13 @@ Section WithSignature.
         apply rew_eq1. intro. apply ren_is_subst.
     Qed.
 
-    (* Hypothesis to add to signatures for them to preserve substitution *)
-    Class ConvMakeJdg i i' :=
-    conv_pres_makke_jdg :
-      forall Γ (d : declF term) t,
-      Γ ⊢(i) make_jdg i term d t ->
-      Γ ⊢(i') make_jdg i' term d t.
-
     Class SubstJSig := {
       prem_subst :
         forall i (r : rule i) x P,
         In r (jsig.(rules) i) ->
         In (prem_pred i P) (r.(premises) x) ->
         forall Γ σ Δ m,
-        Δ ⊢s(i) σ : Γ ->
+        Δ ⊢s σ : Γ ->
         P Γ m ->
         P Δ (fun k s => substitute (up_substs s σ) (m k s));
 
@@ -801,15 +794,7 @@ Section WithSignature.
         In r (jsig.(rules) i) ->
         In (prem_pred i P) (r.(premises) x) ->
         forall Γ m m',
-        P Γ m -> m =₂ m' -> P Γ m';
-
-      conv_make_jdg :
-        forall (i : I) (r : rule i) x,
-        In r (jsig.(rules) i) ->
-        forall n i' Δ j,
-        In (prem_ind(n:=n) i i' Δ j) (r.(premises) x) ->
-        (* preserves typing of [make_jdg] *)
-        ConvMakeJdg i i'
+        P Γ m -> m =₂ m' -> P Γ m'
     }.
 
     (* Preserving substitutions implies preserving renamings via ren_is_subst *)
@@ -827,30 +812,30 @@ Section WithSignature.
     Qed.
 
     (** Substitution lemmas **)
-    #[export] Instance styping_proper i :
-      Proper (eq ==> eq1 ==> eq ==> Basics.impl) (styping i).
+    #[export] Instance styping_proper :
+      Proper (eq ==> eq1 ==> eq ==> Basics.impl) styping.
     Proof.
       intros Δ' Δ HΔ σ σ' Hσ Γ' Γ HΓ H; subst.
       induction H in σ', Hσ |- *; intros; constructor.
       - apply IHstyping. apply rscomp_proper. reflexivity. assumption.
-      - eapply conv_proof_j.
+      - intros i. eapply conv_proof_j.
         apply H0.
         f_equal. 2: apply Hσ.
         apply rew_eq1. intros. intro. apply substitute_proper. 2: reflexivity.
         intro. apply Hσ.
     Qed.
 
-    Lemma conv_stype_s i Δ σ σ' Γ :
-      Δ ⊢s(i) σ : Γ ->
+    Lemma conv_stype_s Δ σ σ' Γ :
+      Δ ⊢s σ : Γ ->
       σ =₁ σ' ->
-      Δ ⊢s(i) σ' : Γ.
+      Δ ⊢s σ' : Γ.
     Proof.
       intros Hσ Heq. rewrite <- Heq. assumption.
     Qed.
 
     Lemma substitute_in i Δ Γ σ n d :
       Γ ∋ n : d ->
-      Δ ⊢s(i) σ : Γ ->
+      Δ ⊢s σ : Γ ->
       Δ ⊢(i) make_jdg i term (fmap _ (substitute σ) d) (σ n).
     Proof.
       intros HΓ Hσ. induction HΓ in Δ, σ, Hσ |- *; intros;
@@ -866,22 +851,22 @@ Section WithSignature.
 
     Context `{HSubstSig : SubstJSig}.
 
-    Lemma weaken_styping i Γ σ Δ d :
-      Δ ⊢s(i) σ : Γ ->
-      d::Δ ⊢s(i) srcomp σ S : Γ.
+    Lemma weaken_styping Γ σ Δ d :
+      Δ ⊢s σ : Γ ->
+      d::Δ ⊢s srcomp σ S : Γ.
     Proof.
       intros Hσ. induction Hσ in d |- *; intros; constructor.
       - apply IHHσ.
-      - eapply conv_proof_j. apply weaken_typing. apply H.
+      - intros i. eapply conv_proof_j. apply weaken_typing. apply H.
         simpl. unfold rename_jdg.
         rewrite naturality_prod. f_equal.
         rewrite func_comp. apply rew_eq1. intro.
         rewrite ren_subst. reflexivity.
     Qed.
 
-    Lemma up_styping i Γ σ Δ d :
-      Δ ⊢s(i) σ : Γ ->
-      (fmap _ (substitute σ) d)::Δ ⊢s(i) up_subst σ : d::Γ.
+    Lemma up_styping Γ σ Δ d :
+      Δ ⊢s σ : Γ ->
+      (fmap _ (substitute σ) d)::Δ ⊢s up_subst σ : d::Γ.
     Proof.
       intros Hσ. constructor.
       - apply weaken_styping. assumption.
@@ -891,9 +876,9 @@ Section WithSignature.
         apply rew_eq1. intro. rewrite ren_subst. reflexivity.
     Qed.
 
-    Corollary up_styping_n i Γ σ Δ Θ :
-      Δ ⊢s(i) σ : Γ ->
-      (subst_ctx σ Θ) ++ Δ ⊢s(i) up_substs (Datatypes.length Θ) σ : Θ ++ Γ.
+    Corollary up_styping_n Γ σ Δ Θ :
+      Δ ⊢s σ : Γ ->
+      (subst_ctx σ Θ) ++ Δ ⊢s up_substs (Datatypes.length Θ) σ : Θ ++ Γ.
     Proof.
       induction Θ in Γ, σ, Δ |- *; intros; simpl in *.
       - assumption.
@@ -901,8 +886,8 @@ Section WithSignature.
         apply IHΘ. assumption.
     Qed.
 
-    Lemma id_styping i Γ :
-      Γ ⊢s(i) sid : Γ.
+    Lemma id_styping Γ :
+      Γ ⊢s sid : Γ.
     Proof.
       induction Γ. constructor.
       replace a with (fmap _ (substitute sid) a) at 1.
@@ -912,21 +897,9 @@ Section WithSignature.
       rewrite <- up_subst_sid at 2. apply up_styping. assumption.
     Qed.
 
-    Lemma styping_subst i i' Γ σ Δ :
-      ConvMakeJdg i i' ->
-      Δ ⊢s(i) σ : Γ ->
-      Δ ⊢s(i') σ : Γ.
-    Proof.
-      intros Hconv_make Hi. induction Hi in Hconv_make |- *.
-      - constructor.
-      - constructor.
-        apply IHHi; try assumption.
-        apply Hconv_make. assumption.
-    Qed.
-
     Theorem preserve_subst i Γ j Δ σ :
       Γ ⊢(i) j ->
-      Δ ⊢s(i) σ : Γ ->
+      Δ ⊢s σ : Γ ->
       Δ ⊢(i) substitute_jdg σ j.
     Proof.
       intros Hj Hσ.
@@ -944,10 +917,7 @@ Section WithSignature.
           rewrite <- scoped_jdg_substitute_inst. eapply H1. apply H3.
           rewrite <- scoped_ctx_substitute_inst. simpl.
           eapply conv_styping.
-          eapply up_styping_n.
-          eapply styping_subst.
-          eapply conv_make_jdg. apply H. apply H3.
-          assumption.
+          eapply up_styping_n. assumption.
           f_equal. symmetry. apply inst_length.
         + (* Predicate premise *)
           intros.
@@ -960,8 +930,8 @@ Section WithSignature.
 
   End Substitutions.
 
-  Notation "Δ ⊢s( i ) σ : Γ" :=
-    (styping i Δ σ Γ) (at level 70, σ at level 50, i at level 50).
+  Notation "Δ ⊢s σ : Γ" :=
+    (styping Δ σ Γ) (at level 70, σ at level 50).
 
 End WithSignature.
 
@@ -980,21 +950,9 @@ Arguments prem_ind {_ _ _ _ _} _ {_}.
 Notation "Γ ⊢( i ) j" := (proof i Γ j) (at level 70).
 
 Notation "Δ ⊢r ρ : Γ" := (rtyping Δ ρ Γ) (at level 70, ρ at level 50).
-Notation "Δ ⊢s( i ) σ : Γ" := (styping i Δ σ Γ) (at level 70, σ at level 50).
+Notation "Δ ⊢s σ : Γ" := (styping Δ σ Γ) (at level 70, σ at level 50).
 
 Arguments IMakeJdg (_) {_ _}.
 
 Arguments RenJSig {_ _ _ _ _} (_).
 Arguments SubstJSig {_ _ _ _ _ _} (_) {_}.
-
-#[export] Instance IdPresMakeJdg
-  `{signature}
-  `{IDecl} `{FMap declF}
-  `{IJdg unit} `{forall i : unit, FMap (jdgF i)}
-  `{!IMakeJdg unit}
-  `{jsig : !jdg_sig} :
-  @ConvMakeJdg _ unit _ _ _ _ jsig _ tt tt.
-Proof.
-  unfold ConvMakeJdg. intros.
-  assumption.
-Qed.

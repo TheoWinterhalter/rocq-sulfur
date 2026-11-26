@@ -951,15 +951,17 @@ Section ConcreteFacts.
 
   (** Statements about a concrete judgment *)
 
-  (* [σ] is a well-typed substitution from [Δ] to [Γ] for judgment [i] *)
-  Inductive cstyping i (Ri : jdg_type T i) : ctx T → (nat → T) → ctx T → Prop :=
-  | cstyping_nil Δ σ : cstyping i Ri Δ σ []
+  (* [σ] is a well-typed substitution from [Δ] to [Γ] *)
+  Inductive cstyping (R : ∀ i, jdg_type T i) | : ctx T → (nat → T) → ctx T → Prop :=
+  | cstyping_nil Δ σ : cstyping Δ σ []
   | cstyping_cons Δ σ Γ d :
-      cstyping i Ri Δ (λ k, σ (S k)) Γ →
-      capply (Ri Δ) (
-        make (sh_var i) (dmap (csubstitute (λ k, σ (S k))) d) (σ 0)
+      cstyping Δ (λ k, σ (S k)) Γ →
+      (∀ i,
+        capply (R i Δ) (
+          make (sh_var i) (dmap (csubstitute (λ k, σ (S k))) d) (σ 0)
+        )
       ) →
-      cstyping i Ri Δ σ (d :: Γ).
+      cstyping Δ σ (d :: Γ).
 
   Section Statements.
 
@@ -994,7 +996,7 @@ Section ConcreteFacts.
       ∀ Γ Δ σ,
         under_tuple (λ j,
           capply (R i Γ) j →
-          cstyping i (R i) Δ σ Γ →
+          cstyping R Δ σ Γ →
           capply (R i Δ) (jmap (csubstitute σ) j)
         ).
 
@@ -1042,7 +1044,7 @@ Section ConcreteFacts.
       let nt := rd_nterms rd in
       under rd.(rd_params) [] (λ vs x,
         ∀ Γ Δ σ,
-          cstyping i (R i) Δ σ Γ →
+          cstyping R Δ σ Γ →
           stable_at ar nt Γ Δ σ vs (rd.(rd_premises) x) k
       ).
 
@@ -1486,27 +1488,29 @@ Section ConcreteFacts.
       intro t. apply rf_substitute.
     Qed.
 
-    Lemma cstyping_styping i Δ σ Γ :
-      cstyping i (R i) Δ σ Γ →
-      styping (jsig := to_jdg_sig desc) i (ctx_rf Δ) (λ k, creify (σ k)) (ctx_rf Γ).
+    Lemma cstyping_styping Δ σ Γ :
+      cstyping R Δ σ Γ →
+      styping (jsig := to_jdg_sig desc) (ctx_rf Δ) (λ k, creify (σ k)) (ctx_rf Γ).
     Proof.
       induction 1 as [Δ σ | Δ σ Γ d h ih hd].
       - constructor.
       - cbn. constructor. 1: exact ih.
+        intros i.
         pose proof (hsound i Δ) as hs. rewrite under_tuple_iff in hs.
         apply hs in hd. unfold J in hd. rewrite capply_curry in hd.
         unfold Pf in hd. rewrite make_nat, rf_subst_tuple in hd.
         exact hd.
     Qed.
 
-    Lemma styping_cstyping i Δ σ Γ :
-      styping (jsig := to_jdg_sig desc) i Δ σ Γ →
-      cstyping i (R i) (cmap ceval Δ) (λ i, ceval (σ i)) (cmap ceval Γ).
+    Lemma styping_cstyping Δ σ Γ :
+      styping (jsig := to_jdg_sig desc) Δ σ Γ →
+      cstyping R (cmap ceval Δ) (λ i, ceval (σ i)) (cmap ceval Γ).
     Proof.
-      induction 1 as [i Δ σ | i Δ σ Γ d h ih hd].
+      induction 1 as [Δ σ | Δ σ Γ d h ih hd].
       - constructor.
       - cbn. constructor. 1: exact ih.
-        apply hcomplete in hd.
+        intros i.
+        specialize (hd i). apply hcomplete in hd.
         unfold fmap, Sig_FMapDecl, FMap_tuple in hd.
         unfold make_jdg, Sig_IMakeJdg in hd.
         rewrite make_nat in hd. rewrite tuple_map_comp in hd.
@@ -1556,26 +1560,6 @@ Section ConcreteFacts.
         intros Γ m m' h hm.
         unfold ev_vals in *. erewrite <- ev_vs_ext. 1: exact h.
         apply hm.
-      - intros i r x hr n i' Δ j hP. cbn in hr.
-        apply in_to_rules_inv in hr as (rd & hr & ->).
-        cbn in hP. rewrite in_map_iff in hP.
-        destruct hP as (pd & e & hin).
-        destruct pd as [i'' n' Δ' j' |]. 2: discriminate.
-        noconf e.
-        intros Γ d t h.
-        apply In_nth_error in hin as [k hk].
-        apply In_nth_error in hr as [ri hr].
-        pose proof (make_obligation_at _ _ _ _ _ _ _ _ _ _ _ hok hobls hr hk)
-        as ho.
-        apply hcomplete in h.
-        unfold fmap, Sig_FMapJdg, FMap_tuple, make_jdg, Sig_IMakeJdg in h.
-        rewrite make_nat in h. apply ho in h.
-        pose proof (hsound i' (cmap ceval Γ)) as hs.
-        rewrite under_tuple_iff in hs. apply hs in h.
-        unfold J in h. rewrite capply_curry in h. unfold Pf in h.
-        rewrite rf_ev_ctx, make_nat, rf_ev in h.
-        erewrite tuple_map_comp_ext in h. 2:{ intro. apply rf_ev. }
-        rewrite tuple_map_id in h. exact h.
     Qed.
 
     Theorem gen_preserve_subst i : preserve_subst_jdg R i.
