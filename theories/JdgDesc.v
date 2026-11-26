@@ -15,6 +15,8 @@ From Sulfur Require Import ParamSyntax JudgmentSyntaxScoped ConcreteSyntax.
 From Sulfur Require Import JdgShape.
 From SulfurUtils Require Import Functor Copies.
 
+Set Default Goal Selector "!".
+
 (** Judgments and declarations are built on shapes *)
 
 Record jshape (decl : shape) := jshape_of {
@@ -956,13 +958,12 @@ Section ConcreteFacts.
   | cstyping_nil Δ σ : cstyping Δ σ []
   | cstyping_cons Δ σ Γ d :
       cstyping Δ (λ k, σ (S k)) Γ →
-      (∀ i,
+      Forall_rec (λ i,
         capply (R i Δ) (
           make (sh_var i) (dmap (csubstitute (λ k, σ (S k))) d) (σ 0)
         )
-      ) →
+      ) (fin_all _) →
       cstyping Δ σ (d :: Γ).
-
   Section Statements.
 
     Context (R : ∀ i, jdg_type T i).
@@ -1497,7 +1498,9 @@ Section ConcreteFacts.
       - cbn. constructor. 1: exact ih.
         intros i.
         pose proof (hsound i Δ) as hs. rewrite under_tuple_iff in hs.
-        apply hs in hd. unfold J in hd. rewrite capply_curry in hd.
+        rewrite Forall_rec_iff, Forall_forall in hd.
+        apply hs in hd. 2: eapply In_fin_all.
+        unfold J in hd. rewrite capply_curry in hd.
         unfold Pf in hd. rewrite make_nat, rf_subst_tuple in hd.
         exact hd.
     Qed.
@@ -1509,7 +1512,8 @@ Section ConcreteFacts.
       induction 1 as [Δ σ | Δ σ Γ d h ih hd].
       - constructor.
       - cbn. constructor. 1: exact ih.
-        intros i.
+        rewrite Forall_rec_iff, Forall_forall.
+        intros i hin.
         specialize (hd i). apply hcomplete in hd.
         unfold fmap, Sig_FMapDecl, FMap_tuple in hd.
         unfold make_jdg, Sig_IMakeJdg in hd.
