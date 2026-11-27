@@ -115,7 +115,6 @@ module Jdg = struct
   let cup_subst = resolve "sulfur.jdg.cup_subst"
   let ob = resolve "sulfur.jdg.ob"
   let ob_pred = resolve "sulfur.jdg.ob_pred"
-  let ob_make = resolve "sulfur.jdg.ob_make"
   let obligations = resolve "sulfur.jdg.obligations"
   let obls_ok = resolve "sulfur.jdg.obls_ok"
   let shapes = resolve "sulfur.jdg.shapes"

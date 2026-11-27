@@ -86,7 +86,24 @@ with typing : tm → tm → Prop
     ─────────────────────────────────────
     typing t A'.
 
-Instance: conv_obligations.
+Abbreviation ctx := (list tm).
+
+(* Equivalent typing of substitution *)
+Inductive styping (Δ : ctx) | (σ : nat → tm) : ctx → Prop :=
+| styping_nil : styping σ []
+| styping_cons Γ A :
+    styping (λ k, σ (S k)) Γ →
+    typing Δ (σ 0) (csubstitute (λ k, σ (S k)) A) →
+    styping σ (A :: Γ).
+
+Lemma styping_iff Δ σ Γ :
+  styping Δ σ Γ ↔ cstyping (conv, (typing, tt)) Δ σ Γ.
 Proof.
-  red.
-Admitted.
+  split.
+  - induction 1. 1: constructor.
+    econstructor. 1: eauto.
+    cbn. split. 1: constructor. all: auto.
+  - induction 1. 1: constructor.
+    econstructor. 1: eauto.
+    cbn in *. intuition eauto.
+Qed.

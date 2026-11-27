@@ -108,6 +108,21 @@ Proof.
   apply nth_error_Some. rewrite e. discriminate.
 Qed.
 
+Lemma nth_error_Some_length [A : Type] (l : list A) n a :
+  nth_error l n = Some a →
+  n < length l.
+Proof.
+  rewrite <- nth_error_Some.
+  congruence.
+Qed.
+
+Lemma nth_error_None_eq [A : Type] (l : list A) n :
+  length l ≤ n →
+  nth_error l n = None.
+Proof.
+  apply nth_error_None.
+Qed.
+
 (** n-ary (non-dependent) functions
 
   A pattern we reuse several times in this file.

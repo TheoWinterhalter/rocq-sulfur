@@ -15,6 +15,8 @@ From Sulfur Require Import ParamSyntax JudgmentSyntaxScoped ConcreteSyntax.
 From Sulfur Require Import JdgShape.
 From SulfurUtils Require Import Functor Copies.
 
+Set Default Goal Selector "!".
+
 (** Judgments and declarations are built on shapes *)
 
 Record jshape (decl : shape) := jshape_of {
@@ -179,9 +181,8 @@ End Val.
 
 (** Judgment signature from a description *)
 
-
-#[local] Instance Sig_IDecl {sh : Shapes} : IDecl Idx :=
-  λ _, tuple sh_decl.
+#[local] Instance Sig_IDecl {sh : Shapes} : IDecl :=
+  tuple sh_decl.
 
 #[local] Instance Sig_IJdg {sh : Shapes} : IJdg Idx :=
   λ i, tuple (sh_jdg i).
@@ -193,7 +194,7 @@ Section ToSig.
 
   Definition to_premise {i} ar m (pd : premise_desc (T := T)) : premise i :=
     match pd with
-    | pd_jdg ix Δ j => prem_ind (i := i) ix (λ X x, x) Δ j
+    | pd_jdg ix Δ j => prem_ind (i := i) ix Δ j
     | pd_pred n P =>
       prem_pred i (λ Γ me, napply (ev_vals ar m me) _ 0 P (cmap ceval Γ))
     end.
@@ -646,12 +647,12 @@ Section ConcreteFacts.
   Context {sig T} {CS : ConcreteSyntax sig T} {sh : Shapes}.
   Context (desc : jdg_desc (T := T)).
 
-  #[local] Instance Sig_FMapDecl : ∀ i : Idx, FMap (declF i) :=
-    λ _, FMap_tuple _.
+  #[local] Instance Sig_FMapDecl : FMap declF :=
+    FMap_tuple _.
   #[local] Instance Sig_FMapJdg : ∀ i : Idx, FMap (jdgF i) :=
     λ _, FMap_tuple _.
-  #[local] Instance Sig_FuncDecl : ∀ i : Idx, Eq1Functor (declF i) :=
-    λ _, Eq1Functor_tuple _.
+  #[local] Instance Sig_FuncDecl : Eq1Functor declF :=
+    Eq1Functor_tuple _.
   #[local] Instance Sig_FuncJdg : ∀ i : Idx, Eq1Functor (jdgF i) :=
     λ _, Eq1Functor_tuple _.
   #[local] Instance Sig_IMakeJdg : IMakeJdg Idx :=
@@ -829,9 +830,9 @@ Section ConcreteFacts.
     intro t. apply rf_rename.
   Qed.
 
-  Lemma cinctx_inctx i Γ n d :
+  Lemma cinctx_inctx Γ n d :
     cinctx (dmap (crename rshift)) Γ n d →
-    @inctx sig (declF i) _ (ctx_rf Γ) n (dmap creify d).
+    @inctx sig declF _ (ctx_rf Γ) n (dmap creify d).
   Proof.
     induction 1 as [d Γ | d d' Γ n h ih].
     - cbn. eapply conv_in_d. 1: econstructor.
@@ -926,11 +927,10 @@ Section ConcreteFacts.
     - eapply step
       with (r := to_rule rd) (m := λ k _, creify (nvar vs k)) (x := x).
       + apply in_to_rules. assumption.
-      + intros i' n Δ j conv hin. cbn in hin.
+      + intros i' n Δ j hin. cbn in hin.
         rewrite in_map_iff in hin. destruct hin as [pd [hp hp']].
         destruct pd as [n' Δ' j' | ]. 2: discriminate.
         noconf hp.
-        cbn. rewrite map_id.
         rewrite Forall_forall in hF. specialize (hF _ hp').
         unfold conc_prem, conc_jdg, J in hF. rewrite capply_curry in hF.
         unfold Pf, ctx_rf in hF.
@@ -953,15 +953,17 @@ Section ConcreteFacts.
 
   (** Statements about a concrete judgment *)
 
-  (* [σ] is a well-typed substitution from [Δ] to [Γ] for judgment [i] *)
-  Inductive cstyping i (Ri : jdg_type T i) : ctx T → (nat → T) → ctx T → Prop :=
-  | cstyping_nil Δ σ : cstyping i Ri Δ σ []
+  (* [σ] is a well-typed substitution from [Δ] to [Γ] *)
+  Inductive cstyping (Rs : jdg_types T) | : ctx T → (nat → T) → ctx T → Prop :=
+  | cstyping_nil Δ σ : cstyping Δ σ []
   | cstyping_cons Δ σ Γ d :
-      cstyping i Ri Δ (λ k, σ (S k)) Γ →
-      capply (Ri Δ) (
-        make (sh_var i) (dmap (csubstitute (λ k, σ (S k))) d) (σ 0)
-      ) →
-      cstyping i Ri Δ σ (d :: Γ).
+      cstyping Δ (λ k, σ (S k)) Γ →
+      Forall_rec (λ i,
+        capply (jdg_at Rs i Δ) (
+          make (sh_var i) (dmap (csubstitute (λ k, σ (S k))) d) (σ 0)
+        )
+      ) (fin_all _) →
+      cstyping Δ σ (d :: Γ).
 
   Section Statements.
 
@@ -992,12 +994,20 @@ Section ConcreteFacts.
         proof (jsig := to_jdg_sig desc) i Γ j →
         capply (R i (cmap ceval Γ)) (jmap ceval j).
 
+    (** We prove now prove things about the packed version instead of [R]
+
+      The thing is that [cstyping] is otherwise very ugly to look at because
+      [R] is unfolded to a big [match].
+
+    *)
+    Context (Rs : jdg_types T).
+
     Definition preserve_subst_jdg i :=
       ∀ Γ Δ σ,
         under_tuple (λ j,
-          capply (R i Γ) j →
-          cstyping i (R i) Δ σ Γ →
-          capply (R i Δ) (jmap (csubstitute σ) j)
+          capply (jdg_at Rs i Γ) j →
+          cstyping Rs Δ σ Γ →
+          capply (jdg_at Rs i Δ) (jmap (csubstitute σ) j)
         ).
 
     (** Obligations for [preserve_subst_jdg]
@@ -1044,20 +1054,13 @@ Section ConcreteFacts.
       let nt := rd_nterms rd in
       under rd.(rd_params) [] (λ vs x,
         ∀ Γ Δ σ,
-          cstyping i (R i) Δ σ Γ →
+          cstyping Rs Δ σ Γ →
           stable_at ar nt Γ Δ σ vs (rd.(rd_premises) x) k
       ).
 
-    (* Obligation related to [make] *)
-    Definition make_obl i i' : Prop :=
-      ∀ Γ d t,
-        capply (R i Γ) (make (sh_var i) d t) →
-        capply (R i' Γ) (make (sh_var i') d t).
-
     (** Obligation references for the plugin *)
     Inductive ob :=
-    | ob_pred (j : Idx) (r i : nat)
-    | ob_make (i i' : Idx).
+    | ob_pred (j : Idx) (r i : nat).
 
     Definition obligation (o : ob) : Prop :=
       match o with
@@ -1066,7 +1069,6 @@ Section ConcreteFacts.
         | Some rd => pred_obl rd i
         | None => True
         end
-      | ob_make i i' => make_obl i i'
       end.
 
     Definition obligations (l : list ob) :=
@@ -1076,8 +1078,6 @@ Section ConcreteFacts.
       match o, o' with
       | ob_pred j r i, ob_pred j' r' i' =>
         eqb_fin j j' && (r =? r') && (i =? i')
-      | ob_make i i', ob_make j j' => eqb_fin i j && eqb_fin i' j'
-      | _, _ => false
       end.
 
     Definition ob_mem (o : ob) (l : list ob) :=
@@ -1086,7 +1086,7 @@ Section ConcreteFacts.
     Definition prem_ok i r k (pd : premise_desc (T := T)) l :=
       match pd with
       | pd_pred _ _ => ob_mem (ob_pred i r k) l
-      | pd_jdg i' _ _ => eqb_fin i i' || ob_mem (ob_make i i') l
+      | pd_jdg i' _ _ => true
       end.
 
     Fixpoint pos_ok i r k (prems : list (premise_desc (T := T))) l :=
@@ -1106,13 +1106,10 @@ Section ConcreteFacts.
     Lemma eqb_ob_spec x y :
       eqb_ob x y = true ↔ x = y.
     Proof.
-      destruct x, y. all: cbn.
-      2,3: split ; discriminate.
-      - rewrite !andb_true_iff. rewrite eqb_fin_eq.
-        rewrite !PeanoNat.Nat.eqb_eq.
-        intuition congruence.
-      - rewrite !andb_true_iff. rewrite !eqb_fin_eq.
-        intuition congruence.
+      destruct x, y. cbn.
+      rewrite !andb_true_iff. rewrite eqb_fin_eq.
+      rewrite !PeanoNat.Nat.eqb_eq.
+      intuition congruence.
     Qed.
 
     Lemma ob_mem_in o l :
@@ -1189,23 +1186,6 @@ Section ConcreteFacts.
       eapply obligations_in in ho. 2: eassumption.
       cbn in ho. rewrite lnth_error_def in ho. rewrite hr in ho.
       exact ho.
-    Qed.
-
-    Lemma make_obligation_at l i r rd x k i' n Δ j :
-      obls_ok l →
-      obligations l →
-      nth_error (desc_rules desc i) r = Some rd →
-      nth_error (rd.(rd_premises) x) k = Some (pd_jdg i' (n := n) Δ j) →
-      make_obl i i'.
-    Proof.
-      intros hok ho hr hk. eapply prem_ok_at in hok. 2,3: eassumption.
-      cbn in hok. rewrite orb_true_iff in hok.
-      destruct hok as [e | hin].
-      - rewrite eqb_fin_eq in e. subst i'.
-        intros Γ d t h. assumption.
-      - rewrite ob_mem_in in hin.
-        eapply obligations_in in ho. 2: eassumption.
-        assumption.
     Qed.
 
   End Statements.
@@ -1349,7 +1329,7 @@ Section ConcreteFacts.
     induction Δ as [| n d Δ ih].
     - reflexivity.
     - cbn in h. rewrite andb_true_iff in h. destruct h as [hd hΔ].
-      cbn. unfold fmap, FMap_tuple.
+      cbn. unfold fmap, Sig_FMapDecl, FMap_tuple.
       erewrite ev_inst_tuple. 2: eassumption.
       f_equal. apply ih. assumption.
   Qed.
@@ -1362,8 +1342,8 @@ Section ConcreteFacts.
     intro t. apply ev_rename.
   Qed.
 
-  Lemma inctx_cinctx i Γ n d :
-    @inctx sig (declF i) _ Γ n d →
+  Lemma inctx_cinctx Γ n d :
+    @inctx sig declF _ Γ n d →
     cinctx (dmap (crename rshift)) (cmap ceval Γ) n (dmap ceval d).
   Proof.
     induction 1 as [d Γ | d d' Γ n h ih].
@@ -1406,10 +1386,9 @@ Section ConcreteFacts.
         destruct pd as [i' n Δ j | n P].
         + unfold wf_prem, wf_jdg in hwp. cbn in hwp.
           rewrite !andb_true_iff in hwp. destruct hwp as (hΔ & hwj).
-          specialize (ih i' _ Δ j (λ X x, x)).
+          specialize (ih i' _ Δ j).
           specialize ih with (1 := in_map _ _ _ hp).
           cbn in ih. unfold inst_jdg, fmap, Sig_FMapJdg, FMap_tuple in ih.
-          rewrite map_id in ih.
           rewrite map_app in ih.
           erewrite ev_inst_ctx in ih. 2: eassumption.
           erewrite ev_inst_tuple in ih. 2: eassumption.
@@ -1474,9 +1453,10 @@ Section ConcreteFacts.
 
   Section Preservation.
 
-    Context (R : ∀ i, jdg_type T i).
+    Context (Rs : jdg_types T).
+    Let R := (jdg_at Rs).
     Context (hfacts : facts R).
-    Context obs (hok : obls_ok obs) (hobls : obligations R obs).
+    Context obs (hok : obls_ok obs) (hobls : obligations Rs obs).
 
     Let hsound : sound_jdg R := facts_sound R hfacts.
     Let hcomplete : complete_jdg R := facts_complete R hfacts.
@@ -1489,27 +1469,32 @@ Section ConcreteFacts.
       intro t. apply rf_substitute.
     Qed.
 
-    Lemma cstyping_styping i Δ σ Γ :
-      cstyping i (R i) Δ σ Γ →
-      styping (jsig := to_jdg_sig desc) i (ctx_rf Δ) (λ k, creify (σ k)) (ctx_rf Γ).
+    Lemma cstyping_styping Δ σ Γ :
+      cstyping Rs Δ σ Γ →
+      styping (jsig := to_jdg_sig desc) (ctx_rf Δ) (λ k, creify (σ k)) (ctx_rf Γ).
     Proof.
       induction 1 as [Δ σ | Δ σ Γ d h ih hd].
       - constructor.
       - cbn. constructor. 1: exact ih.
+        intros i.
         pose proof (hsound i Δ) as hs. rewrite under_tuple_iff in hs.
-        apply hs in hd. unfold J in hd. rewrite capply_curry in hd.
+        rewrite Forall_rec_iff, Forall_forall in hd.
+        apply hs in hd. 2: eapply In_fin_all.
+        unfold J in hd. rewrite capply_curry in hd.
         unfold Pf in hd. rewrite make_nat, rf_subst_tuple in hd.
         exact hd.
     Qed.
 
-    Lemma styping_cstyping i Δ σ Γ :
-      styping (jsig := to_jdg_sig desc) i Δ σ Γ →
-      cstyping i (R i) (cmap ceval Δ) (λ i, ceval (σ i)) (cmap ceval Γ).
+    Lemma styping_cstyping Δ σ Γ :
+      styping (jsig := to_jdg_sig desc) Δ σ Γ →
+      cstyping Rs (cmap ceval Δ) (λ i, ceval (σ i)) (cmap ceval Γ).
     Proof.
-      induction 1 as [i Δ σ | i Δ σ Γ d h ih hd].
+      induction 1 as [Δ σ | Δ σ Γ d h ih hd].
       - constructor.
       - cbn. constructor. 1: exact ih.
-        apply hcomplete in hd.
+        rewrite Forall_rec_iff, Forall_forall.
+        intros i hin.
+        specialize (hd i). apply hcomplete in hd.
         unfold fmap, Sig_FMapDecl, FMap_tuple in hd.
         unfold make_jdg, Sig_IMakeJdg in hd.
         rewrite make_nat in hd. rewrite tuple_map_comp in hd.
@@ -1559,36 +1544,9 @@ Section ConcreteFacts.
         intros Γ m m' h hm.
         unfold ev_vals in *. erewrite <- ev_vs_ext. 1: exact h.
         apply hm.
-      - intros i r x hr n i' conv Δ j hP. cbn in hr.
-        apply in_to_rules_inv in hr as (rd & hr & ->).
-        cbn in hP. rewrite in_map_iff in hP.
-        destruct hP as (pd & e & ?).
-        destruct pd as [i'' n' Δ' j' |]. 2: discriminate.
-        noconf e.
-        intros X Y f d. reflexivity.
-      - intros i r x hr n i' conv Δ j hP. cbn in hr.
-        apply in_to_rules_inv in hr as (rd & hr & ->).
-        cbn in hP. rewrite in_map_iff in hP.
-        destruct hP as (pd & e & hin).
-        destruct pd as [i'' n' Δ' j' |]. 2: discriminate.
-        noconf e.
-        intros Γ d t h. rewrite map_id.
-        apply In_nth_error in hin as [k hk].
-        apply In_nth_error in hr as [ri hr].
-        pose proof (make_obligation_at _ _ _ _ _ _ _ _ _ _ _ hok hobls hr hk)
-        as ho.
-        apply hcomplete in h.
-        unfold fmap, Sig_FMapJdg, FMap_tuple, make_jdg, Sig_IMakeJdg in h.
-        rewrite make_nat in h. apply ho in h.
-        pose proof (hsound i' (cmap ceval Γ)) as hs.
-        rewrite under_tuple_iff in hs. apply hs in h.
-        unfold J in h. rewrite capply_curry in h. unfold Pf in h.
-        rewrite rf_ev_ctx, make_nat, rf_ev in h.
-        erewrite tuple_map_comp_ext in h. 2:{ intro. apply rf_ev. }
-        rewrite tuple_map_id in h. exact h.
     Qed.
 
-    Theorem gen_preserve_subst i : preserve_subst_jdg R i.
+    Theorem gen_preserve_subst i : preserve_subst_jdg Rs i.
     Proof.
       intros Γ Δ σ.
       rewrite under_tuple_iff. intros j hj hs.

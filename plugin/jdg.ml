@@ -111,7 +111,8 @@ type desc = {
 type family = {
   f_transparent : Names.Constant.t list ;
   f_mind : Names.MutInd.t ;
-  f_r : EConstr.t
+  f_r : EConstr.t ; (* [R] *)
+  f_rs : EConstr.t (* [Rs], the packed version *)
 }
 
 (** The indices of the judgments, as integers and as terms *)
@@ -249,10 +250,12 @@ let declare_inductives (d : desc) : family =
   let mind =
     monad_run (declare_mut_ind d.d_names arities ctor_names ctor_types)
   in
+  let r = List.map (fun k -> mkind (mind, k)) (indices d) in
   {
     f_transparent = transparent ;
     f_mind = mind ;
-    f_r = family (List.map (fun k -> mkind (mind, k)) (indices d))
+    f_r = family r ;
+    f_rs = tuple (List.combine r arities)
   }
 
 (** The induction principle of the family, over a family of motives [P i]: the
@@ -306,13 +309,11 @@ let facts_lemma (d : desc) (f : family) : Names.Constant.t =
       (dispatch (fun k -> Tactics.exact_no_check (List.nth leaves k)))
   )
 
-(** The obligations, located in the description: [ob_pred j r i] for the
-  predicate premise [i] of rule [r] of judgment [j], [ob_make i i'] for a
-  pair of judgments where a rule of [i] has a premise in [i']; and their list
-  as a term, which only depends on the shapes. *)
+(** The obligations, located in the description:
+  [ob_pred j r i] for the predicate premise [i] of rule [r] of judgment [j];
+  and their list as a term, which only depends on the shapes. *)
 type obligations = {
   o_preds : (int * int * grule * int) list ;
-  o_pairs : (int * int) list ;
   o_term : EConstr.t
 }
 
@@ -329,27 +330,12 @@ let obligations (d : desc) : obligations =
     ) d.d_rules
     |> List.concat
   in
-  let o_pairs =
-    List.mapi (fun j rs ->
-      List.concat_map (fun rd ->
-        List.filter_map (fun p ->
-          match p with
-          | Some i when i <> j -> Some (j,i)
-          | _ -> None
-        ) rd.gr_prems
-      ) rs
-    ) d.d_rules
-    |> List.concat
-    |> List.sort_uniq compare
-  in
   let obs =
     List.map (fun (j, r, _, i) ->
       apps (mkglob' C.Jdg.ob_pred) [| d.d_sh ; idx d j ; mknat r ; mknat i |])
-      o_preds @
-    List.map (fun (i, i') ->
-      apps (mkglob' C.Jdg.ob_make) [| d.d_sh ; idx d i ; idx d i' |]) o_pairs
+      o_preds
   in
-  { o_preds ; o_pairs ; o_term = mklist (app (mkglob' C.Jdg.ob) d.d_sh) obs }
+  { o_preds ; o_term = mklist (app (mkglob' C.Jdg.ob) d.d_sh) obs }
 
 (** [R_obligations : Prop], the conjunction of the obligations, reduced (with
   the description unfolded), the obligation of a predicate premise under the
@@ -357,7 +343,7 @@ let obligations (d : desc) : obligations =
   an instance. None when there is no obligation. *)
 let obligations_class (d : desc) (f : family) (o : obligations) :
   Names.Constant.t option =
-  if o.o_preds = [] && o.o_pairs = [] then None
+  if o.o_preds = [] then None
   else begin
     let rename_obls (t : EConstr.t) : EConstr.t m =
       let* sigma = get_sigma in
@@ -378,8 +364,7 @@ let obligations_class (d : desc) (f : family) (o : obligations) :
           | _ -> ret t
       in
       go t (
-        List.map (fun (_, _, rd, _) -> Some rd.gr_binders) o.o_preds @
-        List.map (fun _ -> None) o.o_pairs
+        List.map (fun (_, _, rd, _) -> Some rd.gr_binders) o.o_preds
       )
     in
     let cls =
@@ -387,7 +372,7 @@ let obligations_class (d : desc) (f : family) (o : obligations) :
         let* desc_const = head_const d.d_term in
         let* t =
           reduce (Option.List.cons desc_const f.f_transparent)
-            (apps (jdg d C.Jdg.obligations) [| d.d_term ; f.f_r ; o.o_term |])
+            (apps (jdg d C.Jdg.obligations) [| d.d_term ; f.f_rs ; o.o_term |])
         in
         rename_obls t
       end
@@ -397,7 +382,7 @@ let obligations_class (d : desc) (f : family) (o : obligations) :
   end
 
 (** [R_obls_wf] checks the list of obligations by computation, then
-  [R_subst : ∀ {H : R_obligations}, preserve_subst_jdg R i] for every
+  [R_subst : ∀ {H : R_obligations}, preserve_subst_jdg Rs i] for every
   judgment, which finds the instance by resolution. *)
 let subst_lemmas (d : desc) (f : family) ~facts : unit =
   let o = obligations d in
@@ -417,11 +402,11 @@ let subst_lemmas (d : desc) (f : family) ~facts : unit =
           [ C.Jdg.preserve_subst_jdg ; C.CS.csubstitute ])
     in
     reduce (extra @ f.f_transparent)
-      (apps (jdg d C.Jdg.preserve_subst_jdg) [| f.f_r ; idx d k |])
+      (apps (jdg d C.Jdg.preserve_subst_jdg) [| f.f_rs ; idx d k |])
   in
   let proof h k =
     apps (jdg d C.Jdg.gen_preserve_subst) [|
-      d.d_term ; d.d_cl ; f.f_r ; mkconst facts ; obs ;
+      d.d_term ; d.d_cl ; f.f_rs ; mkconst facts ; obs ;
       mkconst ok ; h ; idx d k
     |]
   in
@@ -429,8 +414,11 @@ let subst_lemmas (d : desc) (f : family) ~facts : unit =
     let name = Names.Id.to_string name ^ "_subst" in
     match cls with
     | None ->
-      ignore (lemma name (stmt k)
-        (Tactics.exact_no_check (proof (mkglob (Rocqlib.lib_ref "core.True.I")) k)))
+      ignore @@
+      lemma name (stmt k) (
+        Tactics.exact_no_check @@
+        proof (mkglob (Rocqlib.lib_ref "core.True.I")) k
+      )
     | Some cls ->
       let subst =
         lemma name

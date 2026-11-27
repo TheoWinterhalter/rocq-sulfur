@@ -36,3 +36,10 @@ with j2 : tm → tm → tm → Prop
   {{ List.length Δ = 1 }}
   ──────────────────
   j2 t t A.
+
+Instance: j1_obligations.
+Proof.
+  red.
+  intuition eauto.
+  (* Not provable, but that is expected! *)
+Abort.
