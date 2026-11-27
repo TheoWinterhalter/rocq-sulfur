@@ -3,6 +3,8 @@ From Sulfur Require Import Prelude Sig Renamings.
 From Sulfur Require Import ParamSyntax.
 Module P := ParamSyntax.
 
+Set Default Goal Selector "!".
+
 Section WithSignature.
   Context {sig : signature}.
 
@@ -75,19 +77,20 @@ Section WithSignature.
 
     Fixpoint mexpr_ind k s (t : mexpr k s) {struct t} : P k s t.
     Proof.
-    destruct t.
-    - apply H_var.
-    - apply H_ctor. apply mexpr_ind.
-    - apply H_al_nil.
-    - apply H_al_cons ; apply mexpr_ind.
-    - apply H_abase.
-    - apply H_aterm. apply mexpr_ind.
-    - apply H_abind. apply mexpr_ind.
-    - apply H_mvar.
-      (* I have to make an induction on σ, otherwise the Guard condition does not work. With the induction on σ, we are sure that the recursive calls are made on elements of σ, i.e. subterms *)
-      induction σ.
-      + apply Forall_nil.
-      + apply Forall_cons. apply mexpr_ind. apply IHσ.
+      destruct t.
+      - apply H_var.
+      - apply H_ctor. apply mexpr_ind.
+      - apply H_al_nil.
+      - apply H_al_cons ; apply mexpr_ind.
+      - apply H_abase.
+      - apply H_aterm. apply mexpr_ind.
+      - apply H_abind. apply mexpr_ind.
+      - apply H_mvar.
+        induction σ.
+        + apply Forall_nil.
+        + apply Forall_cons.
+          * apply mexpr_ind.
+          * apply IHσ.
     Qed.
 
   End MExprInd.
@@ -146,11 +149,14 @@ Section WithSignature.
       intros m m' Hm t' t Ht. subst.
       induction t in m, m', Hm |- *; simpl in *; intros.
       - reflexivity.
-      - erewrite IHt. reflexivity. assumption.
+      - erewrite IHt.
+        + reflexivity.
+        + assumption.
       - reflexivity.
-      - erewrite IHt1, IHt2. reflexivity. assumption. assumption.
+      - erewrite IHt1, IHt2. 1: reflexivity.
+        all: assumption.
       - reflexivity.
-      - erewrite IHt. reflexivity. assumption.
+      - erewrite IHt. 1: reflexivity. assumption.
       - f_equal. apply IHt. setoid_rewrite Hm. reflexivity.
       - rewrite Hm.
         apply substitute_proper. 2: reflexivity.
@@ -198,7 +204,9 @@ Section WithSignature.
     Lemma inst_length {s n} (Γ : mctx s n) :
       ∀ m, n = Datatypes.length (inst_ctx m Γ).
     Proof.
-      induction Γ; intros; simpl. reflexivity. f_equal. apply IHΓ.
+      induction Γ; intros; simpl.
+      - reflexivity.
+      - f_equal. apply IHΓ.
     Qed.
 
     Equations rename_ctx (ρ : ren) (Γ : ctx) : ctx :=
@@ -217,19 +225,22 @@ Section WithSignature.
     Proof.
       intro. induction k in i, H |- *; simpl.
       - lia.
-      - destruct i as [|i]. simpl. reflexivity.
-        simpl. unfold srcomp, rshift. rewrite IHk. reflexivity. lia.
+      - destruct i as [|i].
+        + simpl. reflexivity.
+        + simpl. unfold srcomp, rshift. rewrite IHk. 2: lia.
+          reflexivity.
     Qed.
 
     Lemma up_substs_gt (i k : nat) (σ : subst) :
       i >= k → up_substs k σ i = rename (λ i, i + k) (σ (i - k)).
     Proof.
       induction k in i |- *; intros; simpl.
-      - transitivity (σ (i - 0)).
-        assert (i = i - 0) by lia. rewrite H0 at 1. reflexivity.
-        etransitivity. symmetry. apply ren_rid.
-        apply rename_proper. 2: reflexivity. intro. unfold rid. lia.
-      - destruct i as [|i]; simpl. lia.
+      - transitivity (σ (i - 0)). 1:{ f_equal. lia. }
+        etransitivity.
+        + symmetry. apply ren_rid.
+        + apply rename_proper. 2: reflexivity.
+          intro. unfold rid. lia.
+      - destruct i as [|i]; simpl. 1: lia.
         unfold srcomp, rshift. rewrite IHk. 2: lia.
         rewrite ren_ren. apply rename_proper. 2: reflexivity.
         unfold rcomp. intro. lia.
@@ -238,8 +249,9 @@ Section WithSignature.
     Lemma up_substs_add n m σ :
       up_substs n (up_substs m σ) =₁ up_substs (n + m) σ.
     Proof.
-      induction n; simpl. reflexivity.
-      apply up_subst_proper. assumption.
+      induction n; simpl.
+      - reflexivity.
+      - apply up_subst_proper. assumption.
     Qed.
 
     Equations subst_ctx (σ : subst) (Γ : ctx) : ctx :=
@@ -495,8 +507,8 @@ Section WithSignature.
     Proof.
       intros Δ' Δ HΔ ρ ρ' Hρ Γ' Γ HΓ H; subst.
       induction H in ρ', Hρ |- *; intros; constructor.
-      - apply IHrtyping. apply congr_rcomp. reflexivity. assumption.
-      - rewrite <- Hρ. eapply conv_in_d. apply H0.
+      - apply IHrtyping. apply congr_rcomp. 1: reflexivity. assumption.
+      - rewrite <- Hρ. eapply conv_in_d. 1: apply H0.
         apply rew_eq1. intro t.
         apply rename_proper. 2: reflexivity.
         unfold rcomp, rshift. intro. apply Hρ.
@@ -518,12 +530,14 @@ Section WithSignature.
       intros HΓ Hρ. induction HΓ in Δ, ρ, Hρ |- *; intros;
       depelim Hρ.
       - rewrite func_comp.
-        eapply conv_in_d. apply H.
+        eapply conv_in_d. 1: apply H.
         apply rew_eq1. intro t. rewrite ren_ren. reflexivity.
-      - eapply conv_in_d. eapply conv_in_n.
-        apply IHHΓ. apply Hρ. reflexivity.
-        rewrite func_comp. apply rew_eq1.
-        intro t. rewrite ren_ren. reflexivity.
+      - eapply conv_in_d.
+        + eapply conv_in_n.
+          * apply IHHΓ. apply Hρ.
+          * reflexivity.
+        + rewrite func_comp. apply rew_eq1.
+          intro t. rewrite ren_ren. reflexivity.
     Qed.
 
     Lemma rtyping_comp Γ Δ Θ ρ ρ' :
@@ -532,12 +546,14 @@ Section WithSignature.
       Θ ⊢r rcomp ρ ρ' : Γ.
     Proof.
       intros Hρ Hρ'. induction Hρ in Θ, ρ', Hρ' |- *; intros; constructor.
-      - eapply rtyping_proper. reflexivity. 2: reflexivity.
-        apply rcomp_assoc. apply IHHρ. assumption.
+      - eapply rtyping_proper. 1: reflexivity. 2: reflexivity.
+        + apply rcomp_assoc.
+        + apply IHHρ. assumption.
       - eapply conv_in_d.
-        unfold rcomp. eapply rename_in. apply H. assumption.
-        rewrite func_comp. apply rew_eq1. intro.
-        rewrite ren_ren, rcomp_assoc. reflexivity.
+        + unfold rcomp. eapply rename_in. 1: apply H.
+          assumption.
+        + rewrite func_comp. apply rew_eq1. intro.
+          rewrite ren_ren, rcomp_assoc. reflexivity.
     Qed.
 
     Lemma weaken_rtyping Γ ρ Δ A :
@@ -546,9 +562,10 @@ Section WithSignature.
     Proof.
       intros Hρ. induction Hρ in A |- *; intros; constructor.
       - apply IHHρ.
-      - eapply conv_in_d. constructor. apply H.
-        rewrite func_comp. apply rew_eq1. intro.
-        rewrite ren_ren, rcomp_assoc. reflexivity.
+      - eapply conv_in_d.
+        + constructor. apply H.
+        + rewrite func_comp. apply rew_eq1. intro.
+          rewrite ren_ren, rcomp_assoc. reflexivity.
     Qed.
 
     Lemma up_rtyping Γ ρ Δ d :
@@ -557,9 +574,10 @@ Section WithSignature.
     Proof.
       intros Hρ. constructor.
       - apply weaken_rtyping. assumption.
-      - eapply conv_in_d. simpl. constructor.
-        rewrite func_comp. apply rew_eq1. intro.
-        rewrite ren_ren. reflexivity.
+      - eapply conv_in_d.
+        + simpl. constructor.
+        + rewrite func_comp. apply rew_eq1. intro.
+          rewrite ren_ren. reflexivity.
     Qed.
 
     Corollary up_rtyping_n Γ ρ Δ Θ :
@@ -575,7 +593,7 @@ Section WithSignature.
     Lemma id_rtyping Γ :
       Γ ⊢r rid : Γ.
     Proof.
-      induction Γ. constructor.
+      induction Γ. 1: constructor.
       replace a with (fmap _ (rename rid) a) at 1.
       2: {
         rewrite <- func_id. apply rew_eq1. intro. apply ren_rid.
@@ -608,13 +626,17 @@ Section WithSignature.
             + rewrite <- inst_length. reflexivity.
           - (* Predicate premise *)
             intros.
-            eapply HRenSig. apply H. apply H3. apply Hρ. apply H2. apply H3.
+            eapply HRenSig.
+            + apply H.
+            + apply H3.
+            + apply Hρ.
+            + apply H2. apply H3.
         }
         rewrite closed_jdg_rename_inst. reflexivity.
       (* Case of a variable *)
       - unfold rename_jdg.
         rewrite naturality_prod.
-        constructor. eapply rename_in. apply H. assumption.
+        constructor. eapply rename_in. all: eassumption.
     Qed.
 
     Corollary weaken_typing i Γ j A :
@@ -622,7 +644,7 @@ Section WithSignature.
       A::Γ ⊢(i) rename_jdg rshift j.
     Proof.
       intro.
-      eapply preserve_renaming. apply H.
+      eapply preserve_renaming. 1: apply H.
       apply weaken_rtyping. apply id_rtyping.
     Qed.
 
@@ -645,24 +667,27 @@ Section WithSignature.
       induction t in r |- *; simpl;
       rewrite ?IHt, ?IHt1, ?IHt2; try reflexivity.
       f_equal. apply substitute_proper. 2: reflexivity.
-      intros [|n]; simpl. reflexivity.
+      intros [|n]; simpl. 1: reflexivity.
       unfold rcomp, rshift, srcomp. simpl. reflexivity.
     Qed.
+
     Corollary ren_is_subst_jdg {i} r (t : jdg (jdgF i)) :
       rename_jdg r t = substitute_jdg (ren_to_subst r) t.
     Proof.
       unfold rename_jdg, substitute_jdg. apply (rew_eq1(F:=jdgF i)).
       intro. apply ren_is_subst.
     Qed.
+
     Lemma ren_to_subst_up_rens n ρ :
       ren_to_subst (up_rens n ρ) =₁ up_substs n (ren_to_subst ρ).
     Proof.
       intro k. induction n in ρ, k |- *; simpl.
-      reflexivity.
+      1: reflexivity.
       unfold ren_to_subst, up_subst. unfold scons. destruct k as [|k].
-      simpl. reflexivity. simpl. unfold srcomp, rshift.
-      etransitivity. 2: {eapply rename_proper. reflexivity. apply IHn. }
-      reflexivity.
+      - simpl. reflexivity.
+      - simpl. unfold srcomp, rshift.
+        etransitivity. 2: {eapply rename_proper. 1: reflexivity. apply IHn. }
+        reflexivity.
     Qed.
 
     (** Commutation lemmas between substitution and instantiation **)
@@ -774,9 +799,10 @@ Section WithSignature.
     Proof.
       intro Hρ. induction Hρ.
       - constructor.
-      - constructor. apply IHHρ.
-        constructor. eapply conv_in_d. apply H.
-        apply rew_eq1. intro. apply ren_is_subst.
+      - constructor. 1: apply IHHρ.
+        constructor. eapply conv_in_d.
+        + apply H.
+        + apply rew_eq1. intro. apply ren_is_subst.
     Qed.
 
     Class SubstJSig := {
@@ -803,11 +829,16 @@ Section WithSignature.
       intro H.
       constructor.
       intros.
-      eapply prem_pred_ext. apply H0. apply H1.
-      2: {intros k s. rewrite <- ren_is_subst. reflexivity. }
-      eapply prem_pred_ext. apply H0. apply H1.
-      2: {intros k s. etransitivity. 2: rewrite ren_to_subst_up_rens; reflexivity. reflexivity. }
-      eapply prem_subst. apply H0. apply H1. 2: apply H3.
+      eapply prem_pred_ext.
+      1,2: eassumption.
+      2:{ intros k s. rewrite <- ren_is_subst. reflexivity. }
+      eapply prem_pred_ext. 1,2: eassumption.
+      2:{
+        intros k s. etransitivity.
+        2: rewrite ren_to_subst_up_rens ; reflexivity.
+        reflexivity.
+      }
+      eapply prem_subst. 1,2: eassumption. 2: apply H3.
       apply ren_to_subst_typing. assumption.
     Qed.
 
@@ -817,12 +848,13 @@ Section WithSignature.
     Proof.
       intros Δ' Δ HΔ σ σ' Hσ Γ' Γ HΓ H; subst.
       induction H in σ', Hσ |- *; intros; constructor.
-      - apply IHstyping. apply rscomp_proper. reflexivity. assumption.
+      - apply IHstyping. apply rscomp_proper. 1: reflexivity. assumption.
       - intros i. eapply conv_proof_j.
-        apply H0.
-        f_equal. 2: apply Hσ.
-        apply rew_eq1. intros. intro. apply substitute_proper. 2: reflexivity.
-        intro. apply Hσ.
+        + apply H0.
+        + f_equal. 2: apply Hσ.
+          apply rew_eq1. intros. intro.
+          apply substitute_proper. 2: reflexivity.
+          intro. apply Hσ.
     Qed.
 
     Lemma conv_stype_s Δ σ σ' Γ :
@@ -841,12 +873,13 @@ Section WithSignature.
       intros HΓ Hσ. induction HΓ in Δ, σ, Hσ |- *; intros;
       depelim Hσ; subst.
       - rewrite func_comp.
-        eapply conv_proof_j. apply H.
+        eapply conv_proof_j. 1: apply H.
         f_equal. apply rew_eq1. intro.
         rewrite subst_ren. reflexivity.
-      - eapply conv_proof_j. apply IHHΓ. apply Hσ.
-        rewrite func_comp. f_equal. apply rew_eq1. intro.
-        rewrite subst_ren. reflexivity.
+      - eapply conv_proof_j.
+        + apply IHHΓ. apply Hσ.
+        + rewrite func_comp. f_equal. apply rew_eq1. intro.
+          rewrite subst_ren. reflexivity.
     Qed.
 
     Context `{HSubstSig : SubstJSig}.
@@ -857,11 +890,12 @@ Section WithSignature.
     Proof.
       intros Hσ. induction Hσ in d |- *; intros; constructor.
       - apply IHHσ.
-      - intros i. eapply conv_proof_j. apply weaken_typing. apply H.
-        simpl. unfold rename_jdg.
-        rewrite naturality_prod. f_equal.
-        rewrite func_comp. apply rew_eq1. intro.
-        rewrite ren_subst. reflexivity.
+      - intros i. eapply conv_proof_j.
+        + apply weaken_typing. apply H.
+        + simpl. unfold rename_jdg.
+          rewrite naturality_prod. f_equal.
+          rewrite func_comp. apply rew_eq1. intro.
+          rewrite ren_subst. reflexivity.
     Qed.
 
     Lemma up_styping Γ σ Δ d :
@@ -871,9 +905,10 @@ Section WithSignature.
       intros Hσ. constructor.
       - apply weaken_styping. assumption.
       - simpl. constructor.
-        eapply conv_in_d. constructor.
-        rewrite func_comp.
-        apply rew_eq1. intro. rewrite ren_subst. reflexivity.
+        eapply conv_in_d.
+        + constructor.
+        + rewrite func_comp.
+          apply rew_eq1. intro. rewrite ren_subst. reflexivity.
     Qed.
 
     Corollary up_styping_n Γ σ Δ Θ :
@@ -889,7 +924,7 @@ Section WithSignature.
     Lemma id_styping Γ :
       Γ ⊢s sid : Γ.
     Proof.
-      induction Γ. constructor.
+      induction Γ. 1: constructor.
       replace a with (fmap _ (substitute sid) a) at 1.
       2: {
         rewrite <- func_id. apply rew_eq1. intro. apply subst_sid.
@@ -907,25 +942,27 @@ Section WithSignature.
       (* Case of an inductive/predicate premise *)
       - (* We apply rule [r x] *)
         eapply conv_proof_j.
-        unshelve econstructor.
-        shelve.
-        exact r. exact x.
-        assumption.
+        1: unshelve econstructor.
+        1: shelve.
+        1: exact r. 1: exact x.
+        1: assumption.
         3: {symmetry. apply closed_jdg_substitute_inst. }
         + (* Inductive premise *)
           intros.
-          rewrite <- scoped_jdg_substitute_inst. eapply H1. apply H3.
+          rewrite <- scoped_jdg_substitute_inst. eapply H1. 1: apply H3.
           rewrite <- scoped_ctx_substitute_inst. simpl.
           eapply conv_styping.
-          eapply up_styping_n. assumption.
-          f_equal. symmetry. apply inst_length.
+          * eapply up_styping_n. assumption.
+          * f_equal. symmetry. apply inst_length.
         + (* Predicate premise *)
           intros.
-          eapply HSubstSig. apply H. apply H3. apply Hσ. apply H2. assumption.
+          eapply HSubstSig. 1: apply H. 1: apply H3. 1: apply Hσ.
+          apply H2. assumption.
       (* Case of a variable *)
       - unfold substitute_jdg.
         rewrite naturality_prod.
-        eapply substitute_in. apply H. assumption.
+        eapply substitute_in. 1: apply H.
+        assumption.
     Qed.
 
   End Substitutions.
