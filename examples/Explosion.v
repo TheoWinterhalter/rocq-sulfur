@@ -1,13 +1,13 @@
-(** MLTT with "conversion explosion": in an inconsistent 
-    context, all terms become convertible to an untyped 
-    term tDummy. This is an example that couldn't be 
-    handled by the old setup, in which every judgement 
-    had its own notion of substitution, as this required 
+(** MLTT with "conversion explosion": in an inconsistent
+    context, all terms become convertible to an untyped
+    term tDummy. This is an example that couldn't be
+    handled by the old setup, in which every judgement
+    had its own notion of substitution, as this required
     showing that conv t t A implied typing t A for all t,A *)
 
 From Stdlib Require Import Utf8.
 From Sulfur Require Import Prelude Sig Renamings All.
-From Sulfur Require Import ParamSyntax JudgmentSyntaxScoped.
+From Sulfur Require Import ParamSyntax Judgments.
 From Sulfur Require Import ConcreteSyntax JdgDesc.
 
 Sulfur Syntax tm :=
@@ -22,7 +22,7 @@ Sulfur Judgment conv : tm → tm → tm → Prop
   with context Γ of tm
   and variable x A ↦ conv x x A
 :=
-| explosion t a A : 
+| explosion t a A :
     typing t tFalse ;
     typing a A
     ────────────────────────────────────
