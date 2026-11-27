@@ -39,7 +39,10 @@ Section WithSignature.
   | (** Empty argument list. *)
     M_al_nil scope : mexpr (Kal []) scope
   | (** Non-empty argument list. *)
-    M_al_cons scope {ty tys} : mexpr (Ka ty) scope → mexpr (Kal tys) scope → mexpr (Kal (ty :: tys)) scope
+    M_al_cons scope {ty tys} :
+    mexpr (Ka ty) scope →
+    mexpr (Kal tys) scope →
+    mexpr (Kal (ty :: tys)) scope
   | (** Base argument (e.g. bool or string). *)
     M_abase scope : ∀ b, eval_base b → mexpr (Ka (AT_base b)) scope
   | (** Term argument. *)
@@ -60,16 +63,21 @@ Section WithSignature.
 
   (** Better induction scheme for [mexpr] **)
   Section MExprInd.
+
     Context (P : ∀ k s, mexpr k s → Prop).
 
     Context (H_var : ∀ s i (Hsi : i < s), P _ _ (M_var s i Hsi)).
     Context (H_ctor : ∀ s c al, P _ _ al → P _ _ (M_ctor s c al)).
     Context (H_al_nil : ∀ s, P _ _ (M_al_nil s)).
-    Context (H_al_cons : ∀ s ty tys (a : mexpr (Ka ty) _) (al : mexpr (Kal tys) _),
-      P _ _ a → P _ _ al → P _ _ (M_al_cons s a al)).
+    Context (H_al_cons :
+      ∀ s ty tys (a : mexpr (Ka ty) _) (al : mexpr (Kal tys) _),
+        P _ _ a → P _ _ al → P _ _ (M_al_cons s a al)
+    ).
     Context (H_abase : ∀ s b x, P _ _ (M_abase s b x)).
     Context (H_aterm : ∀ s t, P _ _ t → P _ _ (M_aterm s t)).
-    Context (H_abind : ∀ s ty (a : mexpr (Ka ty) _), P _ _ a → P _ _ (M_abind s a)).
+    Context (H_abind :
+      ∀ s ty (a : mexpr (Ka ty) _), P _ _ a → P _ _ (M_abind s a)
+    ).
     Context (H_mvar : ∀ s k σ,
       Forall (P _ s) σ →
       P _ _ (M_mvar s k σ)
@@ -99,43 +107,51 @@ Section WithSignature.
 
   (** Utils for meta variables **)
   Section UtilsMvar.
+
     #[refine] Definition var n : mterm (S n) := M_var _ n _.
     Proof. lia. Defined.
+
   End UtilsMvar.
 
   (** Instantiation of an expression with meta variables into expressions without **)
   Section Instantiation.
+
     Definition menv := mvar → nat → P.expr Kt.
     Definition default_menv : menv := λ k _, E_var k.
 
     Equations inst {s k} (m : menv) (t : mexpr k s) : P.expr k :=
-    inst m (M_var _ i _) := E_var i ;
-    inst m (M_ctor _ c al) := E_ctor c (inst m al) ;
-    inst m (M_al_nil _) := E_al_nil ;
-    inst m (M_al_cons _ a al) := E_al_cons (inst m a) (inst m al) ;
-    inst m (M_abase _ b x) := E_abase b x ;
-    inst m (M_aterm _ t) := E_aterm (inst m t) ;
+      inst m (M_var _ i _) := E_var i ;
+      inst m (M_ctor _ c al) := E_ctor c (inst m al) ;
+      inst m (M_al_nil _) := E_al_nil ;
+      inst m (M_al_cons _ a al) := E_al_cons (inst m a) (inst m al) ;
+      inst m (M_abase _ b x) := E_abase b x ;
+      inst m (M_aterm _ t) := E_aterm (inst m t) ;
 
-    inst m (M_abind _ a) :=
-      (* We don't shift anything ; it is dealt with when instantiating a meta variable *)
-      E_abind (inst m a);
-    inst m (M_mvar _ k σ) :=
-      (* Again, I need this so that Rocq knows that the recursive call is made on elements of σ *)
-      let ev_σ := map (inst m) σ in
-      substitute
-        (λ i,
-          match nth_error ev_σ i with
-          | Some t => t
-          (* [- List.length σ] shifts the indexes to take into account the substitution *)
-            (* [+ s] takes into account the scope, "the number of lambdas we are under" *)
-          | None => E_var (i - List.length σ + s)
-          end
-        )
-        (m k (List.length σ)).
+      inst m (M_abind _ a) :=
+        (* We don't shift anything ;
+          it is dealt with when instantiating a meta variable *)
+        E_abind (inst m a);
+      inst m (M_mvar _ k σ) :=
+        (* Again, I need this so that Rocq knows that the recursive call is
+          made on elements of σ *)
+        let ev_σ := map (inst m) σ in
+        substitute
+          (λ i,
+            match nth_error ev_σ i with
+            | Some t => t
+            (* [- List.length σ] shifts the indexes to take into account the
+              substitution *)
+              (* [+ s] takes into account the scope,
+                "the number of lambdas we are under" *)
+            | None => E_var (i - List.length σ + s)
+            end
+          )
+          (m k (List.length σ)).
 
     Lemma map_proper :
-      ∀ X Y (l : list X) (f g : X → Y), (Forall (λ t : X, f t = g t) l) →
-      map f l = map g l.
+      ∀ X Y (l : list X) (f g : X → Y),
+        (Forall (λ t : X, f t = g t) l) →
+        map f l = map g l.
     Proof.
       intros X Y l. induction l; intros.
       - reflexivity.
@@ -175,15 +191,19 @@ Section WithSignature.
       intros Hm k s t.
       rewrite Hm. reflexivity.
     Qed.
+
   End Instantiation.
+
   Notation "f =₂ g" := (eq2 f g) (at level 75).
 
   (** Definitions of contexts **)
   (* Functor of declarations that will be stored in contexts *)
   Section Contexts.
+
     Context (declF : Type → Type)
     `{HFmapDecl : FMap declF}
     `{Hdecl : !Eq1Functor declF}.
+
     Definition mdecl (s : nat) := declF (mterm s).
 
     Inductive mctx (scope : nat) | : nat → Type :=
@@ -191,14 +211,15 @@ Section WithSignature.
     | mcons {n : nat}
       (d : mdecl (n+scope)) (Γ : mctx n) :
       mctx (S n).
+
     Arguments mnil {scope}.
     Arguments mcons {scope}.
 
     Definition ctx := list (declF term).
 
     Equations inst_ctx {s n} (m : menv) (Γ : mctx s n) : ctx :=
-    inst_ctx m mnil := [] ;
-    inst_ctx m (mcons d Γ) := (fmap declF (inst m) d)::(inst_ctx m Γ).
+      inst_ctx m mnil := [] ;
+      inst_ctx m (mcons d Γ) := (fmap declF (inst m) d)::(inst_ctx m Γ).
 
     (** Instantiation preserves length **)
     Lemma inst_length {s n} (Γ : mctx s n) :
@@ -210,15 +231,15 @@ Section WithSignature.
     Qed.
 
     Equations rename_ctx (ρ : ren) (Γ : ctx) : ctx :=
-    rename_ctx ρ [] => [] ;
-    rename_ctx ρ (d::Γ) =>
-      fmap _ (rename (up_rens (Datatypes.length Γ) ρ)) d ::
-      rename_ctx ρ Γ.
+      rename_ctx ρ [] => [] ;
+      rename_ctx ρ (d::Γ) =>
+        fmap _ (rename (up_rens (Datatypes.length Γ) ρ)) d ::
+        rename_ctx ρ Γ.
 
     (* TODO : should be moved in ParamSyntax *)
     Equations up_substs (k : nat) (σ : subst) : subst :=
-    up_substs 0 σ := σ ;
-    up_substs (S k) σ := up_subst (up_substs k σ).
+      up_substs 0 σ := σ ;
+      up_substs (S k) σ := up_subst (up_substs k σ).
 
     Lemma up_substs_lt (i k : nat) (σ : subst) :
       i < k → up_substs k σ i = E_var i.
@@ -255,10 +276,10 @@ Section WithSignature.
     Qed.
 
     Equations subst_ctx (σ : subst) (Γ : ctx) : ctx :=
-    subst_ctx σ [] => [] ;
-    subst_ctx σ (d :: Γ) =>
-      fmap _ (substitute (up_substs (Datatypes.length Γ) σ)) d ::
-      subst_ctx σ Γ.
+      subst_ctx σ [] => [] ;
+      subst_ctx σ (d :: Γ) =>
+        fmap _ (substitute (up_substs (Datatypes.length Γ) σ)) d ::
+        subst_ctx σ Γ.
 
     (* Belonging to a context *)
     Reserved Notation "Γ ∋ n : d" (at level 70, n at level 50).
@@ -276,12 +297,15 @@ Section WithSignature.
       d = d' →
       Γ ∋ n : d'.
     Proof. intros; subst; assumption. Qed.
+
     Lemma conv_in_n Γ n m d :
       Γ ∋ n : d →
       n = m →
       Γ ∋ m : d.
     Proof. intros; subst; assumption. Qed.
+
   End Contexts.
+
   Arguments mnil {_ scope}.
   Arguments mcons {_ scope}.
   Arguments inctx [_] {_}.
@@ -291,10 +315,12 @@ Section WithSignature.
   Arguments subst_ctx [_] {_}.
 
   (** Definition of judgments **)
-  Section Judgments.
+  Section Jdg.
+
     Context (jdgF : Type → Type)
     `{HFmapJdg : FMap jdgF}
     `{Hjdg : !Eq1Functor jdgF}.
+
     Definition mjdg (s : nat) := jdgF (mterm s).
     Definition jdg  := jdgF term.
 
@@ -302,14 +328,18 @@ Section WithSignature.
     Definition inst_jdg {s} m : mjdg s → jdg := fmap jdgF (inst m).
     Definition rename_jdg ρ : jdg → jdg := fmap jdgF (rename ρ).
     Definition substitute_jdg σ : jdg → jdg := fmap jdgF (substitute σ).
-  End Judgments.
+
+  End Jdg.
+
   Arguments inst_jdg [_] {_ _}.
   Arguments rename_jdg [_] {_}.
   Arguments substitute_jdg [_] {_}.
 
   (** Definition of a signature of rules **)
   Class IDecl := declF : Type → Type.
+
   Class IJdg (I : Type) := jdgF : I → Type → Type.
+
   Context {I : Type} {HEqDecI : EqDec I}
     {InstIDecl : IDecl} `{InstIJdg : IJdg I}
     {FMapDeclF : FMap declF}
@@ -318,6 +348,7 @@ Section WithSignature.
     {FuncJdgF : ∀ i, Eq1Functor (jdgF i)}.
 
   Section RulesSignature.
+
     (* Contexts in premises must be closed, and judgments must be scoped by the context *)
     Variant premise (i : I) :=
     | prem_pred (P : ctx declF → menv → Prop)
@@ -335,6 +366,7 @@ Section WithSignature.
     Record jdg_sig := {
       rules : ∀ i : I, list (rule i)
     }.
+
     (* Other solution, maybe more heavy to write:
       [rules : list {param : Type & param → rule}]
       and remove [param] from [rule]
@@ -352,7 +384,8 @@ Section WithSignature.
     ∀ X, declF X → X → jdgF i X.
 
   Context {InstIMakeJdg : IMakeJdg}
-  `{NatMakeJdg : ∀ i : I, NatFromProd (make_jdg i)}.
+    `{NatMakeJdg : ∀ i : I, NatFromProd (make_jdg i)}.
+
   (* Theoretically, make_jdg is a natural transformation from (declF * Id) to jdgF *)
 
   (** Derivation with the rules of the signature **)
@@ -362,7 +395,8 @@ Section WithSignature.
 
     Inductive proof : ∀ i, ctx declF → jdg (jdgF i) → Prop :=
     (*
-      We need a context, a rule and an instanciation of this rule, that will give the conclusion
+      We need a context, a rule and an instanciation of this rule, that will
+      give the conclusion
     *)
     | step i (m : menv) (Γ : ctx declF) (r : rule i) (x : r.(param)) :
       (* The rule must be in the signature *)
@@ -405,6 +439,7 @@ Section WithSignature.
 
   (** Behaviour of renamings **)
   Section Renamings.
+
     (** Commutation between renaming and instantiation lemma **)
     Lemma scoped_rename_inst {k} (n : nat) (t : mexpr k n) m ρ :
       rename (up_rens n ρ) (inst m t) =
@@ -433,6 +468,7 @@ Section WithSignature.
           replace (i - List.length σ + s - s) with (i - List.length σ) by lia.
           f_equal. lia.
     Qed.
+
     Corollary closed_rename_inst {k} (t : mexpr k 0) :
       ∀ m ρ,
       rename ρ (inst m t) =
@@ -464,6 +500,7 @@ Section WithSignature.
       rewrite func_comp. apply (rew_eq1(F:=jdgF i)).
       intro t. apply scoped_rename_inst.
     Qed.
+
     Corollary closed_jdg_rename_inst {i} (j : mjdg (jdgF i) 0) :
       ∀ m ρ,
       rename_jdg ρ (inst_jdg m j) =
@@ -733,6 +770,7 @@ Section WithSignature.
           2: f_equal; lia.
           intro i0. unfold ren_to_subst. f_equal. lia.
     Qed.
+
     Corollary closed_substitute_inst {k} (t : mexpr k 0) :
       ∀ m σ,
       substitute σ (inst m t) =
