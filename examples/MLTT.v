@@ -16,8 +16,15 @@ Sulfur Judgment conv : tm → tm → tm → Prop
   and variable x A ↦ conv x x A
 :=
 | beta A (B b : tm → tm) u :
+    ⟨ x ↦ A ⊢ typing (b x) (B x) ⟩ ;
+    typing u A
     ────────────────────────────────────
     conv (tapp (tlam A b) u) (b u) (B u)
+
+| eta A (B : tm → tm) f :
+    typing f (tPi A B)
+    ────────────────────────────────────
+    conv f (tlam A (λ x, tapp f x)) (tPi A B)
 
 | cong_Pi (i j : nat) A A' (B B' : tm → tm) :
     conv A A' (tTy i) ;
