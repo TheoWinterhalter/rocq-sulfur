@@ -2,7 +2,7 @@
 
 From Stdlib Require Import Utf8 String.
 From Sulfur Require Import Prelude Sig Renamings All.
-From Sulfur Require Import ParamSyntax JudgmentSyntaxScoped.
+From Sulfur Require Import ParamSyntax Judgments.
 From Sulfur Require Import ConcreteSyntax JdgDesc.
 
 Sulfur Syntax term : Type :=

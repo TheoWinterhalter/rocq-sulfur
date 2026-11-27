@@ -11,7 +11,7 @@
 
 From Stdlib Require Import Utf8 String.
 From Sulfur Require Import Prelude Sig Renamings.
-From Sulfur Require Import ParamSyntax JudgmentSyntaxScoped ConcreteSyntax.
+From Sulfur Require Import ParamSyntax Judgments ConcreteSyntax.
 From Sulfur Require Import JdgShape.
 From SulfurUtils Require Import Functor Copies.
 
