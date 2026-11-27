@@ -398,7 +398,7 @@ let obligations_class (d : desc) (f : family) (o : obligations) :
   end
 
 (** [R_obls_wf] checks the list of obligations by computation, then
-  [R_subst : ∀ {H : R_obligations}, preserve_subst_jdg R i] for every
+  [R_subst : ∀ {H : R_obligations}, preserve_subst_jdg Rs i] for every
   judgment, which finds the instance by resolution. *)
 let subst_lemmas (d : desc) (f : family) ~facts : unit =
   let o = obligations d in

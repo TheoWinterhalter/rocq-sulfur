@@ -994,6 +994,12 @@ Section ConcreteFacts.
         proof (jsig := to_jdg_sig desc) i Γ j →
         capply (R i (cmap ceval Γ)) (jmap ceval j).
 
+    (** We prove now prove things about the packed version instead of [R]
+
+      The thing is that [cstyping] is otherwise very ugly to look at because
+      [R] is unfolded to a big [match].
+
+    *)
     Context (Rs : jdg_types T).
 
     Definition preserve_subst_jdg i :=
