@@ -309,13 +309,11 @@ let facts_lemma (d : desc) (f : family) : Names.Constant.t =
       (dispatch (fun k -> Tactics.exact_no_check (List.nth leaves k)))
   )
 
-(** The obligations, located in the description: [ob_pred j r i] for the
-  predicate premise [i] of rule [r] of judgment [j], [ob_make i i'] for a
-  pair of judgments where a rule of [i] has a premise in [i']; and their list
-  as a term, which only depends on the shapes. *)
+(** The obligations, located in the description:
+  [ob_pred j r i] for the predicate premise [i] of rule [r] of judgment [j];
+  and their list as a term, which only depends on the shapes. *)
 type obligations = {
   o_preds : (int * int * grule * int) list ;
-  o_pairs : (int * int) list ;
   o_term : EConstr.t
 }
 
@@ -332,25 +330,12 @@ let obligations (d : desc) : obligations =
     ) d.d_rules
     |> List.concat
   in
-  let o_pairs =
-    List.mapi (fun j rs ->
-      List.concat_map (fun rd ->
-        List.filter_map (fun p ->
-          match p with
-          | Some i when i <> j -> Some (j,i)
-          | _ -> None
-        ) rd.gr_prems
-      ) rs
-    ) d.d_rules
-    |> List.concat
-    |> List.sort_uniq compare
-  in
   let obs =
     List.map (fun (j, r, _, i) ->
       apps (mkglob' C.Jdg.ob_pred) [| d.d_sh ; idx d j ; mknat r ; mknat i |])
       o_preds
   in
-  { o_preds ; o_pairs ; o_term = mklist (app (mkglob' C.Jdg.ob) d.d_sh) obs }
+  { o_preds ; o_term = mklist (app (mkglob' C.Jdg.ob) d.d_sh) obs }
 
 (** [R_obligations : Prop], the conjunction of the obligations, reduced (with
   the description unfolded), the obligation of a predicate premise under the
@@ -358,7 +343,7 @@ let obligations (d : desc) : obligations =
   an instance. None when there is no obligation. *)
 let obligations_class (d : desc) (f : family) (o : obligations) :
   Names.Constant.t option =
-  if o.o_preds = [] && o.o_pairs = [] then None
+  if o.o_preds = [] then None
   else begin
     let rename_obls (t : EConstr.t) : EConstr.t m =
       let* sigma = get_sigma in
@@ -379,8 +364,7 @@ let obligations_class (d : desc) (f : family) (o : obligations) :
           | _ -> ret t
       in
       go t (
-        List.map (fun (_, _, rd, _) -> Some rd.gr_binders) o.o_preds @
-        List.map (fun _ -> None) o.o_pairs
+        List.map (fun (_, _, rd, _) -> Some rd.gr_binders) o.o_preds
       )
     in
     let cls =

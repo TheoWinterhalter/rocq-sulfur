@@ -85,9 +85,3 @@ with typing : tm → tm → Prop
     conv A A' (tTy i)
     ─────────────────────────────────────
     typing t A'.
-
-Instance: conv_obligations.
-Proof.
-  red.
-  constructor.
-Qed.
