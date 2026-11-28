@@ -649,16 +649,25 @@ Section ConcreteFacts.
 
   #[local] Instance Sig_FMapDecl : FMap declF :=
     FMap_tuple _.
+
   #[local] Instance Sig_FMapJdg : ∀ i : Idx, FMap (jdgF i) :=
     λ _, FMap_tuple _.
+
   #[local] Instance Sig_FuncDecl : Eq1Functor declF :=
     Eq1Functor_tuple _.
+
   #[local] Instance Sig_FuncJdg : ∀ i : Idx, Eq1Functor (jdgF i) :=
     λ _, Eq1Functor_tuple _.
+
   #[local] Instance Sig_IMakeJdg : IMakeJdg Idx :=
-    λ i X d x, make (sh_var i) d x.
+    λ i X d x, [ make (sh_var i) d x ].
+
   #[local] Instance Sig_NatMake : ∀ i : Idx, NatFromProd (make_jdg i).
-  Proof. intro i. constructor. intros. apply make_nat. Qed.
+  Proof.
+    intro i. constructor. intros. cbn.
+    unfold make_jdg, Sig_IMakeJdg. f_equal.
+    apply make_nat.
+  Qed.
 
   (* Soundness of rules *)
 
@@ -848,7 +857,9 @@ Section ConcreteFacts.
     unfold Pf.
     rewrite make_nat. rewrite rf_var.
     eapply conv_proof_j.
-    - eapply tvar. eapply cinctx_inctx. eassumption.
+    - eapply tvar.
+      + eapply cinctx_inctx. eassumption.
+      + left. reflexivity.
     - reflexivity.
   Qed.
 
@@ -1363,7 +1374,7 @@ Section ConcreteFacts.
     Theorem jdg_complete : complete_jdg R.
     Proof.
       intros i Γ j.
-      induction 1 as [i me Γ r x hin hind ih hpred | i Γ n d hd].
+      induction 1 as [i me Γ r x hin hind ih hpred | i Γ n d j hd hin].
       - cbn in hin. apply in_to_rules_inv in hin as (rd & hin & ->). cbn.
         eapply wf_desc_rule in hwf. 2: exact hin.
         eapply rules_type_rule with (Γ := cmap ceval Γ) in hrules.
@@ -1394,7 +1405,8 @@ Section ConcreteFacts.
           erewrite ev_inst_tuple in ih. 2: eassumption.
           exact ih.
         + eapply in_map in hp. specialize (hpred _ hp). assumption.
-      - unfold make_jdg, Sig_IMakeJdg. rewrite make_nat. rewrite ev_var.
+      - unfold make_jdg, Sig_IMakeJdg in hin. destruct hin as [<- | []].
+        rewrite make_nat. rewrite ev_var.
         apply var_rules_all. 1: exact hvar.
         apply inctx_cinctx. assumption.
     Qed.
@@ -1476,12 +1488,13 @@ Section ConcreteFacts.
       induction 1 as [Δ σ | Δ σ Γ d h ih hd].
       - constructor.
       - cbn. constructor. 1: exact ih.
-        intros i.
+        intros i j hj.
         pose proof (hsound i Δ) as hs. rewrite under_tuple_iff in hs.
         rewrite Forall_rec_iff, Forall_forall in hd.
         apply hs in hd. 2: eapply In_fin_all.
         unfold J in hd. rewrite capply_curry in hd.
         unfold Pf in hd. rewrite make_nat, rf_subst_tuple in hd.
+        destruct hj as [<- | []].
         exact hd.
     Qed.
 
@@ -1494,7 +1507,9 @@ Section ConcreteFacts.
       - cbn. constructor. 1: exact ih.
         rewrite Forall_rec_iff, Forall_forall.
         intros i hin.
-        specialize (hd i). apply hcomplete in hd.
+        specialize (hd i).
+        specialize hd with (1 := or_introl eq_refl).
+        apply hcomplete in hd.
         unfold fmap, Sig_FMapDecl, FMap_tuple in hd.
         unfold make_jdg, Sig_IMakeJdg in hd.
         rewrite make_nat in hd. rewrite tuple_map_comp in hd.

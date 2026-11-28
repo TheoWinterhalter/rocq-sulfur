@@ -378,13 +378,27 @@ Section WithSignature.
 
   Context {jsig : jdg_sig}.
 
+  (** Variable rules (potentially none) *)
   Class IMakeJdg :=
-    make_jdg : ∀ i : I, ∀ X, declF X → X → jdgF i X.
+    make_jdg : ∀ i : I, ∀ X, declF X → X → list (jdgF i X).
 
   Context {InstIMakeJdg : IMakeJdg}.
   Context `{NatMakeJdg : ∀ i : I, NatFromProd (make_jdg i)}.
 
   (* make_jdg is a natural transformation from (declF * Id) to jdgF *)
+
+  Lemma in_make_jdg_fmap i X Y (f : X → Y) d x j :
+    In j (make_jdg i Y (fmap declF f d) (f x)) ↔
+    ∃ j', In j' (make_jdg i X d x) ∧ j = fmap (jdgF i) f j'.
+  Proof.
+    pose proof (naturality_prod (η := make_jdg i) f d x) as e.
+    change (fmap _ f x) with (f x) in e.
+    rewrite <- e.
+    change (fmap _ f (make_jdg i X d x))
+    with (map (fmap (jdgF i) f) (make_jdg i X d x)).
+    rewrite in_map_iff.
+    firstorder eauto.
+  Qed.
 
   (** Derivation with the rules of the signature **)
   Section Derivation.
@@ -413,9 +427,10 @@ Section WithSignature.
       ) →
       Γ ⊢(i) inst_jdg m (r.(conclusion) x)
 
-    | tvar i (Γ : ctx declF) (n : nat) (d : declF term) :
+    | tvar i (Γ : ctx declF) (n : nat) (d : declF term) j :
       Γ ∋ n : d →
-      Γ ⊢(i) make_jdg i term d (E_var n)
+      In j (make_jdg i term d (E_var n)) →
+      Γ ⊢(i) j
 
     where "Γ ⊢( i ) j" := (proof i Γ j).
 
@@ -679,8 +694,9 @@ Section WithSignature.
         rewrite closed_jdg_rename_inst. reflexivity.
       (* Case of a variable *)
       - unfold rename_jdg.
-        rewrite naturality_prod.
-        constructor. eapply rename_in. all: eassumption.
+        econstructor.
+        + eapply rename_in. all: eassumption.
+        + apply in_make_jdg_fmap with (x := E_var n). eauto.
     Qed.
 
     Corollary weaken_typing i Γ j A :
@@ -824,8 +840,9 @@ Section WithSignature.
       Δ ⊢s σ : []
     | styping_cons Δ σ Γ d :
       Δ ⊢s rscomp rshift σ : Γ →
-      (∀ i,
-        Δ ⊢(i) make_jdg i term (fmap _ (substitute (rscomp rshift σ)) d) (σ 0)
+      (∀ i j,
+        In j (make_jdg i term (fmap _ (substitute (rscomp rshift σ)) d) (σ 0)) →
+        Δ ⊢(i) j
       ) →
       Δ ⊢s σ : d::Γ
     where "Δ ⊢s σ : Γ " := (styping Δ σ Γ).
@@ -847,7 +864,9 @@ Section WithSignature.
       intro Hρ. induction Hρ as [| Δ ρ Γ d h ih hρ].
       - constructor.
       - constructor. 1: eauto.
-        intros. constructor. eapply conv_in_d. 1: eauto.
+        intros i j hj.
+        econstructor. 2: eassumption.
+        eapply conv_in_d. 1: eauto.
         apply rew_eq1. intro. apply ren_is_subst.
     Qed.
 
@@ -896,12 +915,13 @@ Section WithSignature.
       induction H as [| Δ σ Γ d H ih H0] in σ', Hσ |- *. 1: constructor.
       constructor.
       - apply ih. apply rscomp_proper. 1: reflexivity. assumption.
-      - intros i. eapply conv_proof_j.
-        + apply H0.
-        + f_equal. 2: apply Hσ.
-          apply rew_eq1. intros. intro.
-          apply substitute_proper. 2: reflexivity.
-          intro. apply Hσ.
+      - intros i j hj.
+        apply H0.
+        eapply in_ext. 1: eassumption.
+        symmetry. f_equal. 2: apply Hσ.
+        apply rew_eq1. intros. intro.
+        apply substitute_proper. 2: reflexivity.
+        intro. apply Hσ.
     Qed.
 
     Lemma conv_stype_s Δ σ σ' Γ :
@@ -912,49 +932,59 @@ Section WithSignature.
       intros Hσ Heq. rewrite <- Heq. assumption.
     Qed.
 
-    Lemma substitute_in i Δ Γ σ n d :
+    Lemma substitute_in i Δ Γ σ n d j :
       Γ ∋ n : d →
       Δ ⊢s σ : Γ →
-      Δ ⊢(i) make_jdg i term (fmap _ (substitute σ) d) (σ n).
+      In j (make_jdg i term (fmap _ (substitute σ) d) (σ n)) →
+      Δ ⊢(i) j.
     Proof.
-      intros HΓ Hσ.
-      induction HΓ as [| ????? ih] in Δ, σ, Hσ |- *.
+      intros HΓ Hσ hj.
+      induction HΓ as [| ????? ih] in Δ, σ, Hσ, hj |- *.
       all: depelim Hσ.
-      - rewrite func_comp.
-        eapply conv_proof_j. 1: apply H.
-        f_equal. apply rew_eq1. intro.
-        rewrite subst_ren. reflexivity.
-      - eapply conv_proof_j.
-        + apply ih. apply Hσ.
-        + rewrite func_comp. f_equal. apply rew_eq1. intro.
-          rewrite subst_ren. reflexivity.
+      - apply H. eapply in_ext. 1: eassumption.
+        f_equal. rewrite func_comp.
+        apply rew_eq1. intros x.
+        apply subst_ren.
+      - eapply ih. 1: eassumption.
+        eapply in_ext. 1: eassumption.
+        f_equal. rewrite func_comp.
+        apply rew_eq1. intros x.
+        apply subst_ren.
     Qed.
 
     Context `{HSubstSig : SubstJSig}.
 
     Lemma weaken_styping Γ σ Δ d :
       Δ ⊢s σ : Γ →
-      d::Δ ⊢s srcomp σ S : Γ.
+      d :: Δ ⊢s srcomp σ S : Γ.
     Proof.
       intros Hσ.
-      induction Hσ as [| ????? ih ?] in d |- *. 1: constructor.
+      induction Hσ as [| Δ σ Γ d' hΓ ih hd ] in d |- *. 1: constructor.
       constructor.
       - apply ih.
-      - intros i. eapply conv_proof_j.
-        + apply weaken_typing. eauto.
-        + simpl. unfold rename_jdg.
-          rewrite naturality_prod. f_equal.
-          rewrite func_comp. apply rew_eq1. intro.
+      - intros i j hj.
+        eapply in_ext with (l' :=
+          make_jdg i term
+            (fmap declF (rename S)
+              (fmap declF (substitute (rscomp rshift σ)) d'))
+            (rename S (σ 0))
+        ) in hj.
+        2:{
+          f_equal. rewrite func_comp. apply rew_eq1. intro.
           rewrite ren_subst. reflexivity.
+        }
+        apply in_make_jdg_fmap in hj as (j' & hj' & ->).
+        apply weaken_typing. eauto.
     Qed.
 
     Lemma up_styping Γ σ Δ d :
       Δ ⊢s σ : Γ →
-      (fmap _ (substitute σ) d)::Δ ⊢s up_subst σ : d::Γ.
+      (fmap _ (substitute σ) d) :: Δ ⊢s up_subst σ : d :: Γ.
     Proof.
       intros Hσ. constructor.
       - apply weaken_styping. assumption.
-      - simpl. constructor.
+      - simpl. intros i j hj.
+        econstructor. 2: eassumption.
         eapply conv_in_d.
         + constructor.
         + rewrite func_comp.
@@ -1009,9 +1039,8 @@ Section WithSignature.
           apply H2. assumption.
       (* Case of a variable *)
       - unfold substitute_jdg.
-        rewrite naturality_prod.
-        eapply substitute_in. 1: apply H.
-        assumption.
+        eapply substitute_in. 1,2: eassumption.
+        apply in_make_jdg_fmap with (x := E_var n). eauto.
     Qed.
 
   End Substitutions.

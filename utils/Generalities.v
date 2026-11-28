@@ -123,6 +123,14 @@ Proof.
   apply nth_error_None.
 Qed.
 
+Lemma in_ext A (a : A) l l' :
+  In a l →
+  l = l' →
+  In a l'.
+Proof.
+  congruence.
+Qed.
+
 (** n-ary (non-dependent) functions
 
   A pattern we reuse several times in this file.
